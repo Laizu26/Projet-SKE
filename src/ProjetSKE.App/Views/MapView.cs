@@ -1,3 +1,4 @@
+using Microsoft.Maui.Layouts;
 using ProjetSKE.App.Pages;
 using ProjetSKE.App.Ui;
 using ProjetSKE.Core.Systems;
@@ -5,105 +6,172 @@ using static ProjetSKE.App.Ui.UiKit;
 
 namespace ProjetSKE.App.Views;
 
-/// <summary>Carte : vue du lieu actuel (ville ou nature), puis vue du pays pour voyager.</summary>
+/// <summary>
+/// Carte : on est d'abord dans le lieu actuel (ville, nature, donjon) ;
+/// la flèche « Pays » ouvre la vue du pays pour voyager.
+/// </summary>
 public sealed class MapView : ContentView
 {
     public MapView(GamePage page)
     {
-        var s = page.Session;
-        var loc = s.CurrentLocation;
-        var stack = Stack(ButtonRow(
-            Btn(s.InCity ? "Ville" : "Lieu", () => { page.MapShowCountry = false; page.Render(); }, selected: !page.MapShowCountry),
-            Btn("Pays", () => { page.MapShowCountry = true; page.Render(); }, selected: page.MapShowCountry)));
-
-        stack.Add(Panel(Stack(
-            Txt(loc.Name, 18, Theme.Accent, bold: true),
-            Muted(GameSession.LocationTypeName(loc.Type)),
-            Txt(loc.Description, 13))));
-
-        if (page.MapShowCountry) BuildCountry(page, stack);
-        else BuildLocal(page, stack);
-
-        Content = stack;
+        Content = page.MapShowCountry ? BuildCountry(page) : BuildLocal(page);
     }
 
-    private static void BuildLocal(GamePage page, VerticalStackLayout stack)
+    // ------------------------------------------------------------------ Le lieu actuel
+
+    private static View BuildLocal(GamePage page)
     {
         var s = page.Session;
         var loc = s.CurrentLocation;
+        var style = Theme.LocationStyle(loc.Type);
+        var stack = new VerticalStackLayout { Spacing = 14 };
 
+        stack.Add(Pill("◂  Pays", () => { page.MapShowCountry = true; page.Render(); }));
+
+        var banner = GradientCard(new VerticalStackLayout
+        {
+            Spacing = 8,
+            VerticalOptions = LayoutOptions.Center,
+            Children =
+            {
+                Icon(style.Icon, 64),
+                new Label
+                {
+                    Text = loc.Name, FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Theme.AccentLight,
+                    HorizontalTextAlignment = TextAlignment.Center, CharacterSpacing = 1,
+                },
+                new Label
+                {
+                    Text = GameSession.LocationTypeName(loc.Type).ToUpperInvariant(), FontSize = 12, TextColor = Theme.Text,
+                    HorizontalTextAlignment = TextAlignment.Center, CharacterSpacing = 3, Opacity = 0.8,
+                },
+                new Label
+                {
+                    Text = loc.Description, FontSize = 14, TextColor = Theme.Text, FontAttributes = FontAttributes.Italic,
+                    HorizontalTextAlignment = TextAlignment.Center, Margin = new Thickness(0, 6, 0, 0),
+                },
+            },
+        }, style.From, style.To);
+        banner.MinimumHeightRequest = 240;
+        stack.Add(banner);
+
+        var tiles = new List<View>();
         if (s.InCity)
         {
-            stack.Add(Section("Bâtiments"));
-            stack.Add(Panel(Stack(
-                Row(Txt($"Auberge — repos complet ({loc.InnPrice} or)"), Btn("Dormir", () =>
-                {
-                    page.Notify(s.Rest() ? "L'équipe est reposée." : "Pas assez d'or.");
-                    page.AutoSave();
-                    page.Render();
-                })),
-                Row(Txt("Boutique"), Btn("Entrer", () => page.SwitchTab(GameTab.Shop))))));
+            tiles.Add(Tile("🛏️", "Auberge", $"Repos complet · {loc.InnPrice} or", () =>
+            {
+                page.Notify(s.Rest() ? "💤 L'équipe est reposée." : "Pas assez d'or pour l'auberge.");
+                page.AutoSave();
+                page.Render();
+            }));
+            tiles.Add(Tile("🛒", "Boutique", "Acheter et vendre", () => page.SwitchTab(GameTab.Shop)));
         }
 
-        var npcs = s.VisibleNpcs.ToList();
-        if (npcs.Count > 0)
+        if (s.PendingFixedBattle is { } fb)
         {
-            stack.Add(Section("Habitants"));
-            var panel = Stack();
-            foreach (var npc in npcs)
+            var names = string.Join(", ", fb.MonsterIds.Distinct().Where(s.Db.Monsters.ContainsKey).Select(id => s.Db.Monsters[id].Name));
+            tiles.Add(Tile("💀", "Affronter", names, () => page.StartFixedBattle(fb), Theme.Danger));
+        }
+        if (loc.RandomEncounters.Count > 0)
+        {
+            tiles.Add(Tile("⚔️", "Explorer", "Chercher le combat", () =>
             {
-                var npcId = npc.Id;
-                panel.Add(Row(Txt(npc.Name), Btn("Parler", () => page.TalkTo(npcId))));
-            }
-            stack.Add(Panel(panel));
+                if (s.Explore() is { } monsters) page.StartBattle(monsters);
+            }));
         }
 
-        if (!s.InCity)
+        foreach (var npc in s.VisibleNpcs)
         {
-            stack.Add(Section("Actions"));
-            var panel = Stack();
-            if (s.PendingFixedBattle is { } fb)
-            {
-                var names = string.Join(", ", fb.MonsterIds.Distinct().Where(s.Db.Monsters.ContainsKey).Select(id => s.Db.Monsters[id].Name));
-                panel.Add(Row(Txt($"Affronter : {names}", 14, Theme.Danger), Btn("Combattre", () => page.StartFixedBattle(fb))));
-            }
-            if (loc.RandomEncounters.Count > 0)
-            {
-                panel.Add(Row(Txt("Explorer la zone (chercher le combat)"), Btn("Explorer", () =>
-                {
-                    if (s.Explore() is { } monsters) page.StartBattle(monsters);
-                })));
-            }
-            if (panel.Children.Count == 0) panel.Add(Muted("Rien à faire ici pour l'instant."));
-            stack.Add(Panel(panel));
+            var npcId = npc.Id;
+            var subtitle = npc.Description.Length > 0 ? npc.Description : "Parler";
+            tiles.Add(Tile("🗣️", npc.Name, subtitle, () => page.TalkTo(npcId), Theme.AccentLight));
         }
+
+        if (tiles.Count > 0)
+        {
+            stack.Add(Section(s.InCity ? "En ville" : "Sur place"));
+            stack.Add(TileGrid(tiles));
+        }
+        else
+        {
+            stack.Add(Card(Muted("Rien à faire ici. Touche « Pays » pour partir.", 14)));
+        }
+        return stack;
     }
 
-    private static void BuildCountry(GamePage page, VerticalStackLayout stack)
+    // ------------------------------------------------------------------ Le pays
+
+    private static View BuildCountry(GamePage page)
     {
         var s = page.Session;
+        var loc = s.CurrentLocation;
+        var stack = new VerticalStackLayout { Spacing = 14 };
+
+        stack.Add(Pill($"◂  Retour à {loc.Name}", () => { page.MapShowCountry = false; page.Render(); }));
+
+        stack.Add(GradientCard(new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children =
+            {
+                Icon("🗺️", 48),
+                new Label
+                {
+                    Text = s.Db.Content.Title, FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Theme.AccentLight,
+                    HorizontalTextAlignment = TextAlignment.Center,
+                },
+                new Label
+                {
+                    Text = $"Vous êtes à {loc.Name}. Où aller ?", FontSize = 14, TextColor = Theme.Text,
+                    HorizontalTextAlignment = TextAlignment.Center,
+                },
+            },
+        }, Color.FromArgb("#2B3A63"), Color.FromArgb("#111827")));
+
         stack.Add(Section("Destinations"));
-        var panel = Stack();
+        if (s.Destinations.Count == 0) stack.Add(Card(Muted("Aucune route ne part d'ici.", 14)));
         foreach (var dest in s.Destinations)
         {
-            var visited = s.State.SeenLocations.Contains(dest.Id);
+            var style = Theme.LocationStyle(dest.Type);
             var open = s.CanEnter(dest);
+            var visited = s.State.SeenLocations.Contains(dest.Id);
             var id = dest.Id;
-            panel.Add(Row(
-                Stack(Txt(visited ? dest.Name : dest.Name + " (inconnu)"),
-                    Muted(GameSession.LocationTypeName(dest.Type) + (open ? "" : " · bloqué"))),
-                Btn("Aller", () => page.Travel(id))));
+
+            var iconCircle = new Border
+            {
+                WidthRequest = 60,
+                HeightRequest = 60,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.Ellipse(),
+                Stroke = Theme.Accent.WithAlpha(0.5f),
+                StrokeThickness = 1,
+                Background = Theme.Diagonal(style.From, style.To),
+                Content = Icon(open ? style.Icon : "🔒", 28),
+            };
+            var info = new VerticalStackLayout
+            {
+                Spacing = 2,
+                Children =
+                {
+                    Txt(dest.Name, 17, open ? Theme.Text : Theme.Muted, bold: true),
+                    Muted(GameSession.LocationTypeName(dest.Type) + (visited ? "" : " · inconnu") + (open ? "" : " · bloqué"), 12),
+                },
+            };
+            var go = Txt(open ? "➜" : "", 26, Theme.Accent, bold: true);
+            var card = Card(IconRow(iconCircle, info, go));
+            card.MinimumHeightRequest = 90;
+            stack.Add(OnTap(card, () => page.Travel(id)));
         }
-        stack.Add(Panel(panel));
 
         stack.Add(Section("Lieux connus"));
-        var knownPanel = Stack();
-        foreach (var id in s.State.SeenLocations)
+        var chips = new FlexLayout { Wrap = FlexWrap.Wrap, JustifyContent = FlexJustify.Start };
+        foreach (var known in s.State.SeenLocations.Where(s.Db.Locations.ContainsKey))
         {
-            var l = s.Db.Locations[id];
-            var here = id == s.State.CurrentLocationId ? "  ◂ ici" : "";
-            knownPanel.Add(Txt($"{l.Name} · {GameSession.LocationTypeName(l.Type)}{here}", 13, here.Length > 0 ? Theme.Accent : Theme.Text));
+            var l = s.Db.Locations[known];
+            var chip = Badge($"{Theme.LocationStyle(l.Type).Icon} {l.Name}", known == loc.Id ? Theme.Accent : Theme.Muted);
+            chip.Margin = new Thickness(0, 0, 6, 6);
+            chips.Add(chip);
         }
-        stack.Add(Panel(knownPanel));
+        stack.Add(chips);
+        return stack;
     }
 }

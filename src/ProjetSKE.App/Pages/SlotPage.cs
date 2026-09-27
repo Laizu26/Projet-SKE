@@ -14,50 +14,62 @@ public sealed class SlotPage : ContentPage
     public SlotPage(bool newGame)
     {
         _newGame = newGame;
-        BackgroundColor = Theme.Bg;
+        Background = Theme.PageBackground;
         Render();
     }
 
     private void Render()
     {
-        var stack = new VerticalStackLayout { Padding = new Thickness(16), Spacing = 10 };
+        var stack = new VerticalStackLayout { Padding = new Thickness(18, 28), Spacing = 14 };
+        stack.Add(Pill("◂  Retour", () => SkeApp.GoTo(new TitlePage())));
         stack.Add(Heading(_newGame ? "Nouvelle partie" : "Charger une partie"));
-        stack.Add(Muted("Choisis un emplacement de sauvegarde."));
+        stack.Add(Muted("Choisis un emplacement de sauvegarde.", 14));
 
         for (var slot = 0; slot < SaveService.SlotCount; slot++)
         {
             var state = SkeApp.Saves.Load(slot);
             var s = slot;
-            var info = Stack(
-                Txt($"Emplacement {slot + 1}", 16, Theme.Accent, bold: true),
-                Txt(state is null ? "Vide" : Summary(state)),
-                state is null ? Muted("") : Muted($"Sauvegardé le {state.SavedAt:dd/MM/yyyy HH:mm}"));
+            var hero = state is null ? null : Hero(state);
 
-            View action;
-            if (_newGame)
+            var info = new VerticalStackLayout
             {
-                var confirming = _confirmOverwrite == slot;
-                action = Btn(confirming ? "Écraser ?" : "Choisir", () => PickNew(s, state is not null));
-            }
-            else
+                Spacing = 3,
+                Children =
+                {
+                    Muted($"EMPLACEMENT {slot + 1}", 11),
+                    Txt(state is null ? "Vide" : hero is null ? "?" : $"{hero.Value.Name} · Nv {hero.Value.Level}", 18,
+                        state is null ? Theme.Muted : Theme.AccentLight, bold: true),
+                },
+            };
+            if (state is not null)
             {
-                action = Btn("Charger", () => Load(s, state!), enabled: state is not null);
+                info.Add(Muted(Place(state) + $" · {state.Party.Count} compagnon(s)", 13));
+                info.Add(Muted($"Sauvegardé le {state.SavedAt:dd/MM/yyyy à HH:mm}", 11));
             }
-            stack.Add(Panel(Row(info, action)));
+
+            View icon = hero is { } h ? Avatar(h.Name, Theme.AvatarColor(h.Id), 56) : Icon("📂", 36);
+            View action = _newGame
+                ? Btn(_confirmOverwrite == slot ? "Écraser ?" : "Choisir", () => PickNew(s, state is not null), selected: _confirmOverwrite == slot)
+                : Btn("Charger", () => Load(s, state!), enabled: state is not null);
+
+            var card = Card(IconRow(icon, info, action));
+            card.MinimumHeightRequest = 110;
+            stack.Add(card);
         }
 
-        stack.Add(Btn("◂ Retour", () => SkeApp.GoTo(new TitlePage())));
         Content = new ScrollView { Content = stack };
     }
 
-    private static string Summary(GameState state)
+    private static (string Id, string Name, int Level)? Hero(GameState state)
     {
-        var db = SkeApp.Db;
         var hero = state.Party.FirstOrDefault(c => c.DefId == state.HeroId) ?? state.Party.FirstOrDefault();
-        var heroText = hero is not null && db.Characters.TryGetValue(hero.DefId, out var def) ? $"{def.Name} Nv {hero.Level}" : "?";
-        var place = db.Locations.TryGetValue(state.CurrentLocationId, out var loc) ? loc.Name : "?";
-        return $"{heroText} · {place} · {state.Gold} or · {state.Party.Count} perso.";
+        if (hero is null) return null;
+        var name = SkeApp.Db.Characters.TryGetValue(hero.DefId, out var def) ? def.Name : hero.DefId;
+        return (hero.DefId, name, hero.Level);
     }
+
+    private static string Place(GameState state) =>
+        SkeApp.Db.Locations.TryGetValue(state.CurrentLocationId, out var loc) ? loc.Name : "?";
 
     private void PickNew(int slot, bool occupied)
     {

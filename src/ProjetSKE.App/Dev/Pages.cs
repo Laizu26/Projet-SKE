@@ -10,7 +10,7 @@ public sealed class DevCodePage : ContentPage
 {
     public DevCodePage()
     {
-        BackgroundColor = Theme.Bg;
+        Background = Theme.PageBackground;
         var entry = new Entry
         {
             IsPassword = true,
@@ -76,7 +76,7 @@ public abstract class EditorPage : ContentPage
 
     protected EditorPage()
     {
-        BackgroundColor = Theme.Bg;
+        Background = Theme.PageBackground;
         var root = new Grid { RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) } };
         root.Add(_header, 0, 0);
         root.Add(_scroll, 0, 1);
@@ -140,7 +140,7 @@ public sealed class EntityListPage<T> : ContentPage where T : class
         Func<T, bool>? filter = null,
         string? help = null)
     {
-        BackgroundColor = Theme.Bg;
+        Background = Theme.PageBackground;
         var stack = new VerticalStackLayout { Padding = new Thickness(12), Spacing = 6 };
         stack.Add(Row(Heading(title), Form.SmallButton("◂ Menu", () => SkeApp.GoTo(new DevHomePage()))));
         if (help is not null) stack.Add(Muted(help));
@@ -181,7 +181,7 @@ public sealed class DevHomePage : ContentPage
 
     public DevHomePage()
     {
-        BackgroundColor = Theme.Bg;
+        Background = Theme.PageBackground;
         Render();
     }
 

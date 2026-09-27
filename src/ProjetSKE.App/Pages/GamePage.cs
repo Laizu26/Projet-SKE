@@ -30,11 +30,13 @@ public sealed class GamePage : ContentPage
     /// <summary>Partie de test lancée depuis le mode développeur : jamais sauvegardée.</summary>
     public bool IsTestGame => Slot < 0;
 
-    private readonly Label _location;
-    private readonly Label _gold;
+    private readonly Label _title;
+    private readonly Label _subtitle;
     private readonly Label _message;
+    private readonly Border _toast;
+    private readonly View _testBadge;
     private readonly ContentView _body = new();
-    private readonly Grid _tabBar = new() { ColumnSpacing = 2, Padding = new Thickness(2) };
+    private readonly Grid _tabBar = new() { ColumnSpacing = 0, Padding = new Thickness(4, 6, 4, 8), BackgroundColor = Theme.Surface };
     private readonly ContentView _overlay = new() { IsVisible = false, ZIndex = 10, BackgroundColor = Theme.Overlay };
     private string? _pendingMessage;
     private bool _saveDisabled;
@@ -45,36 +47,45 @@ public sealed class GamePage : ContentPage
         Slot = slot;
         BackgroundColor = Theme.Bg;
 
-        _location = Txt("", 16, Theme.Text, bold: true);
-        _gold = Txt("", 16, Theme.Accent, bold: true);
-        _message = Txt("", 13, Theme.Good);
+        _title = Txt("", 20, Theme.Accent, bold: true);
+        _title.CharacterSpacing = 1;
+        _subtitle = Muted("", 13);
+        _message = Txt("", 14, Theme.Good, bold: true);
+        _toast = Card(_message, Theme.Surface2, Theme.Good.WithAlpha(0.6f), 14);
+        _toast.Margin = new Thickness(14, 8, 14, 0);
+        _testBadge = Badge("TEST", Theme.Danger);
 
         var header = new Grid
         {
-            BackgroundColor = Theme.Header,
-            Padding = new Thickness(12, 10),
+            Background = Theme.Vertical(Theme.Surface2, Theme.BgTop),
+            Padding = new Thickness(18, 14, 18, 12),
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
         };
-        header.Add(_location, 0, 0);
-        header.Add(_gold, 1, 0);
+        header.Add(new VerticalStackLayout { Spacing = 0, Children = { _title, _subtitle } }, 0, 0);
+        header.Add(_testBadge, 1, 0);
 
         var root = new Grid
         {
             RowDefinitions =
             {
                 new RowDefinition(GridLength.Auto),
+                new RowDefinition(new GridLength(1)),
                 new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Star),
+                new RowDefinition(new GridLength(1)),
                 new RowDefinition(GridLength.Auto),
             },
         };
         root.Add(header, 0, 0);
-        root.Add(new ContentView { Content = _message, Padding = new Thickness(12, 0) }, 0, 1);
-        root.Add(_body, 0, 2);
-        root.Add(_tabBar, 0, 3);
+        root.Add(new BoxView { Color = Theme.Accent.WithAlpha(0.4f) }, 0, 1);
+        root.Add(_toast, 0, 2);
+        root.Add(_body, 0, 3);
+        root.Add(new BoxView { Color = Theme.Stroke }, 0, 4);
+        root.Add(_tabBar, 0, 5);
         root.Add(_overlay, 0, 0);
-        Grid.SetRowSpan(_overlay, 4);
+        Grid.SetRowSpan(_overlay, 6);
         Content = root;
+        Background = Theme.PageBackground;
 
         Render();
         if (playIntro && session.Db.Start.IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
@@ -82,11 +93,26 @@ public sealed class GamePage : ContentPage
 
     // ------------------------------------------------------------------ Affichage
 
+    private static readonly (GameTab Tab, string Icon, string Label)[] Tabs =
+    [
+        (GameTab.Camp, "🏕️", "Camp"),
+        (GameTab.Map, "🗺️", "Carte"),
+        (GameTab.Quests, "📜", "Quêtes"),
+        (GameTab.Encyclopedia, "📖", "Savoir"),
+        (GameTab.Shop, "🛒", "Shop"),
+        (GameTab.Journal, "✒️", "Journal"),
+        (GameTab.Menu, "⚙️", "Menu"),
+    ];
+
     public void Render()
     {
         var loc = Session.CurrentLocation;
-        _location.Text = $"{loc.Name} · {GameSession.LocationTypeName(loc.Type)}";
-        _gold.Text = $"{Session.State.Gold} or";
+        if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
+        var current = Tabs.First(t => t.Tab == Tab);
+        _title.Text = Tab == GameTab.Map ? $"{Theme.LocationStyle(loc.Type).Icon}  {loc.Name}" : $"{current.Icon}  {TabTitle(Tab)}";
+        _subtitle.Text = Tab == GameTab.Map ? GameSession.LocationTypeName(loc.Type) : $"📍 {loc.Name}";
+        _testBadge.IsVisible = IsTestGame;
+
         Session.UpdateQuests();
         if (Session.Notifications.Count > 0)
         {
@@ -95,11 +121,9 @@ public sealed class GamePage : ContentPage
             Session.Notifications.Clear();
         }
         _message.Text = _pendingMessage ?? "";
-        _message.IsVisible = _pendingMessage is not null;
+        _toast.IsVisible = _pendingMessage is not null;
         _pendingMessage = null;
-        _location.Text = (IsTestGame ? "[TEST] " : "") + _location.Text;
 
-        if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
         BuildTabBar();
 
         View view = Tab switch
@@ -112,31 +136,50 @@ public sealed class GamePage : ContentPage
             GameTab.Menu => new MenuView(this),
             _ => new MapView(this),
         };
-        _body.Content = new ScrollView { Content = new ContentView { Content = view, Padding = new Thickness(12, 8) } };
+        _body.Content = new ScrollView { Content = new ContentView { Content = view, Padding = new Thickness(14, 12, 14, 24) } };
     }
+
+    private static string TabTitle(GameTab tab) => tab switch
+    {
+        GameTab.Camp => "Campement",
+        GameTab.Quests => "Quêtes",
+        GameTab.Encyclopedia => "Encyclopédie",
+        GameTab.Shop => "Boutique",
+        GameTab.Journal => "Journal",
+        GameTab.Menu => "Menu",
+        _ => "Carte",
+    };
 
     private void BuildTabBar()
     {
         _tabBar.Children.Clear();
         _tabBar.ColumnDefinitions.Clear();
-        (GameTab Tab, string Label, bool Enabled)[] tabs =
-        [
-            (GameTab.Camp, "Camp", true),
-            (GameTab.Map, "Carte", true),
-            (GameTab.Quests, "Quêtes", true),
-            (GameTab.Encyclopedia, "Encyc.", true),
-            (GameTab.Shop, "Shop", Session.InCity),
-            (GameTab.Journal, "Journal", true),
-            (GameTab.Menu, "Menu", true),
-        ];
-        for (var i = 0; i < tabs.Length; i++)
+        for (var i = 0; i < Tabs.Length; i++)
         {
-            var t = tabs[i];
+            var t = Tabs[i];
+            var enabled = t.Tab != GameTab.Shop || Session.InCity;
+            var selected = Tab == t.Tab;
             _tabBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-            var button = Btn(t.Label, () => SwitchTab(t.Tab), t.Enabled, selected: Tab == t.Tab);
-            button.FontSize = 10;
-            button.Padding = new Thickness(0, 6);
-            _tabBar.Add(button, i, 0);
+
+            var cell = new Grid
+            {
+                RowDefinitions = { new RowDefinition(new GridLength(3)), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto) },
+                RowSpacing = 2,
+                Opacity = enabled ? 1 : 0.3,
+                BackgroundColor = Colors.Transparent,
+            };
+            cell.Add(new BoxView { Color = selected ? Theme.Accent : Colors.Transparent, CornerRadius = 2, Margin = new Thickness(12, 0) }, 0, 0);
+            cell.Add(new Label { Text = t.Icon, FontSize = selected ? 24 : 20, HorizontalTextAlignment = TextAlignment.Center }, 0, 1);
+            cell.Add(new Label
+            {
+                Text = t.Label,
+                FontSize = 10,
+                FontAttributes = selected ? FontAttributes.Bold : FontAttributes.None,
+                TextColor = selected ? Theme.Accent : Theme.Muted,
+                HorizontalTextAlignment = TextAlignment.Center,
+            }, 0, 2);
+            if (enabled) OnTap(cell, () => SwitchTab(t.Tab));
+            _tabBar.Add(cell, i, 0);
         }
     }
 
@@ -225,6 +268,7 @@ public sealed class GamePage : ContentPage
             Render();
             return;
         }
+        MapShowCountry = false;
         AutoSave();
         Render();
 

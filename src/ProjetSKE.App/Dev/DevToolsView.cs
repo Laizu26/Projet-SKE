@@ -25,7 +25,7 @@ public sealed class DevToolsView : ContentView
             if (locPicker.SelectedIndex < 0) return;
             s.Execute(new GameAction(ActionType.Teleport, locations[locPicker.SelectedIndex].Id));
             Done();
-        })))));
+        }))));
 
         // Or, XP, soin
         stack.Add(Panel(Stack(
@@ -46,7 +46,7 @@ public sealed class DevToolsView : ContentView
             if (itemPicker.SelectedIndex < 0) return;
             s.Execute(new GameAction(ActionType.GiveItem, items[itemPicker.SelectedIndex].Id));
             Done();
-        })))));
+        }))));
 
         // Recruter
         var chars = db.Content.Characters.Where(c => !s.IsInParty(c.Id)).ToList();
@@ -58,7 +58,7 @@ public sealed class DevToolsView : ContentView
                 if (charPicker.SelectedIndex < 0) return;
                 s.Execute(new GameAction(ActionType.Recruit, chars[charPicker.SelectedIndex].Id));
                 Done();
-            })))));
+            }))));
         }
 
         // Combat
@@ -71,7 +71,7 @@ public sealed class DevToolsView : ContentView
             if (monsterPicker.SelectedIndex < 0) return;
             var id = monsters[monsterPicker.SelectedIndex].Id;
             page.StartBattle(Enumerable.Repeat(id, countPicker.SelectedIndex + 1).ToList());
-        })))));
+        }))));
 
         // Dialogue
         var dialogues = db.Content.Dialogues;
@@ -80,7 +80,7 @@ public sealed class DevToolsView : ContentView
         {
             if (dialoguePicker.SelectedIndex < 0) return;
             page.ShowDialogue(dialogues[dialoguePicker.SelectedIndex].Id);
-        })))));
+        }))));
 
         // Quêtes
         var questBox = Stack(Muted("Quêtes"));
