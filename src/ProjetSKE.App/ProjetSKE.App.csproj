@@ -19,6 +19,19 @@
     <AndroidPackageFormat>apk</AndroidPackageFormat>
   </PropertyGroup>
 
+  <!--
+    Signature unique de l'APK : toutes les versions sont signées avec la même clé, sinon Android
+    refuse d'installer une mise à jour par-dessus l'ancienne (et il faudrait désinstaller, ce qui efface les sauvegardes).
+    Le dépôt est privé ; pour plus de sécurité, déplacer le mot de passe dans un secret GitHub (voir signing/LISEZMOI.md).
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AndroidKeyStore>true</AndroidKeyStore>
+    <AndroidSigningKeyStore>$(MSBuildThisFileDirectory)../../signing/projetske.keystore</AndroidSigningKeyStore>
+    <AndroidSigningKeyAlias>projetske</AndroidSigningKeyAlias>
+    <AndroidSigningStorePass Condition="'$(AndroidSigningStorePass)' == ''">r9CE7DKQSFnpjyi9tWZcGkCF</AndroidSigningStorePass>
+    <AndroidSigningKeyPass Condition="'$(AndroidSigningKeyPass)' == ''">r9CE7DKQSFnpjyi9tWZcGkCF</AndroidSigningKeyPass>
+  </PropertyGroup>
+
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" Color="#1C1917" />
     <MauiFont Include="Resources\Fonts\*.ttf" />
