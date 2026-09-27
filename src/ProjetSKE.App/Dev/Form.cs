@@ -1,6 +1,7 @@
 using System.Globalization;
 using ProjetSKE.App.Ui;
 using ProjetSKE.Core.Models;
+using Condition = ProjetSKE.Core.Models.Condition;
 using static ProjetSKE.App.Ui.UiKit;
 
 namespace ProjetSKE.App.Dev;
