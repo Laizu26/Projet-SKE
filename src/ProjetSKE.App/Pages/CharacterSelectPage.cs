@@ -48,9 +48,12 @@ public sealed class CharacterSelectPage : ContentPage
                     Txt("Compétences : " + string.Join(", ", skills), 13, Theme.Stone400),
                     StartButton("Commencer avec " + def.Name, () =>
                     {
-                        var session = GameSession.NewGame(db, id);
-                        if (slot >= 0) SkeApp.Saves.Save(slot, session.State);
-                        SkeApp.GoTo(new GamePage(session, slot, playIntro: true));
+                        SkeApp.Open(() =>
+                        {
+                            var session = GameSession.NewGame(db, id);
+                            if (slot >= 0) SkeApp.Saves.Save(slot, session.State);
+                            return new GamePage(session, slot, playIntro: true);
+                        }, "Nouvelle partie");
                     }),
                 },
             }, Ico.User, goldLine: true));

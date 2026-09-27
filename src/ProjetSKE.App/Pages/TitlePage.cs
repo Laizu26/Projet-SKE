@@ -92,15 +92,28 @@ public sealed class TitlePage : ContentPage
         };
         OnTap(dev, () => SkeApp.GoTo(SkeApp.DevUnlocked ? new Dev.DevHomePage() : (Page)new Dev.DevCodePage()));
 
-        Content = new ScrollView
+        var column = new VerticalStackLayout
         {
-            Content = new VerticalStackLayout
-            {
-                Padding = new Thickness(22, 40),
-                Spacing = 18,
-                VerticalOptions = LayoutOptions.Center,
-                Children = { card, dev },
-            },
+            Padding = new Thickness(22, 40),
+            Spacing = 18,
+            VerticalOptions = LayoutOptions.Center,
+            Children = { card, dev },
         };
+
+        // Le jeu a planté la dernière fois : on affiche le rapport pour pouvoir l'envoyer.
+        if (CrashReporter.Last is { } crash)
+        {
+            var firstLines = string.Join("\n", crash.Split('\n').Take(6));
+            Border? report = null;
+            report = Card(Stack(
+                IconCaps(Ico.CircleAlert, "Le jeu a planté la dernière fois", Theme.Red600),
+                Txt(firstLines, 11, Theme.Stone700),
+                ButtonRow(
+                    Btn("Copier le rapport", async () => await Clipboard.Default.SetTextAsync(crash), selected: true),
+                    Btn("Effacer", () => { CrashReporter.Clear(); report!.IsVisible = false; }))));
+            column.Insert(0, report);
+        }
+
+        Content = new ScrollView { Content = column };
     }
 }

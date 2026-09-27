@@ -105,10 +105,10 @@ public sealed class HexMapView : ContentView
                 X1 = x1 - minX, Y1 = y1 - minY, X2 = x2 - minX, Y2 = y2 - minY,
                 Stroke = road.Highlight ? Theme.Gold600 : Color.FromArgb("#A8927A"),
                 StrokeThickness = road.Highlight ? 4 : 3,
-                StrokeDashArray = road.Highlight ? null : new DoubleCollection { 2, 1.5 },
                 StrokeLineCap = PenLineCap.Round,
                 InputTransparent = true,
             };
+            if (!road.Highlight) line.StrokeDashArray = new DoubleCollection { 2, 1.5 };
             AbsoluteLayout.SetLayoutBounds(line, full);
             canvas.Add(line);
         }
@@ -120,14 +120,15 @@ public sealed class HexMapView : ContentView
             var (cx, cy) = Center(tile.Hex, size);
             var cell = new Grid { WidthRequest = w, HeightRequest = h, Opacity = tile.Opacity };
 
-            cell.Add(new Polygon
+            var hexShape = new Polygon
             {
                 Points = HexPoints(w, h, 1.5),
                 Fill = tile.Fill,
                 Stroke = tile.IsSelected ? Theme.Stone900 : tile.Stroke,
                 StrokeThickness = tile.IsSelected ? 2.6 : 1.2,
-                StrokeDashArray = tile.Dashed ? new DoubleCollection { 3, 2 } : null,
-            });
+            };
+            if (tile.Dashed) hexShape.StrokeDashArray = new DoubleCollection { 3, 2 };
+            cell.Add(hexShape);
 
             if (tile.IsCurrent)
             {

@@ -131,7 +131,15 @@ public static class CloudSync
     {
         if (!IsReady) return new PushResult(PushStatus.Error, Error: "Base en ligne non configurée.");
         var expected = force ? null : BaseUpdateTime;
-        var result = await Repository.PushAsync(content, expected, BaseRevision, Author, firstPublish: !force && BaseUpdateTime is null);
+        PushResult result;
+        try
+        {
+            result = await Repository.PushAsync(content, expected, BaseRevision, Author, firstPublish: !force && BaseUpdateTime is null);
+        }
+        catch (Exception e)
+        {
+            result = new PushResult(PushStatus.Error, Error: e.Message);
+        }
         if (result.Status == PushStatus.Ok)
         {
             Remember(result.UpdateTime, result.Revision);

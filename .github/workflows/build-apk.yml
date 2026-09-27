@@ -45,3 +45,49 @@ jobs:
           name: ProjetSKE-apk
           path: out/*-Signed.apk
           if-no-files-found: error
+
+  # Lance l'APK sur un émulateur Android et parcourt le jeu automatiquement (Dev/AutoTest.cs)
+  # pour détecter les plantages sans téléphone. Le journal Android est publié en artefact.
+  emulator-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ProjetSKE-apk
+          path: apk
+
+      - name: Activer KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Test automatique sur émulateur
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r apk/*.apk
+            adb logcat -c
+            adb shell am start -n com.laizu.projetske/com.laizu.projetske.MainActivity --ez autotest true
+            sleep 75
+            adb logcat -d > logcat.txt || true
+            adb exec-out screencap -p > ecran.png || true
+            grep -E "SKE|FATAL|AndroidRuntime|monodroid|Exception" logcat.txt | tail -250 || true
+            grep -q "SKE_AUTOTEST_DONE" logcat.txt
+
+      - name: Publier le journal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulateur-journal
+          path: |
+            logcat.txt
+            ecran.png
+          if-no-files-found: ignore

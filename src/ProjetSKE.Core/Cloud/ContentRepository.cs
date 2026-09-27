@@ -113,7 +113,7 @@ public sealed class FirestoreContentRepository : IContentRepository
                     _tokenExpiry = DateTime.UtcNow.AddSeconds(seconds - 120);
                 }
             }
-            catch (HttpRequestException)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
                 // Pas de connexion anonyme : les règles doivent alors autoriser l'accès public.
             }
@@ -126,9 +126,10 @@ public sealed class FirestoreContentRepository : IContentRepository
         using var request = new HttpRequestMessage(HttpMethod.Get, DocumentUrl);
         await AuthorizeAsync(request, ct);
         using var response = await _http.SendAsync(request, ct);
-        if (response.StatusCode == HttpStatusCode.NotFound) return null;
         var body = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Firestore {(int)response.StatusCode} : {Short(body)}");
+        // 404 = document pas encore publié… sauf si c'est la base elle-même qui n'existe pas.
+        if (response.StatusCode == HttpStatusCode.NotFound && !body.Contains("database", StringComparison.OrdinalIgnoreCase)) return null;
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException(Explain(response.StatusCode, body));
         return FirestoreFormat.ParseDocument(body);
     }
 
@@ -144,9 +145,9 @@ public sealed class FirestoreContentRepository : IContentRepository
         {
             Content = new StringContent(FirestoreFormat.BuildDocument(content, revision, author, DateTime.UtcNow), Encoding.UTF8, "application/json"),
         };
-        await AuthorizeAsync(request, ct);
         try
         {
+            await AuthorizeAsync(request, ct);
             using var response = await _http.SendAsync(request, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
             if (response.IsSuccessStatusCode)
@@ -158,13 +159,29 @@ public sealed class FirestoreContentRepository : IContentRepository
             // Précondition refusée = quelqu'un a publié une autre version entre-temps.
             if (body.Contains("FAILED_PRECONDITION") || body.Contains("ALREADY_EXISTS") || response.StatusCode == HttpStatusCode.Conflict)
                 return new PushResult(PushStatus.Conflict, Error: "Le contenu en ligne a été modifié par quelqu'un d'autre.");
-            return new PushResult(PushStatus.Error, Error: $"Firestore {(int)response.StatusCode} : {Short(body)}");
+            return new PushResult(PushStatus.Error, Error: Explain(response.StatusCode, body));
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        catch (Exception e)
         {
             return new PushResult(PushStatus.Error, Error: e.Message);
         }
     }
 
     private static string Short(string text) => text.Length > 200 ? text[..200] + "…" : text;
+
+    /// <summary>Message clair pour les erreurs Firestore les plus courantes.</summary>
+    public static string Explain(HttpStatusCode status, string body)
+    {
+        if (body.Contains("does not exist", StringComparison.OrdinalIgnoreCase) && body.Contains("database", StringComparison.OrdinalIgnoreCase))
+            return "La base Firestore n'existe pas encore : crée-la dans la console Firebase (Firestore Database).";
+        if (body.Contains("SERVICE_DISABLED") || body.Contains("has not been used", StringComparison.OrdinalIgnoreCase))
+            return "L'API Firestore n'est pas activée pour ce projet (créer la base Firestore l'active).";
+        if (body.Contains("API_KEY") || body.Contains("API key", StringComparison.OrdinalIgnoreCase))
+            return "Clé API refusée : vérifie la clé et qu'elle n'est pas restreinte aux applications Android.";
+        if (status == HttpStatusCode.Forbidden || body.Contains("PERMISSION_DENIED"))
+            return "Accès refusé par les règles Firestore : ajoute les règles pour « projet-ske » et active la connexion anonyme.";
+        if (status == HttpStatusCode.Unauthorized)
+            return "Non authentifié : active la connexion « Anonyme » dans Firebase Authentication.";
+        return $"Firestore {(int)status} : {Short(body)}";
+    }
 }

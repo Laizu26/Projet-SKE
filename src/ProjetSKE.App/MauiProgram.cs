@@ -4,6 +4,7 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        CrashReporter.Install();
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<SkeApp>()

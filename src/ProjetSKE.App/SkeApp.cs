@@ -56,7 +56,10 @@ public class SkeApp : Application
     protected override Window CreateWindow(IActivationState? activationState)
     {
         // Base en ligne configurée : on récupère la dernière version du contenu en arrière-plan.
-        _ = Dev.CloudSync.PullIfNewerAsync();
+        if (Dev.AutoTest.Requested)
+            Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(3), () => _ = Dev.AutoTest.RunAsync());
+        else
+            _ = Dev.CloudSync.PullIfNewerAsync();
         return new Window(new TitlePage());
     }
 
@@ -64,5 +67,19 @@ public class SkeApp : Application
     public static void GoTo(Page page)
     {
         if (Current?.Windows.Count > 0) Current.Windows[0].Page = page;
+    }
+
+    /// <summary>Ouvre un écran ; si sa création échoue, affiche l'erreur au lieu de fermer le jeu.</summary>
+    public static void Open(Func<Page> create, string context)
+    {
+        try
+        {
+            GoTo(create());
+        }
+        catch (Exception e)
+        {
+            CrashReporter.Save(e, context);
+            GoTo(new ErrorPage(e, context));
+        }
     }
 }

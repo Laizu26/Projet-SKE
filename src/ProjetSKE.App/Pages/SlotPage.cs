@@ -82,7 +82,7 @@ public sealed class SlotPage : ContentPage
     }
 
     private static void Load(int slot, GameState state) =>
-        SkeApp.GoTo(new GamePage(new GameSession(SkeApp.Db, state), slot, playIntro: false));
+        SkeApp.Open(() => new GamePage(new GameSession(SkeApp.Db, state), slot, playIntro: false), "Chargement d'une sauvegarde");
 
     protected override bool OnBackButtonPressed()
     {
