@@ -21,7 +21,11 @@ public sealed class GamePage : ContentPage
     public GameTab Tab { get; private set; } = GameTab.Map;
     public bool CampShowBag { get; set; }
     public int? SelectedCharacter { get; set; }
+    /// <summary>Carte : true = vue du royaume, false = vue du lieu actuel.</summary>
     public bool MapShowCountry { get; set; }
+    public string? MapSelectedLocation { get; set; }
+    public string? MapSelectedBuilding { get; set; }
+    public Core.Systems.Hex MapPartyHex { get; set; }
     public EncyclopediaCategory EncyclopediaCategory { get; set; } = EncyclopediaCategory.Characters;
     public bool ShopSelling { get; set; }
     public bool QuestsShowDone { get; set; }
@@ -109,7 +113,7 @@ public sealed class GamePage : ContentPage
         (GameTab.Camp, Ico.Tent, "Camp"),
         (GameTab.Map, Ico.Map, "Carte"),
         (GameTab.Quests, Ico.ScrollText, "Quêtes"),
-        (GameTab.Encyclopedia, Ico.Library, "Savoir"),
+        (GameTab.Encyclopedia, Ico.Library, "Encyclopédie"),
         (GameTab.Shop, Ico.Store, "Shop"),
         (GameTab.Journal, Ico.Feather, "Journal"),
         (GameTab.Menu, Ico.Settings, "Menu"),
@@ -192,7 +196,8 @@ public sealed class GamePage : ContentPage
                         new Label
                         {
                             Text = t.Label.ToUpperInvariant(),
-                            FontSize = 8,
+                            FontSize = t.Label.Length > 8 ? 6.5 : 8,
+                            LineBreakMode = LineBreakMode.NoWrap,
                             FontAttributes = FontAttributes.Bold,
                             CharacterSpacing = 1,
                             TextColor = selected ? Theme.Gold500 : Theme.Stone500,
@@ -292,6 +297,9 @@ public sealed class GamePage : ContentPage
             return;
         }
         MapShowCountry = false;
+        MapSelectedLocation = null;
+        MapSelectedBuilding = null;
+        MapPartyHex = default;
         AutoSave();
         Render();
 

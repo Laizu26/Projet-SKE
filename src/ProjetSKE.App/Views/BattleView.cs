@@ -25,6 +25,11 @@ public sealed class BattleView : ContentView
     private bool _victory;
     private bool _gameOver;
 
+    // Dernières valeurs affichées, pour animer les jauges d'une valeur à l'autre.
+    private readonly Dictionary<Combatant, (int Hp, int Mana)> _shown = [];
+
+    private (int Hp, int Mana) Previous(Combatant c) => _shown.TryGetValue(c, out var v) ? v : (c.Hp, c.Mana);
+
     public BattleView(GamePage page, Battle battle, Action onClose)
     {
         _page = page;
@@ -75,6 +80,8 @@ public sealed class BattleView : ContentView
         grid.Add(Padded(BuildLog()), 0, 4);
         grid.Add(new ContentView { Content = BuildActions(), Padding = new Thickness(14, 0, 14, 16) }, 0, 5);
         Content = grid;
+
+        foreach (var c in _battle.Allies.Concat(_battle.Enemies)) _shown[c] = (c.Hp, c.Mana);
     }
 
     private static View Padded(View v) => new ContentView { Content = v, Padding = new Thickness(14, 0) };
@@ -89,10 +96,12 @@ public sealed class BattleView : ContentView
             title.Add(Icon(e.IsAlive ? (e.IsBoss ? Ico.Crown : Ico.Skull) : Ico.X, 13, e.IsAlive ? Theme.Red500 : Theme.Stone600));
             title.Add(Txt(e.Name, 13, e.IsAlive ? Theme.Stone100 : Theme.Stone600, bold: true));
             if (e.IsBoss) title.Add(Badge("Boss", Theme.Red500));
-            var card = Card(Stack(title, Bar("PV", e.Hp, e.Stats.MaxHp, Theme.Red500, 8, dark: true)),
+            var before = Previous(e);
+            var card = Card(Stack(title, AnimatedBar("PV", before.Hp, e.Hp, e.Stats.MaxHp, Theme.Red500, 8, dark: true)),
                 Theme.Stone900, Color.FromArgb("#7F1D1D"), 12);
             card.Padding = new Thickness(12, 10);
             card.Opacity = e.IsAlive ? 1 : 0.4;
+            if (e.Hp < before.Hp) Shake(card);
             return (View)card;
         }).ToList();
         return TileGrid(cards, cards.Count == 1 ? 1 : 2);
@@ -110,14 +119,15 @@ public sealed class BattleView : ContentView
                 Children =
                 {
                     Txt(a.Name + (a.IsAlive ? "" : " (K.O.)"), 13, current ? Theme.Gold500 : Theme.Stone100, bold: true),
-                    Bar("PV", a.Hp, a.Stats.MaxHp, Theme.Green500, 7, dark: true),
-                    Bar("PM", a.Mana, a.Stats.MaxMana, Theme.Blue500, 5, dark: true),
+                    AnimatedBar("PV", Previous(a).Hp, a.Hp, a.Stats.MaxHp, Theme.Green500, 7, dark: true),
+                    AnimatedBar("PM", Previous(a).Mana, a.Mana, a.Stats.MaxMana, Theme.Blue500, 5, dark: true),
                 },
             };
             var card = Card(IconRow(Avatar(a.Name, current ? Theme.Gold500 : Theme.AvatarColor(def?.Id ?? a.Name), 34), info),
                 Theme.Stone800, current ? Theme.Gold500 : Theme.Stone700, 12);
             card.Padding = new Thickness(10, 8);
             card.Opacity = a.IsAlive ? 1 : 0.4;
+            if (a.Hp < Previous(a).Hp) Shake(card);
             return (View)card;
         }).ToList();
         return TileGrid(cards, cards.Count == 1 ? 1 : 2);

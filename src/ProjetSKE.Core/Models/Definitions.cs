@@ -140,6 +140,9 @@ public sealed class LocationDef
     /// <summary>Conditions pour pouvoir s'y rendre (lieu bloqué sinon).</summary>
     public List<Condition> AccessConditions { get; set; } = [];
     public string LockedMessage { get; set; } = "";
+    /// <summary>Position sur la carte hexagonale du royaume (vide = placement automatique).</summary>
+    public int? HexQ { get; set; }
+    public int? HexR { get; set; }
 
     [JsonIgnore] public bool IsCity => Type == LocationType.City;
 }

@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Layouts;
 using ProjetSKE.Core.Models;
 
 namespace ProjetSKE.App.Ui;
@@ -497,6 +498,101 @@ public static class UiKit
         numbers.VerticalOptions = LayoutOptions.Center;
         grid.Add(numbers, 2, 0);
         return grid;
+    }
+
+    /// <summary>
+    /// Jauge animée : la barre glisse de l'ancienne valeur vers la nouvelle.
+    /// Sur une perte, une traînée claire reste un instant avant de rattraper la barre (effet « dégâts »).
+    /// </summary>
+    public static View AnimatedBar(string label, int from, int to, int max, Color color, double height = 8, bool dark = false)
+    {
+        double Pct(int v) => max > 0 ? Math.Clamp((double)v / max, 0, 1) : 0;
+        var pFrom = Pct(from);
+        var pTo = Pct(to);
+        var damage = to < from;
+
+        var track = new AbsoluteLayout
+        {
+            HeightRequest = height,
+            BackgroundColor = dark ? Theme.Stone700 : Theme.Stone200,
+            VerticalOptions = LayoutOptions.Center,
+        };
+        var ghost = new BoxView { Color = damage ? Color.FromArgb("#FDE68A") : color.WithAlpha(0.45f), CornerRadius = height / 2 };
+        var fill = new BoxView { Color = color, CornerRadius = height / 2 };
+        foreach (var box in new[] { ghost, fill })
+        {
+            AbsoluteLayout.SetLayoutFlags(box, AbsoluteLayoutFlags.All);
+            track.Add(box);
+        }
+        AbsoluteLayout.SetLayoutBounds(ghost, new Rect(0, 0, damage ? pFrom : pTo, 1));
+        AbsoluteLayout.SetLayoutBounds(fill, new Rect(0, 0, pFrom, 1));
+        var clip = new Border
+        {
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = height / 2 },
+            Padding = 0,
+            HeightRequest = height,
+            VerticalOptions = LayoutOptions.Center,
+            Content = track,
+        };
+
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(new GridLength(26)),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(new GridLength(62)),
+            },
+            ColumnSpacing = 8,
+        };
+        var name = Caps(label, 9, color);
+        name.VerticalOptions = LayoutOptions.Center;
+        grid.Add(name, 0, 0);
+        grid.Add(clip, 1, 0);
+        var numbers = Txt($"{from}/{max}", 11, dark ? Theme.Stone300 : Theme.Stone600, bold: true);
+        numbers.HorizontalTextAlignment = TextAlignment.End;
+        numbers.VerticalOptions = LayoutOptions.Center;
+        grid.Add(numbers, 2, 0);
+
+        if (from != to)
+        {
+            grid.Loaded += (_, _) =>
+            {
+                new Animation(v => AbsoluteLayout.SetLayoutBounds(fill, new Rect(0, 0, v, 1)), pFrom, pTo)
+                    .Commit(fill, "bar", 16, damage ? 380u : 650u, Easing.CubicOut);
+                new Animation(v => numbers.Text = $"{(int)Math.Round(v)}/{max}", from, to)
+                    .Commit(numbers, "count", 16, 500, Easing.CubicOut, (_, _) => numbers.Text = $"{to}/{max}");
+                if (damage)
+                {
+                    // La traînée claire attend puis rattrape la barre.
+                    var trail = new Animation
+                    {
+                        { 0.45, 1, new Animation(v => AbsoluteLayout.SetLayoutBounds(ghost, new Rect(0, 0, v, 1)), pFrom, pTo, Easing.CubicIn) },
+                    };
+                    trail.Commit(ghost, "trail", 16, 1100);
+                }
+            };
+        }
+        else
+        {
+            numbers.Text = $"{to}/{max}";
+        }
+        return grid;
+    }
+
+    /// <summary>Petite secousse (quand un combattant encaisse un coup).</summary>
+    public static void Shake(VisualElement view)
+    {
+        view.Loaded += async (_, _) =>
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                await view.TranslateTo(-6, 0, 45);
+                await view.TranslateTo(6, 0, 45);
+            }
+            await view.TranslateTo(0, 0, 45);
+        };
     }
 
     // ------------------------------------------------------------------ Mise en page

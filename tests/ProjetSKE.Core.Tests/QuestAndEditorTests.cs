@@ -237,3 +237,38 @@ public class QuestAndEditorTests
         Assert.Equal(new[] { "loup", "gobelin" }, battle!);
     }
 }
+
+public class WorldLayoutTests
+{
+    [Fact]
+    public void Layout_PlacesEveryLocationWithoutOverlap_AndNeighborsAreClose()
+    {
+        var db = GameDatabase.Default;
+        var layout = WorldLayout.Compute(db);
+        Assert.Equal(db.Content.Locations.Count, layout.Count);
+        Assert.Equal(layout.Count, layout.Values.Distinct().Count());
+        Assert.Equal(new Hex(0, 0), layout[db.Start.LocationId]);
+        foreach (var loc in db.Content.Locations)
+            foreach (var next in loc.ConnectedIds)
+                Assert.True(layout[loc.Id].DistanceTo(layout[next]) <= 2, $"{loc.Id} → {next} trop éloignés");
+    }
+
+    [Fact]
+    public void Layout_KeepsFixedPositions()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Locations.First(l => l.Id == "crypte").HexQ = 5;
+        content.Locations.First(l => l.Id == "crypte").HexR = -2;
+        var layout = WorldLayout.Compute(new GameDatabase(content));
+        Assert.Equal(new Hex(5, -2), layout["crypte"]);
+        Assert.Equal(layout.Count, layout.Values.Distinct().Count());
+    }
+
+    [Fact]
+    public void Hex_GridAndSpiral()
+    {
+        Assert.Equal(19, Hex.Grid(2).Count());
+        Assert.Equal(19, Hex.Spiral(new Hex(0, 0), 2).Distinct().Count());
+        Assert.Equal(2, new Hex(0, 0).DistanceTo(new Hex(1, 1)));
+    }
+}

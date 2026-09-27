@@ -380,6 +380,17 @@ public sealed class LocationEditor : EditorPage
         f.EnumField("Type", _x.Type, v => _x.Type = v, DevState.Name, rerender: true);
 
         f.Header("Carte");
+        f.BoolField("Position fixée sur la carte hexagonale", _x.HexQ is not null, v =>
+        {
+            if (v) { _x.HexQ ??= 0; _x.HexR ??= 0; }
+            else { _x.HexQ = null; _x.HexR = null; }
+        }, rerender: true);
+        if (_x.HexQ is { } q)
+        {
+            f.IntField("Colonne (q)", q, v => _x.HexQ = v);
+            f.IntField("Ligne (r)", _x.HexR ?? 0, v => _x.HexR = v);
+        }
+        else f.Note("Sinon, le lieu est placé automatiquement à côté d'un lieu relié.");
         f.Note("Les liens sont créés dans les deux sens.");
         f.IdList("Lieux reliés", _x.ConnectedIds, DevState.Locations.Where(l => l.Id != _x.Id),
             onAdded: id => { if (Find(id) is { } other && !other.ConnectedIds.Contains(_x.Id)) other.ConnectedIds.Add(_x.Id); },

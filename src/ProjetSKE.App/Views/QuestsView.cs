@@ -16,7 +16,6 @@ public sealed class QuestsView : ContentView
         var done = log.Where(q => q.Progress.Status == QuestStatus.Completed).ToList();
 
         var stack = new VerticalStackLayout { Spacing = 14 };
-        stack.Add(PageHeader(Ico.ScrollText, "Registre des quêtes", $"{active.Count} en cours · {done.Count} accomplie(s)"));
         stack.Add(ButtonRow(
             Btn($"En cours ({active.Count})", () => { page.QuestsShowDone = false; page.Render(); }, selected: !page.QuestsShowDone),
             Btn($"Terminées ({done.Count})", () => { page.QuestsShowDone = true; page.Render(); }, selected: page.QuestsShowDone)));
