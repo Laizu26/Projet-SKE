@@ -17,9 +17,15 @@ Le contenu du jeu (PJ, PNJ, dialogues, quêtes, objets, monstres, lieux…) peut
   - ou « Écraser avec la mienne ».
 - Le code (`src/ProjetSKE.Core/Cloud/ContentRepository.cs`) passe par une interface `IContentRepository`. Une autre base (Supabase, serveur maison…) pourra la remplacer sans toucher au reste.
 
+## Projet utilisé
+
+Le jeu est pré-configuré sur le projet Firebase **`projet-ske-597e2`** : l'ID et la clé API sont dans `src/ProjetSKE.App/Dev/CloudSync.cs`. Tous les téléphones sont donc connectés sans rien saisir, et la synchronisation est activée par défaut. On peut changer de projet depuis *Mode développeur → Configurer la base*.
+
+La clé API Firebase n'est pas un secret : elle sert à identifier le projet. La sécurité repose sur les règles Firestore (lecture pour tous, écriture réservée aux appareils connectés) et sur la connexion anonyme. Dans Google Cloud, cette clé ne doit **pas** être restreinte aux « applications Android », car le jeu appelle Firestore directement.
+
 ## Mise en place
 
-1. **Créer ou réutiliser un projet Firebase** sur https://console.firebase.google.com. Le projet de *Service Impérial* convient : le contenu va dans sa propre collection `projet-ske`.
+1. **Projet Firebase :** `projet-ske-597e2` est déjà créé, avec l'app Android `com.laizu.projetske`.
 2. **Créer la base Firestore :** menu *Firestore Database*, puis « Créer une base de données ».
 3. **Activer la connexion anonyme :** menu *Authentication*, puis « Méthode de connexion », puis « Anonyme ». L'app s'en sert pour ne pas laisser la base ouverte à tous.
 4. **Règles de sécurité :** dans *Firestore Database*, onglet « Règles », ajoute :
@@ -37,11 +43,9 @@ Le contenu du jeu (PJ, PNJ, dialogues, quêtes, objets, monstres, lieux…) peut
    ```
 
    Si le projet contient déjà d'autres règles (celles de *Service Impérial*), ajoute seulement le bloc `match /projet-ske/{doc}` à côté des règles existantes.
-5. **Relever l'ID du projet et la clé API Web :** *Paramètres du projet*, onglet « Général ».
-6. **Configurer chaque téléphone :** dans l'app, ouvre *Mode développeur* (code), puis « Configurer la base ».
-   - Renseigne l'ID du projet, la clé API et ton nom.
-   - Active la synchronisation, puis touche « Tester ».
-   - Enfin, « Publier » envoie le contenu une première fois.
+5. **Dans l'app :** ouvre *Mode développeur*, puis « Configurer la base ».
+   - Renseigne ton nom, puis touche « Tester ».
+   - « Publier » envoie ensuite le contenu une première fois.
 
 Les réglages restent sur le téléphone : ils ne sont jamais écrits dans le dépôt.
 

@@ -12,17 +12,22 @@ public static class CloudSync
 {
     private const string Prefix = "cloud.";
 
+    // Projet Firebase du jeu, pré-rempli pour que tous les téléphones soient connectés sans rien saisir.
+    // La clé API Firebase n'est pas un secret : l'accès est protégé par les règles Firestore et la connexion anonyme.
+    public const string DefaultProjectId = "projet-ske-597e2";
+    public const string DefaultApiKey = "AIzaSyAmrQR9V2OXqmaWLXP8gUCRz15snv6f-hY";
+
     public static bool Enabled
     {
-        get => Preferences.Default.Get(Prefix + "enabled", false);
+        get => Preferences.Default.Get(Prefix + "enabled", true);
         set => Preferences.Default.Set(Prefix + "enabled", value);
     }
 
     public static CloudSettings Settings
     {
         get => new(
-            Preferences.Default.Get(Prefix + "project", ""),
-            Preferences.Default.Get(Prefix + "key", ""),
+            Preferences.Default.Get(Prefix + "project", DefaultProjectId),
+            Preferences.Default.Get(Prefix + "key", DefaultApiKey),
             Preferences.Default.Get(Prefix + "collection", "projet-ske"),
             Preferences.Default.Get(Prefix + "document", "contenu"));
         set

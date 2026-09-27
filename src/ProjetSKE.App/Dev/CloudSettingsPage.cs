@@ -37,7 +37,7 @@ public sealed class CloudSettingsPage : EditorPage
         f.TextField("Clé API Web", _key, v => _key = v);
         f.TextField("Collection", _collection, v => _collection = v);
         f.TextField("Document", _document, v => _document = v);
-        f.Note("Ces informations restent sur ce téléphone et ne sont jamais envoyées dans le dépôt GitHub.");
+        f.Note($"Par défaut : projet {CloudSync.DefaultProjectId} (pré-configuré dans le jeu).");
 
         f.Add(ButtonRow(
             Btn("Enregistrer", () =>
