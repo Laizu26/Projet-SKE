@@ -53,13 +53,20 @@ public class SkeApp : Application
         _db = GameDatabase.Default;
     }
 
+    private static bool _servicesStarted;
+
     protected override Window CreateWindow(IActivationState? activationState)
     {
         // Base en ligne configurée : on récupère la dernière version du contenu en arrière-plan.
-        if (Dev.AutoTest.Requested)
-            Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(3), () => _ = Dev.AutoTest.RunAsync());
-        else
-            Dev.CloudSync.StartAuto(Dispatcher);
+        // CreateWindow peut être appelé plusieurs fois (recréation de l'activité) : on ne démarre qu'une fois.
+        if (!_servicesStarted)
+        {
+            _servicesStarted = true;
+            if (Dev.AutoTest.Requested)
+                Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(3), () => _ = Dev.AutoTest.RunAsync());
+            else
+                Dev.CloudSync.StartAuto(Dispatcher);
+        }
         return new Window(new TitlePage());
     }
 
