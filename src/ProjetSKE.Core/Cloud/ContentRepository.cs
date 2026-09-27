@@ -82,6 +82,7 @@ public sealed class FirestoreContentRepository : IContentRepository
     private readonly CloudSettings _settings;
     private readonly HttpClient _http;
     private string? _idToken;
+    private string? _authError;
     private DateTime _tokenExpiry;
 
     public FirestoreContentRepository(CloudSettings settings, HttpClient? http = null)
@@ -105,9 +106,18 @@ public sealed class FirestoreContentRepository : IContentRepository
                 var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={Uri.EscapeDataString(_settings.ApiKey)}";
                 using var response = await _http.PostAsync(url,
                     new StringContent("{\"returnSecureToken\":true}", Encoding.UTF8, "application/json"), ct);
+                var authBody = await response.Content.ReadAsStringAsync(ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    // ADMIN_ONLY_OPERATION = connexion anonyme désactivée ; CONFIGURATION_NOT_FOUND = Authentication jamais ouvert.
+                    _authError = authBody.Contains("ADMIN_ONLY_OPERATION") ? "la connexion « Anonyme » est désactivée"
+                        : authBody.Contains("CONFIGURATION_NOT_FOUND") ? "Firebase Authentication n'est pas encore activé (bouton « Commencer »)"
+                        : $"refus de Firebase Authentication ({(int)response.StatusCode})";
+                }
                 if (response.IsSuccessStatusCode)
                 {
-                    using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                    _authError = null;
+                    using var doc = JsonDocument.Parse(authBody);
                     _idToken = doc.RootElement.GetProperty("idToken").GetString();
                     var seconds = int.TryParse(doc.RootElement.GetProperty("expiresIn").GetString(), out var s) ? s : 3600;
                     _tokenExpiry = DateTime.UtcNow.AddSeconds(seconds - 120);
@@ -128,7 +138,7 @@ public sealed class FirestoreContentRepository : IContentRepository
         using var response = await _http.SendAsync(request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         // 404 = document pas encore publié… sauf si c'est la base elle-même qui n'existe pas.
-        if (response.StatusCode == HttpStatusCode.NotFound && !body.Contains("database", StringComparison.OrdinalIgnoreCase)) return null;
+        if (response.StatusCode == HttpStatusCode.NotFound && !IsMissingDatabase(body)) return null;
         if (!response.IsSuccessStatusCode) throw new HttpRequestException(Explain(response.StatusCode, body));
         return FirestoreFormat.ParseDocument(body);
     }
@@ -160,7 +170,10 @@ public sealed class FirestoreContentRepository : IContentRepository
             // Précondition refusée = quelqu'un a publié une autre version entre-temps.
             if (body.Contains("FAILED_PRECONDITION") || body.Contains("ALREADY_EXISTS") || response.StatusCode == HttpStatusCode.Conflict)
                 return new PushResult(PushStatus.Conflict, Error: "Le contenu en ligne a été modifié par quelqu'un d'autre.");
-            return new PushResult(PushStatus.Error, Error: Explain(response.StatusCode, body));
+            var message = Explain(response.StatusCode, body);
+            if (_authError is not null && (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized))
+                message = $"Écriture refusée car {_authError}. Dans la console Firebase : Authentication → Méthode de connexion → Anonyme → Activer.";
+            return new PushResult(PushStatus.Error, Error: message);
         }
         catch (Exception e)
         {
@@ -195,10 +208,14 @@ public sealed class FirestoreContentRepository : IContentRepository
 
     private static string Short(string text) => text.Length > 200 ? text[..200] + "…" : text;
 
+    /// <summary>« The database (default) does not exist » (base non créée), à distinguer de « Document … not found ».</summary>
+    private static bool IsMissingDatabase(string body) =>
+        body.Contains("does not exist", StringComparison.OrdinalIgnoreCase) && body.Contains("database", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Message clair pour les erreurs Firestore les plus courantes.</summary>
     public static string Explain(HttpStatusCode status, string body)
     {
-        if (body.Contains("does not exist", StringComparison.OrdinalIgnoreCase) && body.Contains("database", StringComparison.OrdinalIgnoreCase))
+        if (IsMissingDatabase(body))
             return "La base Firestore n'existe pas encore : crée-la dans la console Firebase (Firestore Database).";
         if (body.Contains("SERVICE_DISABLED") || body.Contains("has not been used", StringComparison.OrdinalIgnoreCase))
             return "L'API Firestore n'est pas activée pour ce projet (créer la base Firestore l'active).";

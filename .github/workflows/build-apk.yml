@@ -79,7 +79,7 @@ jobs:
             sleep 75
             adb logcat -d > logcat.txt || true
             adb exec-out screencap -p > ecran.png || true
-            grep -E "SKE|FATAL|AndroidRuntime|monodroid|Exception" logcat.txt | tail -250 || true
+            grep -E "SKE_|AndroidRuntime|FATAL EXCEPTION" logcat.txt | tail -150 || true
             grep -q "SKE_AUTOTEST_DONE" logcat.txt
 
       - name: Publier le journal

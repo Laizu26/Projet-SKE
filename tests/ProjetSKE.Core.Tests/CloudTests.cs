@@ -159,3 +159,33 @@ public class MergeTests
         Assert.Equal("potion", Assert.Single(back).Id);
     }
 }
+
+public class FirestoreErrorTests
+{
+    private sealed class OneAnswer(HttpStatusCode status, string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(new HttpResponseMessage(request.RequestUri!.Host.StartsWith("identitytoolkit") ? HttpStatusCode.BadRequest : status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            });
+    }
+
+    [Fact]
+    public async Task DocumentNotFound_MeansNothingPublished()
+    {
+        // Réponse réelle de Firestore quand le document n'existe pas encore (le chemin contient « databases »).
+        const string body = "{\"error\":{\"code\":404,\"message\":\"Document \\\"projects/projet-ske-597e2/databases/(default)/documents/projet-ske/contenu\\\" not found.\",\"status\":\"NOT_FOUND\"}}";
+        var repo = new FirestoreContentRepository(new CloudSettings("p", "k"), new HttpClient(new OneAnswer(HttpStatusCode.NotFound, body)));
+        Assert.Null(await repo.PullAsync());
+    }
+
+    [Fact]
+    public async Task MissingDatabase_IsAnError()
+    {
+        const string body = "{\"error\":{\"code\":404,\"message\":\"The database (default) does not exist for project p\",\"status\":\"NOT_FOUND\"}}";
+        var repo = new FirestoreContentRepository(new CloudSettings("p", "k"), new HttpClient(new OneAnswer(HttpStatusCode.NotFound, body)));
+        var e = await Assert.ThrowsAsync<HttpRequestException>(() => repo.PullAsync());
+        Assert.Contains("n'existe pas", e.Message);
+    }
+}
