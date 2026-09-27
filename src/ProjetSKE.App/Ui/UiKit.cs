@@ -3,36 +3,69 @@ using ProjetSKE.Core.Models;
 
 namespace ProjetSKE.App.Ui;
 
-/// <summary>Palette « fantasy sombre » : bleu nuit, parchemin et or.</summary>
+/// <summary>
+/// Direction artistique reprise de « Service Impérial » : parchemin, pierre et or.
+/// Fond parchemin, bandeaux en pierre sombre soulignés d'un filet d'or, cartes blanches,
+/// petits libellés en capitales espacées, titres à empattements, boutons pierre / texte or.
+/// </summary>
 public static class Theme
 {
-    public static readonly Color Bg = Color.FromArgb("#0D1220");
-    public static readonly Color BgTop = Color.FromArgb("#1A2238");
-    public static readonly Color Surface = Color.FromArgb("#1C2438");
-    public static readonly Color Surface2 = Color.FromArgb("#263150");
-    public static readonly Color Stroke = Color.FromArgb("#34406A");
-    public static readonly Color Track = Color.FromArgb("#0B0F1A");
+    // Pierre (stone)
+    public static readonly Color Stone950 = Color.FromArgb("#0C0A09");
+    public static readonly Color Stone900 = Color.FromArgb("#1C1917");
+    public static readonly Color Stone800 = Color.FromArgb("#292524");
+    public static readonly Color Stone700 = Color.FromArgb("#44403C");
+    public static readonly Color Stone600 = Color.FromArgb("#57534E");
+    public static readonly Color Stone500 = Color.FromArgb("#78716C");
+    public static readonly Color Stone400 = Color.FromArgb("#A8A29E");
+    public static readonly Color Stone300 = Color.FromArgb("#D6D3D1");
+    public static readonly Color Stone200 = Color.FromArgb("#E7E5E4");
+    public static readonly Color Stone100 = Color.FromArgb("#F5F5F4");
+    public static readonly Color Stone50 = Color.FromArgb("#FAFAF9");
 
-    public static readonly Color Accent = Color.FromArgb("#E8B84A");
-    public static readonly Color AccentLight = Color.FromArgb("#F6D98E");
-    public static readonly Color AccentDark = Color.FromArgb("#A67C22");
-    public static readonly Color Text = Color.FromArgb("#EEE8DA");
-    public static readonly Color Muted = Color.FromArgb("#98A2BA");
-    public static readonly Color Good = Color.FromArgb("#7ED08A");
-    public static readonly Color Hp = Color.FromArgb("#5CC46A");
-    public static readonly Color Mana = Color.FromArgb("#4F9BEF");
-    public static readonly Color Danger = Color.FromArgb("#E8604F");
-    public static readonly Color Xp = Color.FromArgb("#B78CF0");
+    // Parchemin
+    public static readonly Color Parchment = Color.FromArgb("#E6E2D6");
+    public static readonly Color ParchmentLight = Color.FromArgb("#FDF6E3");
+    public static readonly Color ParchmentMid = Color.FromArgb("#F5F0DC");
+    public static readonly Color ParchmentActive = Color.FromArgb("#E6DCC3");
 
-    public static readonly Color Overlay = Color.FromArgb("#CC05080F");
-    public static readonly Color Parchment = Color.FromArgb("#EADFC2");
-    public static readonly Color Ink = Color.FromArgb("#3B2A17");
+    // Or et accents
+    public static readonly Color Gold400 = Color.FromArgb("#FACC15");
+    public static readonly Color Gold500 = Color.FromArgb("#EAB308");
+    public static readonly Color Gold600 = Color.FromArgb("#CA8A04");
+    public static readonly Color Gold700 = Color.FromArgb("#A16207");
+    public static readonly Color Amber500 = Color.FromArgb("#F59E0B");
+    public static readonly Color Green600 = Color.FromArgb("#16A34A");
+    public static readonly Color Green500 = Color.FromArgb("#22C55E");
+    public static readonly Color Red600 = Color.FromArgb("#DC2626");
+    public static readonly Color Red500 = Color.FromArgb("#EF4444");
+    public static readonly Color Blue600 = Color.FromArgb("#2563EB");
+    public static readonly Color Blue500 = Color.FromArgb("#3B82F6");
+    public static readonly Color Purple600 = Color.FromArgb("#9333EA");
+
+    // Rôles (noms utilisés dans tout le code)
+    public static readonly Color Bg = Parchment;
+    public static readonly Color Text = Stone900;
+    public static readonly Color Muted = Stone500;
+    public static readonly Color Accent = Gold600;
+    public static readonly Color AccentLight = Gold500;
+    public static readonly Color Surface = Colors.White;
+    public static readonly Color Surface2 = Stone50;
+    public static readonly Color Stroke = Stone200;
+    public static readonly Color Track = Stone200;
+    public static readonly Color Good = Green600;
+    public static readonly Color Danger = Red600;
+    public static readonly Color Hp = Green600;
+    public static readonly Color Mana = Blue600;
+    public static readonly Color Xp = Purple600;
+    public static readonly Color Overlay = Color.FromArgb("#B3000000");
+    public static readonly Color Ink = Stone900;
 
     // Anciens noms conservés pour l'éditeur.
-    public static readonly Color Panel = Surface;
-    public static readonly Color Header = Surface2;
-    public static readonly Color ButtonBg = Surface2;
-    public static readonly Color ButtonSelected = Color.FromArgb("#3B4C7E");
+    public static readonly Color Panel = Colors.White;
+    public static readonly Color Header = Stone900;
+    public static readonly Color ButtonBg = Colors.White;
+    public static readonly Color ButtonSelected = Stone900;
 
     public static Brush Vertical(Color top, Color bottom) => new LinearGradientBrush
     {
@@ -48,21 +81,28 @@ public static class Theme
         GradientStops = { new GradientStop(from, 0f), new GradientStop(to, 1f) },
     };
 
-    public static Brush PageBackground => Vertical(BgTop, Bg);
-    public static Brush GoldButton => Vertical(AccentLight, Accent);
-
-    /// <summary>Ambiance de chaque type de lieu : icône et dégradé.</summary>
-    public static (string Icon, Color From, Color To) LocationStyle(LocationType type) => type switch
+    /// <summary>Filet d'or : or foncé → or clair → or foncé.</summary>
+    public static Brush GoldLine => new LinearGradientBrush
     {
-        LocationType.City => ("🏰", Color.FromArgb("#6B4A1C"), Color.FromArgb("#241A10")),
-        LocationType.Dungeon => ("💀", Color.FromArgb("#4E1E3A"), Color.FromArgb("#170A14")),
-        _ => ("🌲", Color.FromArgb("#1F5A3A"), Color.FromArgb("#0C1F16")),
+        StartPoint = new Point(0, 0),
+        EndPoint = new Point(1, 0),
+        GradientStops = { new GradientStop(Gold600, 0f), new GradientStop(Gold400, 0.5f), new GradientStop(Gold600, 1f) },
+    };
+
+    public static Brush PageBackground => new SolidColorBrush(Parchment);
+    public static Brush DarkBackground => Diagonal(Stone900, Stone950);
+
+    /// <summary>Icône et couleur d'accent de chaque type de lieu.</summary>
+    public static (string Icon, Color Accent) LocationStyle(LocationType type) => type switch
+    {
+        LocationType.City => (Ico.Castle, Gold500),
+        LocationType.Dungeon => (Ico.Skull, Red500),
+        _ => (Ico.Trees, Green500),
     };
 
     private static readonly Color[] AvatarColors =
     [
-        Color.FromArgb("#C0553F"), Color.FromArgb("#3F7CC0"), Color.FromArgb("#4FA05A"), Color.FromArgb("#9A5CC0"),
-        Color.FromArgb("#C09A3F"), Color.FromArgb("#3FA5A0"), Color.FromArgb("#C0457F"), Color.FromArgb("#6E7FA8"),
+        Gold500, Blue500, Green500, Red500, Color.FromArgb("#A855F7"), Color.FromArgb("#14B8A6"), Amber500, Color.FromArgb("#EC4899"),
     ];
 
     /// <summary>Couleur stable pour un personnage (d'après son identifiant).</summary>
@@ -73,19 +113,13 @@ public static class Theme
         return AvatarColors[Math.Abs(hash % AvatarColors.Length)];
     }
 
-    public static Color Darker(Color c, float factor = 0.45f) =>
-        new(c.Red * factor, c.Green * factor, c.Blue * factor, c.Alpha);
-
-    public static Color Lighter(Color c, float amount = 0.2f) =>
-        new(c.Red + (1 - c.Red) * amount, c.Green + (1 - c.Green) * amount, c.Blue + (1 - c.Blue) * amount, c.Alpha);
-
     public static string ItemIcon(ItemDef item) => item.Type switch
     {
-        ItemType.Consumable => "🧪",
-        ItemType.Weapon => "⚔️",
-        ItemType.Armor => "🛡️",
-        ItemType.Relic => "💎",
-        _ => "📜",
+        ItemType.Consumable => Ico.FlaskConical,
+        ItemType.Weapon => Ico.Sword,
+        ItemType.Armor => Ico.Shield,
+        ItemType.Relic => Ico.Gem,
+        _ => Ico.ScrollText,
     };
 }
 
@@ -105,50 +139,97 @@ public static class UiKit
 
     public static Label Muted(string text, double size = 12) => Txt(text, size, Theme.Muted);
 
-    public static Label Heading(string text)
+    /// <summary>Petit libellé en capitales très espacées (signature visuelle de Service Impérial).</summary>
+    public static Label Caps(string text, double size = 10, Color? color = null) => new()
     {
-        var label = Txt(text, 22, Theme.Accent, bold: true);
-        label.CharacterSpacing = 1;
-        return label;
+        Text = text.ToUpperInvariant(),
+        FontSize = size,
+        FontAttributes = FontAttributes.Bold,
+        TextColor = color ?? Theme.Stone400,
+        CharacterSpacing = 2.5,
+        LineBreakMode = LineBreakMode.WordWrap,
+    };
+
+    /// <summary>Titre à empattements, en capitales.</summary>
+    public static Label Serif(string text, double size = 22, Color? color = null) => new()
+    {
+        Text = text.ToUpperInvariant(),
+        FontFamily = "serif",
+        FontSize = size,
+        FontAttributes = FontAttributes.Bold,
+        TextColor = color ?? Theme.Stone900,
+        CharacterSpacing = 1.5,
+        LineBreakMode = LineBreakMode.WordWrap,
+    };
+
+    public static Label Heading(string text) => Serif(text, 24);
+
+    /// <summary>Icône Lucide.</summary>
+    public static Label Icon(string glyph, double size = 18, Color? color = null) => new()
+    {
+        Text = glyph,
+        FontFamily = Ico.Font,
+        FontSize = size,
+        TextColor = color ?? Theme.Stone900,
+        HorizontalTextAlignment = TextAlignment.Center,
+        VerticalTextAlignment = TextAlignment.Center,
+    };
+
+    /// <summary>Icône + libellé en capitales sur une ligne.</summary>
+    public static View IconCaps(string glyph, string text, Color? color = null, double size = 10) => new HorizontalStackLayout
+    {
+        Spacing = 6,
+        Children = { Icon(glyph, size + 3, color ?? Theme.Stone400), Caps(text, size, color ?? Theme.Stone400) },
+    };
+
+    /// <summary>En-tête de page : icône dorée, grand titre serif, sous-titre espacé, trait épais.</summary>
+    public static View PageHeader(string glyph, string title, string subtitle)
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
+            ColumnSpacing = 12,
+        };
+        grid.Add(Icon(glyph, 34, Theme.Gold600), 0, 0);
+        grid.Add(new VerticalStackLayout { Spacing = 2, Children = { Serif(title, 24), Caps(subtitle, 10, Theme.Stone500) } }, 1, 0);
+        return new VerticalStackLayout
+        {
+            Spacing = 10,
+            Margin = new Thickness(0, 0, 0, 4),
+            Children = { grid, new BoxView { HeightRequest = 4, Color = Theme.Stone800 } },
+        };
     }
 
-    /// <summary>Titre de section : petites capitales dorées et filet.</summary>
+    /// <summary>Titre de section : libellé en capitales et filet.</summary>
     public static View Section(string text)
     {
         var grid = new Grid
         {
             ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10,
-            Margin = new Thickness(0, 10, 0, 2),
+            Margin = new Thickness(0, 10, 0, 0),
         };
-        var label = Txt(text.ToUpperInvariant(), 12, Theme.Accent, bold: true);
-        label.CharacterSpacing = 2;
-        grid.Add(label, 0, 0);
-        grid.Add(new BoxView { HeightRequest = 1, Color = Theme.Stroke, VerticalOptions = LayoutOptions.Center }, 1, 0);
+        grid.Add(Caps(text, 10, Theme.Stone500), 0, 0);
+        grid.Add(new BoxView { HeightRequest = 1, Color = Theme.Stone300, VerticalOptions = LayoutOptions.Center }, 1, 0);
         return grid;
     }
 
-    public static Label Icon(string emoji, double size = 28) => new()
-    {
-        Text = emoji,
-        FontSize = size,
-        HorizontalTextAlignment = TextAlignment.Center,
-        VerticalTextAlignment = TextAlignment.Center,
-    };
+    public static BoxView GoldLine(double height = 3) => new() { HeightRequest = height, Background = Theme.GoldLine };
 
     // ------------------------------------------------------------------ Boutons
 
-    /// <summary>Bouton secondaire (fond sombre, liseré) ; doré quand il est sélectionné.</summary>
+    /// <summary>Bouton secondaire (blanc, liseré pierre) ; pierre / or quand il est sélectionné.</summary>
     public static Button Btn(string text, Action onClick, bool enabled = true, bool selected = false)
     {
         var button = new Button
         {
-            Text = text,
-            FontSize = 14,
+            Text = text.ToUpperInvariant(),
+            FontSize = 12,
             FontAttributes = FontAttributes.Bold,
-            TextColor = selected ? Theme.Bg : Theme.Text,
-            Background = selected ? Theme.GoldButton : new SolidColorBrush(Theme.Surface2),
-            BorderColor = selected ? Theme.Accent : Theme.Stroke,
+            CharacterSpacing = 1.5,
+            TextColor = selected ? Theme.Gold500 : Theme.Stone800,
+            BackgroundColor = selected ? Theme.Stone900 : Colors.White,
+            BorderColor = selected ? Theme.Stone900 : Theme.Stone300,
             BorderWidth = 1,
             CornerRadius = 12,
             Padding = new Thickness(12, 8),
@@ -160,24 +241,25 @@ public static class UiKit
         return button;
     }
 
-    /// <summary>Bouton principal doré.</summary>
+    /// <summary>Bouton principal : pierre sombre, texte or, capitales espacées.</summary>
     public static Button Primary(string text, Action onClick, bool enabled = true)
     {
         var button = Btn(text, onClick, enabled, selected: true);
-        button.FontSize = 16;
-        button.MinimumHeightRequest = 52;
-        button.CornerRadius = 14;
+        button.FontSize = 13;
+        button.CharacterSpacing = 3;
+        button.MinimumHeightRequest = 54;
+        button.Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 4), Radius = 10, Opacity = 0.3f };
         return button;
     }
 
-    /// <summary>Petit bouton en forme de pastille (ex : flèche retour).</summary>
+    /// <summary>Petit bouton de navigation (ex : « ◂ PAYS »).</summary>
     public static Button Pill(string text, Action onClick)
     {
         var button = Btn(text, onClick);
-        button.FontSize = 13;
-        button.CornerRadius = 18;
+        button.FontSize = 11;
+        button.CornerRadius = 20;
         button.MinimumHeightRequest = 36;
-        button.Padding = new Thickness(14, 4);
+        button.Padding = new Thickness(16, 4);
         button.HorizontalOptions = LayoutOptions.Start;
         return button;
     }
@@ -189,59 +271,128 @@ public static class UiKit
         return view;
     }
 
-    // ------------------------------------------------------------------ Cartes et tuiles
+    // ------------------------------------------------------------------ Cartes
 
     public static Border Panel(View content, Color? background = null) => Card(content, background);
 
-    /// <summary>Carte arrondie avec ombre.</summary>
-    public static Border Card(View content, Color? background = null, Color? stroke = null, double radius = 16) => new()
+    /// <summary>Carte blanche, liseré pierre clair, coins arrondis, ombre légère.</summary>
+    public static Border Card(View content, Color? background = null, Color? stroke = null, double radius = 12) => new()
     {
         Content = content,
-        BackgroundColor = background ?? Theme.Surface,
-        Stroke = stroke ?? Theme.Stroke,
+        BackgroundColor = background ?? Colors.White,
+        Stroke = stroke ?? Theme.Stone200,
         StrokeThickness = 1,
         StrokeShape = new RoundRectangle { CornerRadius = radius },
         Padding = new Thickness(14, 12),
-        Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 4), Radius = 12, Opacity = 0.45f },
+        Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 2), Radius = 6, Opacity = 0.08f },
     };
 
-    /// <summary>Carte avec dégradé (bannières de lieu, en-têtes).</summary>
-    public static Border GradientCard(View content, Color from, Color to, double radius = 20) => new()
+    /// <summary>Carte avec bandeau de titre (comme les « Card » de Service Impérial).</summary>
+    public static Border TitledCard(string glyph, string title, View content, View? headerRight = null)
     {
-        Content = content,
-        Background = Theme.Diagonal(from, to),
-        Stroke = Theme.Accent.WithAlpha(0.35f),
-        StrokeThickness = 1,
-        StrokeShape = new RoundRectangle { CornerRadius = radius },
-        Padding = new Thickness(18, 16),
-        Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 6), Radius = 16, Opacity = 0.5f },
+        var header = new Grid
+        {
+            BackgroundColor = Theme.Stone50,
+            Padding = new Thickness(12, 9),
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
+        };
+        header.Add(IconCaps(glyph, title, Theme.Stone500), 0, 0);
+        if (headerRight is not null) header.Add(headerRight, 1, 0);
+
+        var body = new ContentView { Content = content, Padding = new Thickness(14, 12) };
+        var card = Card(new VerticalStackLayout
+        {
+            Spacing = 0,
+            Children = { header, new BoxView { HeightRequest = 1, Color = Theme.Stone200 }, body },
+        });
+        card.Padding = 0;
+        return card;
+    }
+
+    /// <summary>Carte sombre en pierre, avec grande icône en filigrane (bannières, trésor).</summary>
+    public static Border DarkCard(View content, string? watermark = null, Color? watermarkColor = null, bool goldLine = false)
+    {
+        var grid = new Grid();
+        if (watermark is not null)
+        {
+            var mark = Icon(watermark, 120, watermarkColor ?? Colors.White);
+            mark.Opacity = 0.08;
+            mark.HorizontalOptions = LayoutOptions.End;
+            mark.VerticalOptions = LayoutOptions.End;
+            mark.Margin = new Thickness(0, 0, -18, -26);
+            grid.Add(mark);
+        }
+        var inner = new VerticalStackLayout { Spacing = 0 };
+        if (goldLine) inner.Add(GoldLine());
+        inner.Add(new ContentView { Content = content, Padding = new Thickness(18, 16) });
+        grid.Add(inner);
+
+        return new Border
+        {
+            Content = grid,
+            Background = Theme.DarkBackground,
+            Stroke = Theme.Stone800,
+            StrokeThickness = 2,
+            StrokeShape = new RoundRectangle { CornerRadius = 12 },
+            Padding = 0,
+            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 6), Radius = 14, Opacity = 0.35f },
+        };
+    }
+
+    /// <summary>Ancien nom : carte sombre (les couleurs passées sont ignorées pour garder la DA).</summary>
+    public static Border GradientCard(View content, Color from, Color to, double radius = 20) => DarkCard(content);
+
+    /// <summary>Emblème rond : pierre, anneau épais, icône dorée.</summary>
+    public static View Emblem(string glyph, double size = 80, Color? color = null) => new Border
+    {
+        WidthRequest = size,
+        HeightRequest = size,
+        HorizontalOptions = LayoutOptions.Center,
+        VerticalOptions = LayoutOptions.Center,
+        StrokeShape = new Ellipse(),
+        Stroke = Theme.Stone700,
+        StrokeThickness = 4,
+        BackgroundColor = Theme.Stone800,
+        Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 4), Radius = 12, Opacity = 0.5f },
+        Content = Icon(glyph, size * 0.45, color ?? Theme.Gold500),
     };
 
-    /// <summary>Grande tuile cliquable : icône, titre, sous-titre.</summary>
-    public static View Tile(string icon, string title, string subtitle, Action? onTap, Color? tint = null, bool enabled = true)
+    /// <summary>Tuile cliquable : pastille d'icône, titre en capitales, sous-titre.</summary>
+    public static View Tile(string glyph, string title, string subtitle, Action? onTap, Color? tint = null, bool enabled = true)
     {
+        var accent = tint ?? Theme.Stone800;
+        var badge = new Border
+        {
+            WidthRequest = 54,
+            HeightRequest = 54,
+            HorizontalOptions = LayoutOptions.Center,
+            StrokeShape = new Ellipse(),
+            StrokeThickness = 1,
+            Stroke = accent.WithAlpha(0.3f),
+            BackgroundColor = accent.WithAlpha(0.1f),
+            Content = Icon(glyph, 24, accent),
+        };
         var stack = new VerticalStackLayout
         {
-            Spacing = 4,
+            Spacing = 6,
             VerticalOptions = LayoutOptions.Center,
             Children =
             {
-                Icon(icon, 34),
+                badge,
                 new Label
                 {
-                    Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold,
-                    TextColor = tint ?? Theme.Text, HorizontalTextAlignment = TextAlignment.Center,
-                    LineBreakMode = LineBreakMode.WordWrap,
+                    Text = title.ToUpperInvariant(), FontSize = 12, FontAttributes = FontAttributes.Bold, CharacterSpacing = 1.5,
+                    TextColor = Theme.Stone900, HorizontalTextAlignment = TextAlignment.Center, LineBreakMode = LineBreakMode.WordWrap,
                 },
                 new Label
                 {
-                    Text = subtitle, FontSize = 12, TextColor = Theme.Muted,
+                    Text = subtitle, FontSize = 11, TextColor = Theme.Stone500,
                     HorizontalTextAlignment = TextAlignment.Center, LineBreakMode = LineBreakMode.WordWrap,
                 },
             },
         };
-        var card = Card(stack, stroke: tint is null ? Theme.Stroke : tint.WithAlpha(0.6f));
-        card.MinimumHeightRequest = 130;
+        var card = Card(stack, stroke: tint is null ? Theme.Stone200 : tint.WithAlpha(0.35f));
+        card.MinimumHeightRequest = 140;
         card.Opacity = enabled ? 1 : 0.4;
         if (onTap is not null && enabled) OnTap(card, onTap);
         return card;
@@ -250,7 +401,7 @@ public static class UiKit
     /// <summary>Grille de tuiles (deux colonnes par défaut).</summary>
     public static Grid TileGrid(IReadOnlyList<View> tiles, int columns = 2)
     {
-        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
+        var grid = new Grid { ColumnSpacing = 10, RowSpacing = 10 };
         for (var c = 0; c < columns; c++) grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
         for (var i = 0; i < tiles.Count; i++)
         {
@@ -260,7 +411,7 @@ public static class UiKit
         return grid;
     }
 
-    /// <summary>Pastille ronde avec l'initiale d'un personnage.</summary>
+    /// <summary>Avatar rond : pierre, initiale, anneau de couleur.</summary>
     public static View Avatar(string name, Color color, double size = 52)
     {
         var initial = string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
@@ -269,38 +420,42 @@ public static class UiKit
             WidthRequest = size,
             HeightRequest = size,
             StrokeShape = new Ellipse(),
-            Stroke = Theme.Accent,
+            Stroke = color,
             StrokeThickness = 2,
-            Background = Theme.Diagonal(color, Theme.Darker(color)),
+            BackgroundColor = Theme.Stone800,
             VerticalOptions = LayoutOptions.Center,
             HorizontalOptions = LayoutOptions.Center,
             Content = new Label
             {
                 Text = initial,
+                FontFamily = "serif",
                 FontSize = size * 0.42,
                 FontAttributes = FontAttributes.Bold,
-                TextColor = Colors.White,
+                TextColor = Theme.Stone300,
                 HorizontalTextAlignment = TextAlignment.Center,
                 VerticalTextAlignment = TextAlignment.Center,
             },
         };
     }
 
-    /// <summary>Petite étiquette (ex : « Nv 3 », « Boss »).</summary>
+    /// <summary>Petite étiquette (ex : « NV 3 », « BOSS »).</summary>
     public static View Badge(string text, Color color) => new Border
     {
-        BackgroundColor = color.WithAlpha(0.18f),
-        Stroke = color,
+        BackgroundColor = color.WithAlpha(0.12f),
+        Stroke = color.WithAlpha(0.45f),
         StrokeThickness = 1,
-        StrokeShape = new RoundRectangle { CornerRadius = 10 },
-        Padding = new Thickness(8, 2),
+        StrokeShape = new RoundRectangle { CornerRadius = 6 },
+        Padding = new Thickness(7, 2),
         HorizontalOptions = LayoutOptions.Start,
         VerticalOptions = LayoutOptions.Center,
-        Content = new Label { Text = text, FontSize = 11, FontAttributes = FontAttributes.Bold, TextColor = color },
+        Content = new Label
+        {
+            Text = text.ToUpperInvariant(), FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 1.5, TextColor = color,
+        },
     };
 
-    /// <summary>Jauge arrondie : "PV ▓▓▓▓░░ 45/60".</summary>
-    public static View Bar(string label, int value, int max, Color color, double height = 10)
+    /// <summary>Jauge : "PV ▓▓▓▓░░ 45/60". <paramref name="dark"/> pour les fonds en pierre.</summary>
+    public static View Bar(string label, int value, int max, Color color, double height = 8, bool dark = false)
     {
         var pct = max > 0 ? Math.Clamp((double)value / max, 0, 1) : 0;
         var fill = new Grid
@@ -311,16 +466,11 @@ public static class UiKit
                 new ColumnDefinition(new GridLength(Math.Max(1 - pct, 0.0001), GridUnitType.Star)),
             },
         };
-        fill.Add(new BoxView
-        {
-            Background = Theme.Vertical(Theme.Lighter(color, 0.3f), color),
-            CornerRadius = height / 2,
-            IsVisible = pct > 0,
-        }, 0, 0);
+        fill.Add(new BoxView { Color = color, CornerRadius = height / 2, IsVisible = pct > 0 }, 0, 0);
         var track = new Border
         {
             HeightRequest = height,
-            BackgroundColor = Theme.Track,
+            BackgroundColor = dark ? Theme.Stone700 : Theme.Stone200,
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = height / 2 },
             Padding = 0,
@@ -332,17 +482,17 @@ public static class UiKit
         {
             ColumnDefinitions =
             {
-                new ColumnDefinition(new GridLength(28)),
+                new ColumnDefinition(new GridLength(26)),
                 new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(new GridLength(66)),
+                new ColumnDefinition(new GridLength(62)),
             },
             ColumnSpacing = 8,
         };
-        var name = Txt(label, 11, color, bold: true);
+        var name = Caps(label, 9, color);
         name.VerticalOptions = LayoutOptions.Center;
         grid.Add(name, 0, 0);
         grid.Add(track, 1, 0);
-        var numbers = Txt($"{value}/{max}", 12);
+        var numbers = Txt($"{value}/{max}", 11, dark ? Theme.Stone300 : Theme.Stone600, bold: true);
         numbers.HorizontalTextAlignment = TextAlignment.End;
         numbers.VerticalOptions = LayoutOptions.Center;
         grid.Add(numbers, 2, 0);
@@ -405,17 +555,56 @@ public static class UiKit
         return grid;
     }
 
-    /// <summary>Cellule de statistique : icône, valeur, libellé.</summary>
-    public static View StatCell(string icon, string label, int value, Color color) => Card(new VerticalStackLayout
+    /// <summary>Pastille d'icône carrée (fond pierre clair) pour les listes.</summary>
+    public static View IconBox(string glyph, Color? color = null, double size = 44) => new Border
     {
-        Spacing = 0,
-        Children =
+        WidthRequest = size,
+        HeightRequest = size,
+        BackgroundColor = Theme.Stone100,
+        Stroke = Theme.Stone200,
+        StrokeThickness = 1,
+        StrokeShape = new RoundRectangle { CornerRadius = 10 },
+        Content = Icon(glyph, size * 0.45, color ?? Theme.Stone700),
+    };
+
+    /// <summary>Cellule de statistique : icône, valeur (serif), libellé.</summary>
+    public static View StatCell(string glyph, string label, int value, Color color)
+    {
+        var card = Card(new VerticalStackLayout
         {
-            new Label { Text = icon, FontSize = 18, HorizontalTextAlignment = TextAlignment.Center },
-            new Label { Text = value.ToString(), FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = color, HorizontalTextAlignment = TextAlignment.Center },
-            new Label { Text = label, FontSize = 10, TextColor = Theme.Muted, HorizontalTextAlignment = TextAlignment.Center, CharacterSpacing = 1 },
-        },
-    }, Theme.Surface2, radius: 12);
+            Spacing = 2,
+            Children =
+            {
+                Icon(glyph, 16, color),
+                new Label
+                {
+                    Text = value.ToString(), FontFamily = "serif", FontSize = 22, FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Stone900, HorizontalTextAlignment = TextAlignment.Center,
+                },
+                new Label
+                {
+                    Text = label.ToUpperInvariant(), FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 1.5,
+                    TextColor = Theme.Stone400, HorizontalTextAlignment = TextAlignment.Center,
+                },
+            },
+        });
+        card.Padding = new Thickness(6, 10);
+        return card;
+    }
+
+    /// <summary>Petite pastille « chargée » sombre pour les chiffres importants (ex : or, niveau).</summary>
+    public static View DarkStat(string glyph, string label, string value)
+    {
+        return DarkCard(new VerticalStackLayout
+        {
+            Spacing = 2,
+            Children =
+            {
+                Caps(label, 10, Theme.Stone400),
+                new Label { Text = value, FontFamily = "serif", FontSize = 34, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500 },
+            },
+        }, glyph, Theme.Gold500);
+    }
 
     // ------------------------------------------------------------------ Textes métier
 
@@ -451,9 +640,9 @@ public static class UiKit
 
     public static string SlotIcon(EquipSlot slot) => slot switch
     {
-        EquipSlot.Weapon => "⚔️",
-        EquipSlot.Armor => "🛡️",
-        _ => "💎",
+        EquipSlot.Weapon => Ico.Sword,
+        EquipSlot.Armor => Ico.Shield,
+        _ => Ico.Gem,
     };
 
     public static string Describe(TravelEncounterMode mode) => mode switch

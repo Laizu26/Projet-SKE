@@ -22,8 +22,7 @@ public sealed class SlotPage : ContentPage
     {
         var stack = new VerticalStackLayout { Padding = new Thickness(18, 28), Spacing = 14 };
         stack.Add(Pill("◂  Retour", () => SkeApp.GoTo(new TitlePage())));
-        stack.Add(Heading(_newGame ? "Nouvelle partie" : "Charger une partie"));
-        stack.Add(Muted("Choisis un emplacement de sauvegarde.", 14));
+        stack.Add(PageHeader(_newGame ? Ico.Swords : Ico.Save, _newGame ? "Nouvelle partie" : "Charger", "Choisis un emplacement de sauvegarde"));
 
         for (var slot = 0; slot < SaveService.SlotCount; slot++)
         {
@@ -36,9 +35,9 @@ public sealed class SlotPage : ContentPage
                 Spacing = 3,
                 Children =
                 {
-                    Muted($"EMPLACEMENT {slot + 1}", 11),
+                    Caps($"Emplacement {slot + 1}", 9, Theme.Stone400),
                     Txt(state is null ? "Vide" : hero is null ? "?" : $"{hero.Value.Name} · Nv {hero.Value.Level}", 18,
-                        state is null ? Theme.Muted : Theme.AccentLight, bold: true),
+                        state is null ? Theme.Stone400 : Theme.Stone900, bold: true),
                 },
             };
             if (state is not null)
@@ -47,7 +46,7 @@ public sealed class SlotPage : ContentPage
                 info.Add(Muted($"Sauvegardé le {state.SavedAt:dd/MM/yyyy à HH:mm}", 11));
             }
 
-            View icon = hero is { } h ? Avatar(h.Name, Theme.AvatarColor(h.Id), 56) : Icon("📂", 36);
+            View icon = hero is { } h ? Avatar(h.Name, Theme.AvatarColor(h.Id), 56) : IconBox(Ico.BookOpen, Theme.Stone400, 56);
             View action = _newGame
                 ? Btn(_confirmOverwrite == slot ? "Écraser ?" : "Choisir", () => PickNew(s, state is not null), selected: _confirmOverwrite == slot)
                 : Btn("Charger", () => Load(s, state!), enabled: state is not null);

@@ -8,7 +8,7 @@ namespace ProjetSKE.App.Views;
 
 /// <summary>
 /// Carte : on est d'abord dans le lieu actuel (ville, nature, donjon) ;
-/// la flèche « Pays » ouvre la vue du pays pour voyager.
+/// le bouton « ◂ Pays » ouvre la vue du pays pour voyager.
 /// </summary>
 public sealed class MapView : ContentView
 {
@@ -28,63 +28,64 @@ public sealed class MapView : ContentView
 
         stack.Add(Pill("◂  Pays", () => { page.MapShowCountry = true; page.Render(); }));
 
-        var banner = GradientCard(new VerticalStackLayout
+        // Bannière du lieu : carte en pierre, filet d'or, grande icône en filigrane.
+        var banner = DarkCard(new VerticalStackLayout
         {
-            Spacing = 8,
-            VerticalOptions = LayoutOptions.Center,
+            Spacing = 10,
+            Padding = new Thickness(0, 10),
             Children =
             {
-                Icon(style.Icon, 64),
+                Emblem(style.Icon, 84, style.Accent),
                 new Label
                 {
-                    Text = loc.Name, FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Theme.AccentLight,
-                    HorizontalTextAlignment = TextAlignment.Center, CharacterSpacing = 1,
+                    Text = loc.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 26, FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Stone100, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
                 },
                 new Label
                 {
-                    Text = GameSession.LocationTypeName(loc.Type).ToUpperInvariant(), FontSize = 12, TextColor = Theme.Text,
-                    HorizontalTextAlignment = TextAlignment.Center, CharacterSpacing = 3, Opacity = 0.8,
+                    Text = GameSession.LocationTypeName(loc.Type).ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold,
+                    TextColor = style.Accent, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center,
                 },
                 new Label
                 {
-                    Text = loc.Description, FontSize = 14, TextColor = Theme.Text, FontAttributes = FontAttributes.Italic,
-                    HorizontalTextAlignment = TextAlignment.Center, Margin = new Thickness(0, 6, 0, 0),
+                    Text = loc.Description, FontSize = 14, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400,
+                    HorizontalTextAlignment = TextAlignment.Center,
                 },
             },
-        }, style.From, style.To);
-        banner.MinimumHeightRequest = 240;
+        }, style.Icon, style.Accent, goldLine: true);
+        banner.MinimumHeightRequest = 250;
         stack.Add(banner);
 
         var tiles = new List<View>();
         if (s.InCity)
         {
-            tiles.Add(Tile("🛏️", "Auberge", $"Repos complet · {loc.InnPrice} or", () =>
+            tiles.Add(Tile(Ico.Bed, "Auberge", $"Repos complet · {loc.InnPrice} or", () =>
             {
-                page.Notify(s.Rest() ? "💤 L'équipe est reposée." : "Pas assez d'or pour l'auberge.");
+                page.Notify(s.Rest() ? "L'équipe est reposée." : "Pas assez d'or pour l'auberge.");
                 page.AutoSave();
                 page.Render();
-            }));
-            tiles.Add(Tile("🛒", "Boutique", "Acheter et vendre", () => page.SwitchTab(GameTab.Shop)));
+            }, Theme.Blue600));
+            tiles.Add(Tile(Ico.Store, "Boutique", "Acheter et vendre", () => page.SwitchTab(GameTab.Shop), Theme.Gold600));
         }
 
         if (s.PendingFixedBattle is { } fb)
         {
             var names = string.Join(", ", fb.MonsterIds.Distinct().Where(s.Db.Monsters.ContainsKey).Select(id => s.Db.Monsters[id].Name));
-            tiles.Add(Tile("💀", "Affronter", names, () => page.StartFixedBattle(fb), Theme.Danger));
+            tiles.Add(Tile(Ico.Skull, "Affronter", names, () => page.StartFixedBattle(fb), Theme.Red600));
         }
         if (loc.RandomEncounters.Count > 0)
         {
-            tiles.Add(Tile("⚔️", "Explorer", "Chercher le combat", () =>
+            tiles.Add(Tile(Ico.Swords, "Explorer", "Chercher le combat", () =>
             {
                 if (s.Explore() is { } monsters) page.StartBattle(monsters);
-            }));
+            }, Theme.Stone800));
         }
 
         foreach (var npc in s.VisibleNpcs)
         {
             var npcId = npc.Id;
             var subtitle = npc.Description.Length > 0 ? npc.Description : "Parler";
-            tiles.Add(Tile("🗣️", npc.Name, subtitle, () => page.TalkTo(npcId), Theme.AccentLight));
+            tiles.Add(Tile(Ico.MessageCircle, npc.Name, subtitle, () => page.TalkTo(npcId), Theme.Gold700));
         }
 
         if (tiles.Count > 0)
@@ -108,25 +109,7 @@ public sealed class MapView : ContentView
         var stack = new VerticalStackLayout { Spacing = 14 };
 
         stack.Add(Pill($"◂  Retour à {loc.Name}", () => { page.MapShowCountry = false; page.Render(); }));
-
-        stack.Add(GradientCard(new VerticalStackLayout
-        {
-            Spacing = 4,
-            Children =
-            {
-                Icon("🗺️", 48),
-                new Label
-                {
-                    Text = s.Db.Content.Title, FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Theme.AccentLight,
-                    HorizontalTextAlignment = TextAlignment.Center,
-                },
-                new Label
-                {
-                    Text = $"Vous êtes à {loc.Name}. Où aller ?", FontSize = 14, TextColor = Theme.Text,
-                    HorizontalTextAlignment = TextAlignment.Center,
-                },
-            },
-        }, Color.FromArgb("#2B3A63"), Color.FromArgb("#111827")));
+        stack.Add(PageHeader(Ico.Map, s.Db.Content.Title, $"Vous êtes à {loc.Name}"));
 
         stack.Add(Section("Destinations"));
         if (s.Destinations.Count == 0) stack.Add(Card(Muted("Aucune route ne part d'ici.", 14)));
@@ -137,28 +120,28 @@ public sealed class MapView : ContentView
             var visited = s.State.SeenLocations.Contains(dest.Id);
             var id = dest.Id;
 
-            var iconCircle = new Border
-            {
-                WidthRequest = 60,
-                HeightRequest = 60,
-                StrokeShape = new Microsoft.Maui.Controls.Shapes.Ellipse(),
-                Stroke = Theme.Accent.WithAlpha(0.5f),
-                StrokeThickness = 1,
-                Background = Theme.Diagonal(style.From, style.To),
-                Content = Icon(open ? style.Icon : "🔒", 28),
-            };
             var info = new VerticalStackLayout
             {
-                Spacing = 2,
+                Spacing = 3,
                 Children =
                 {
-                    Txt(dest.Name, 17, open ? Theme.Text : Theme.Muted, bold: true),
-                    Muted(GameSession.LocationTypeName(dest.Type) + (visited ? "" : " · inconnu") + (open ? "" : " · bloqué"), 12),
+                    Txt(dest.Name, 17, open ? Theme.Stone900 : Theme.Stone400, bold: true),
+                    Caps(GameSession.LocationTypeName(dest.Type) + (visited ? "" : " · inconnu") + (open ? "" : " · bloqué"), 9, Theme.Stone500),
                 },
             };
-            var go = Txt(open ? "➜" : "", 26, Theme.Accent, bold: true);
-            var card = Card(IconRow(iconCircle, info, go));
-            card.MinimumHeightRequest = 90;
+            var icon = new Border
+            {
+                WidthRequest = 56,
+                HeightRequest = 56,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.Ellipse(),
+                Stroke = Theme.Stone700,
+                StrokeThickness = 3,
+                BackgroundColor = Theme.Stone800,
+                Content = Icon(open ? style.Icon : Ico.Lock, 24, open ? style.Accent : Theme.Stone500),
+            };
+            var go = Icon(open ? Ico.ChevronRight : "", 24, Theme.Gold600);
+            var card = Card(IconRow(icon, info, go));
+            card.MinimumHeightRequest = 88;
             stack.Add(OnTap(card, () => page.Travel(id)));
         }
 
@@ -167,7 +150,7 @@ public sealed class MapView : ContentView
         foreach (var known in s.State.SeenLocations.Where(s.Db.Locations.ContainsKey))
         {
             var l = s.Db.Locations[known];
-            var chip = Badge($"{Theme.LocationStyle(l.Type).Icon} {l.Name}", known == loc.Id ? Theme.Accent : Theme.Muted);
+            var chip = Badge(l.Name, known == loc.Id ? Theme.Gold700 : Theme.Stone500);
             chip.Margin = new Thickness(0, 0, 6, 6);
             chips.Add(chip);
         }

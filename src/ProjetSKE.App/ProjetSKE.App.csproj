@@ -20,7 +20,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <MauiIcon Include="Resources\AppIcon\appicon.svg" Color="#101418" />
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" Color="#1C1917" />
+    <MauiFont Include="Resources\Fonts\*.ttf" />
   </ItemGroup>
 
   <ItemGroup>

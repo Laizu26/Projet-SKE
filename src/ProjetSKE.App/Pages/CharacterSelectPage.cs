@@ -19,8 +19,7 @@ public sealed class CharacterSelectPage : ContentPage
         db ??= SkeApp.Db;
         var stack = new VerticalStackLayout { Padding = new Thickness(18, 28), Spacing = 16 };
         stack.Add(Pill("◂  Retour", () => SkeApp.GoTo(slot < 0 ? new Dev.DevHomePage() : (Page)new SlotPage(newGame: true))));
-        stack.Add(Heading(slot < 0 ? "Partie de test" : "Choisis ton héros"));
-        stack.Add(Muted("Ton aventure commence seul. D'autres te rejoindront en chemin.", 14));
+        stack.Add(PageHeader(Ico.User, slot < 0 ? "Partie de test" : "Choisis ton héros", "D'autres te rejoindront en chemin"));
 
         foreach (var def in db.Starters)
         {
@@ -28,36 +27,46 @@ public sealed class CharacterSelectPage : ContentPage
             var id = def.Id;
             var st = def.BaseStats;
             var color = Theme.AvatarColor(def.Id);
-            stack.Add(GradientCard(new VerticalStackLayout
+            stack.Add(DarkCard(new VerticalStackLayout
             {
                 Spacing = 10,
                 Children =
                 {
                     Avatar(def.Name, color, 96),
-                    new Label { Text = def.Name, FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Theme.AccentLight, HorizontalTextAlignment = TextAlignment.Center },
-                    new Label { Text = def.Title.ToUpperInvariant(), FontSize = 12, TextColor = Theme.Text, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center },
-                    new Label { Text = def.Description, FontSize = 14, TextColor = Theme.Text, FontAttributes = FontAttributes.Italic, HorizontalTextAlignment = TextAlignment.Center },
+                    new Label { Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
+                    new Label { Text = def.Title.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
+                    new Label { Text = def.Description, FontSize = 14, TextColor = Theme.Stone400, FontAttributes = FontAttributes.Italic, HorizontalTextAlignment = TextAlignment.Center },
                     TileGrid(
                     [
-                        StatCell("❤️", "PV", st.MaxHp, Theme.Hp),
-                        StatCell("🔷", "PM", st.MaxMana, Theme.Mana),
-                        StatCell("⚔️", "ATQ", st.Attack, Theme.Danger),
-                        StatCell("🛡️", "DEF", st.Defense, Theme.Muted),
-                        StatCell("✨", "MAG", st.Magic, Theme.Xp),
-                        StatCell("💨", "VIT", st.Speed, Theme.Good),
+                        StatCell(Ico.Heart, "PV", st.MaxHp, Theme.Hp),
+                        StatCell(Ico.Droplet, "PM", st.MaxMana, Theme.Mana),
+                        StatCell(Ico.Sword, "ATQ", st.Attack, Theme.Danger),
+                        StatCell(Ico.Shield, "DEF", st.Defense, Theme.Muted),
+                        StatCell(Ico.Sparkles, "MAG", st.Magic, Theme.Xp),
+                        StatCell(Ico.Wind, "VIT", st.Speed, Theme.Good),
                     ], 3),
-                    Muted("Compétences : " + string.Join(", ", skills), 13),
-                    Primary("Commencer avec " + def.Name, () =>
+                    Txt("Compétences : " + string.Join(", ", skills), 13, Theme.Stone400),
+                    StartButton("Commencer avec " + def.Name, () =>
                     {
                         var session = GameSession.NewGame(db, id);
                         if (slot >= 0) SkeApp.Saves.Save(slot, session.State);
                         SkeApp.GoTo(new GamePage(session, slot, playIntro: true));
                     }),
                 },
-            }, Theme.Darker(color, 0.55f), Theme.Bg));
+            }, Ico.User, goldLine: true));
         }
 
         Content = new ScrollView { Content = stack };
+    }
+
+    /// <summary>Bouton or sur fond pierre.</summary>
+    private static Button StartButton(string text, Action onClick)
+    {
+        var b = Primary(text, onClick);
+        b.BackgroundColor = Theme.Gold500;
+        b.BorderColor = Theme.Gold400;
+        b.TextColor = Theme.Stone900;
+        return b;
     }
 
     protected override bool OnBackButtonPressed()

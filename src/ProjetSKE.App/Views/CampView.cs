@@ -6,7 +6,7 @@ using static ProjetSKE.App.Ui.UiKit;
 
 namespace ProjetSKE.App.Views;
 
-/// <summary>Campement : trésor, équipe (titulaires / réserve, fiches, équipement) et sac commun.</summary>
+/// <summary>Campement : trésor (seul endroit où l'or est affiché), équipe, fiches et sac commun.</summary>
 public sealed class CampView : ContentView
 {
     private readonly GamePage _page;
@@ -15,24 +15,16 @@ public sealed class CampView : ContentView
     {
         _page = page;
         var s = page.Session;
-        var stack = new VerticalStackLayout { Spacing = 12 };
+        var stack = new VerticalStackLayout { Spacing = 14 };
 
-        // Le trésor : l'or n'est affiché qu'ici.
-        stack.Add(GradientCard(IconRow(
-            Icon("💰", 40),
-            new VerticalStackLayout
-            {
-                Spacing = 0,
-                Children =
-                {
-                    Txt($"{s.State.Gold} or", 26, Theme.AccentLight, bold: true),
-                    Muted($"{s.State.Party.Count} compagnon(s) · {s.Bag().Sum(b => b.Count)} objet(s) dans le sac", 12),
-                },
-            }), Color.FromArgb("#5A4418"), Color.FromArgb("#1E1709")));
+        stack.Add(PageHeader(Ico.Tent, "Campement", $"{s.State.Party.Count} compagnon(s) · {s.Bag().Sum(b => b.Count)} objet(s)"));
+
+        // Trésor : carte sombre, montant en serif doré, pièces en filigrane.
+        stack.Add(DarkStat(Ico.Coins, "Trésor de l'équipe", $"{s.State.Gold} or"));
 
         stack.Add(ButtonRow(
-            Btn("👥  Équipe", () => { page.CampShowBag = false; page.SelectedCharacter = null; page.Render(); }, selected: !page.CampShowBag),
-            Btn("🎒  Sac", () => { page.CampShowBag = true; page.Render(); }, selected: page.CampShowBag)));
+            Btn("Équipe", () => { page.CampShowBag = false; page.SelectedCharacter = null; page.Render(); }, selected: !page.CampShowBag),
+            Btn("Sac", () => { page.CampShowBag = true; page.Render(); }, selected: page.CampShowBag)));
 
         var party = s.State.Party;
         if (page.CampShowBag) BuildBag(stack);
@@ -64,15 +56,15 @@ public sealed class CampView : ContentView
                         new HorizontalStackLayout
                         {
                             Spacing = 8,
-                            Children = { Txt(def.Name, 17, Theme.Text, bold: true), Badge($"Nv {c.Level}", Theme.Accent) },
+                            Children = { Txt(def.Name, 16, Theme.Stone900, bold: true), Badge($"Nv {c.Level}", Theme.Gold700) },
                         },
-                        Muted(def.Title, 12),
+                        Caps(def.Title, 9, Theme.Stone500),
                         Bar("PV", c.CurrentHp, stats.MaxHp, Theme.Hp),
                         Bar("PM", c.CurrentMana, stats.MaxMana, Theme.Mana),
                     },
                 };
-                var card = Card(IconRow(Avatar(def.Name, Theme.AvatarColor(def.Id), 58), info, Txt("›", 28, Theme.Muted)));
-                if (!c.IsActive) card.Opacity = 0.75;
+                var card = Card(IconRow(Avatar(def.Name, Theme.AvatarColor(def.Id), 56), info, Icon(Ico.ChevronRight, 20, Theme.Stone400)));
+                if (!c.IsActive) card.Opacity = 0.7;
                 stack.Add(OnTap(card, () => { _page.SelectedCharacter = index; _page.Render(); }));
             }
         }
@@ -83,37 +75,48 @@ public sealed class CampView : ContentView
         var s = _page.Session;
         var def = s.DefOf(c);
         var stats = s.GetStats(c);
-        var color = Theme.AvatarColor(def.Id);
 
         stack.Add(Pill("◂  Équipe", () => { _page.SelectedCharacter = null; _page.Render(); }));
 
-        stack.Add(GradientCard(new VerticalStackLayout
+        stack.Add(DarkCard(new VerticalStackLayout
         {
-            Spacing = 6,
+            Spacing = 8,
             Children =
             {
-                Avatar(def.Name, color, 88),
-                new Label { Text = def.Name, FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Theme.AccentLight, HorizontalTextAlignment = TextAlignment.Center },
-                new Label { Text = $"{def.Title} · Niveau {c.Level}", FontSize = 14, TextColor = Theme.Text, HorizontalTextAlignment = TextAlignment.Center },
-                new Label { Text = def.Description, FontSize = 13, TextColor = Theme.Muted, FontAttributes = FontAttributes.Italic, HorizontalTextAlignment = TextAlignment.Center },
-                Bar("PV", c.CurrentHp, stats.MaxHp, Theme.Hp, 12),
-                Bar("PM", c.CurrentMana, stats.MaxMana, Theme.Mana, 12),
-                Bar("XP", c.Xp, s.XpToNextLevel(c.Level), Theme.Xp, 8),
+                Avatar(def.Name, Theme.AvatarColor(def.Id), 88),
+                new Label
+                {
+                    Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 24, FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Stone100, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
+                },
+                new Label
+                {
+                    Text = $"{def.Title} · Niveau {c.Level}".ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Gold500, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
+                },
+                new Label
+                {
+                    Text = def.Description, FontSize = 13, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400,
+                    HorizontalTextAlignment = TextAlignment.Center,
+                },
+                Bar("PV", c.CurrentHp, stats.MaxHp, Theme.Green500, 10, dark: true),
+                Bar("PM", c.CurrentMana, stats.MaxMana, Theme.Blue500, 10, dark: true),
+                Bar("XP", c.Xp, s.XpToNextLevel(c.Level), Theme.Gold500, 6, dark: true),
             },
-        }, Theme.Darker(color, 0.6f), Theme.Bg));
+        }, Ico.User, goldLine: true));
 
         stack.Add(Section("Statistiques"));
         stack.Add(TileGrid(
         [
-            StatCell("❤️", "PV MAX", stats.MaxHp, Theme.Hp),
-            StatCell("🔷", "PM MAX", stats.MaxMana, Theme.Mana),
-            StatCell("⚔️", "ATTAQUE", stats.Attack, Theme.Danger),
-            StatCell("🛡️", "DÉFENSE", stats.Defense, Theme.Muted),
-            StatCell("✨", "MAGIE", stats.Magic, Theme.Xp),
-            StatCell("💨", "VITESSE", stats.Speed, Theme.Good),
+            StatCell(Ico.Heart, "PV max", stats.MaxHp, Theme.Green600),
+            StatCell(Ico.Droplet, "PM max", stats.MaxMana, Theme.Blue600),
+            StatCell(Ico.Sword, "Attaque", stats.Attack, Theme.Red600),
+            StatCell(Ico.Shield, "Défense", stats.Defense, Theme.Stone600),
+            StatCell(Ico.Sparkles, "Magie", stats.Magic, Theme.Purple600),
+            StatCell(Ico.Wind, "Vitesse", stats.Speed, Theme.Gold600),
         ], 3));
 
-        stack.Add(Section("Équipement"));
+        var equipment = new VerticalStackLayout { Spacing = 12 };
         foreach (var slot in Enum.GetValues<EquipSlot>())
         {
             var equipped = c.GetEquipped(slot) is { } id && s.Db.Items.TryGetValue(id, out var it) ? it : null;
@@ -123,42 +126,48 @@ public sealed class CampView : ContentView
                 Spacing = 2,
                 Children =
                 {
-                    Muted(SlotName(slot).ToUpperInvariant(), 11),
-                    Txt(equipped?.Name ?? "— vide —", 15, equipped is null ? Theme.Muted : Theme.Text, bold: equipped is not null),
+                    Caps(SlotName(slot), 9, Theme.Stone400),
+                    Txt(equipped?.Name ?? "— vide —", 15, equipped is null ? Theme.Stone400 : Theme.Stone900, bold: equipped is not null),
                 },
             };
-            if (equipped is not null && equipped.Bonus.ToBonusString() is { Length: > 0 } bonus) info.Add(Txt(bonus, 12, Theme.Good));
+            if (equipped is not null && equipped.Bonus.ToBonusString() is { Length: > 0 } bonus) info.Add(Txt(bonus, 12, Theme.Green600, bold: true));
             var remove = equipped is null ? null : Btn("Retirer", () => { s.Unequip(c, slotCopy); _page.Render(); });
-            var panel = Stack(IconRow(Icon(SlotIcon(slot), 30), info, remove));
+            equipment.Add(IconRow(IconBox(SlotIcon(slot), Theme.Stone700), info, remove));
             foreach (var (item, count) in s.Bag().Where(b => b.Item.Slot == slot))
             {
                 var itemId = item.Id;
-                panel.Add(Row(Muted($"↳ {item.Name} x{count} · {item.Bonus.ToBonusString()}", 12),
+                equipment.Add(Row(Muted($"↳ {item.Name} x{count} · {item.Bonus.ToBonusString()}", 12),
                     Btn("Équiper", () => { s.Equip(c, itemId); _page.Render(); })));
             }
-            stack.Add(Card(panel));
         }
+        stack.Add(TitledCard(Ico.Shield, "Équipement", equipment));
 
-        stack.Add(Section("Compétences"));
+        var skills = new VerticalStackLayout { Spacing = 10 };
         foreach (var unlock in def.Skills)
         {
             if (!s.Db.Skills.TryGetValue(unlock.SkillId, out var skill)) continue;
             var learned = unlock.Level <= c.Level;
-            var icon = skill.Kind switch { SkillKind.Heal => "💚", SkillKind.Magical => "🔮", _ => "🗡️" };
+            var (glyph, color) = skill.Kind switch
+            {
+                SkillKind.Heal => (Ico.HeartPulse, Theme.Green600),
+                SkillKind.Magical => (Ico.WandSparkles, Theme.Purple600),
+                _ => (Ico.Swords, Theme.Red600),
+            };
             var info = new VerticalStackLayout
             {
-                Spacing = 2,
+                Spacing = 1,
                 Children =
                 {
-                    Txt(skill.Name, 15, learned ? Theme.Text : Theme.Muted, bold: true),
+                    Txt(skill.Name, 15, learned ? Theme.Stone900 : Theme.Stone400, bold: true),
                     Muted(learned ? skill.Description : $"Apprise au niveau {unlock.Level}", 12),
                 },
             };
-            var cost = skill.ManaCost > 0 ? Badge($"{skill.ManaCost} PM", Theme.Mana) : Badge("Gratuit", Theme.Muted);
-            var card = Card(IconRow(Icon(learned ? icon : "🔒", 24), info, cost));
-            if (!learned) card.Opacity = 0.6;
-            stack.Add(card);
+            var cost = skill.ManaCost > 0 ? Badge($"{skill.ManaCost} PM", Theme.Blue600) : Badge("Libre", Theme.Stone500);
+            var row = IconRow(IconBox(learned ? glyph : Ico.Lock, learned ? color : Theme.Stone400), info, cost);
+            if (!learned) row.Opacity = 0.6;
+            skills.Add(row);
         }
+        stack.Add(TitledCard(Ico.WandSparkles, "Compétences", skills));
 
         stack.Add(Btn(c.IsActive ? "Mettre en réserve" : "Passer titulaire", () =>
         {
@@ -179,14 +188,15 @@ public sealed class CampView : ContentView
         }
         foreach (var group in bag.GroupBy(b => b.Item.Type))
         {
-            stack.Add(Section(group.Key switch
+            var title = group.Key switch
             {
                 ItemType.Consumable => "Consommables",
                 ItemType.Weapon => "Armes",
                 ItemType.Armor => "Armures",
                 ItemType.Relic => "Reliques",
                 _ => "Objets de quête",
-            }));
+            };
+            var list = new VerticalStackLayout { Spacing = 14 };
             foreach (var (item, count) in group)
             {
                 var info = new VerticalStackLayout
@@ -194,12 +204,12 @@ public sealed class CampView : ContentView
                     Spacing = 2,
                     Children =
                     {
-                        Txt(item.Name, 16, Theme.Text, bold: true),
-                        Muted(ItemSummary(item), 12),
-                        Txt(item.Description, 13, Theme.Muted),
+                        Txt(item.Name, 15, Theme.Stone900, bold: true),
+                        Caps(ItemSummary(item), 9, Theme.Stone500),
+                        Txt(item.Description, 12, Theme.Stone500),
                     },
                 };
-                var panel = Stack(IconRow(Icon(Theme.ItemIcon(item), 32), info, Badge($"x{count}", Theme.Accent)));
+                var entry = Stack(IconRow(IconBox(Theme.ItemIcon(item), Theme.Stone700), info, Badge($"x{count}", Theme.Gold700)));
                 if (item.IsConsumable)
                 {
                     var itemId = item.Id;
@@ -208,15 +218,12 @@ public sealed class CampView : ContentView
                         if (!s.UseItem(itemId, c)) _page.Notify("Aucun effet.");
                         _page.Render();
                     })).ToArray();
-                    panel.Add(Muted("Utiliser sur :", 11));
-                    panel.Add(ButtonRow(targets));
+                    entry.Add(ButtonRow(targets));
                 }
-                else if (item.IsEquipable)
-                {
-                    panel.Add(Muted("S'équipe depuis la fiche d'un personnage.", 11));
-                }
-                stack.Add(Card(panel));
+                list.Add(entry);
             }
+            stack.Add(TitledCard(Theme.ItemIcon(group.First().Item), title, list));
         }
+        stack.Add(Muted("Les armes, armures et reliques s'équipent depuis la fiche d'un personnage.", 12));
     }
 }

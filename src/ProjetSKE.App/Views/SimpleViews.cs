@@ -10,17 +10,19 @@ public sealed class EncyclopediaView : ContentView
 {
     private static readonly (EncyclopediaCategory Category, string Icon, string Label)[] Categories =
     [
-        (EncyclopediaCategory.Characters, "👤", "Personnages"),
-        (EncyclopediaCategory.Monsters, "👹", "Monstres"),
-        (EncyclopediaCategory.Locations, "🏰", "Lieux"),
-        (EncyclopediaCategory.Weapons, "⚔️", "Armes"),
-        (EncyclopediaCategory.Relics, "💎", "Reliques"),
+        (EncyclopediaCategory.Characters, Ico.Users, "Personnages"),
+        (EncyclopediaCategory.Monsters, Ico.Skull, "Monstres"),
+        (EncyclopediaCategory.Locations, Ico.Castle, "Lieux"),
+        (EncyclopediaCategory.Weapons, Ico.Sword, "Armes"),
+        (EncyclopediaCategory.Relics, Ico.Gem, "Reliques"),
     ];
 
     public EncyclopediaView(GamePage page)
     {
         var s = page.Session;
-        var stack = new VerticalStackLayout { Spacing = 12 };
+        var stack = new VerticalStackLayout { Spacing = 14 };
+        var total = Categories.Sum(c => s.GetEncyclopedia(c.Category).Count);
+        stack.Add(PageHeader(Ico.Library, "Encyclopédie", $"{total} entrée(s) découverte(s)"));
 
         var tiles = Categories.Select(c =>
         {
@@ -28,48 +30,40 @@ public sealed class EncyclopediaView : ContentView
             var count = s.GetEncyclopedia(c.Category).Count;
             var tile = Card(new VerticalStackLayout
             {
-                Spacing = 0,
+                Spacing = 2,
                 Children =
                 {
-                    Icon(c.Icon, 24),
-                    new Label { Text = count.ToString(), FontSize = 13, FontAttributes = FontAttributes.Bold, TextColor = selected ? Theme.Bg : Theme.Text, HorizontalTextAlignment = TextAlignment.Center },
+                    Icon(c.Icon, 20, selected ? Theme.Gold500 : Theme.Stone600),
+                    new Label
+                    {
+                        Text = count.ToString(), FontFamily = "serif", FontSize = 15, FontAttributes = FontAttributes.Bold,
+                        TextColor = selected ? Theme.Stone100 : Theme.Stone900, HorizontalTextAlignment = TextAlignment.Center,
+                    },
                 },
-            }, selected ? Theme.Accent : Theme.Surface, selected ? Theme.AccentLight : Theme.Stroke, 14);
-            tile.Padding = new Thickness(4, 8);
+            }, selected ? Theme.Stone900 : Colors.White, selected ? Theme.Stone900 : Theme.Stone200, 10);
+            tile.Padding = new Thickness(2, 8);
             return (View)OnTap(tile, () => { page.EncyclopediaCategory = c.Category; page.Render(); });
         }).ToList();
         stack.Add(TileGrid(tiles, 5));
 
         var current = Categories.First(c => c.Category == page.EncyclopediaCategory);
         var entries = s.GetEncyclopedia(page.EncyclopediaCategory);
-        stack.Add(Section($"{current.Label}  ·  {entries.Count} découvert(s)"));
-        if (entries.Count == 0)
+        var list = new VerticalStackLayout { Spacing = 14 };
+        if (entries.Count == 0) list.Add(Muted("Rien de rencontré pour l'instant.", 14));
+        foreach (var (name, subtitle, description) in entries)
         {
-            stack.Add(Card(new VerticalStackLayout
+            list.Add(IconRow(IconBox(current.Icon), new VerticalStackLayout
             {
-                Spacing = 8,
-                Padding = new Thickness(0, 30),
+                Spacing = 2,
                 Children =
                 {
-                    Icon("❔", 44),
-                    new Label { Text = "Rien de rencontré pour l'instant.", FontSize = 15, TextColor = Theme.Muted, HorizontalTextAlignment = TextAlignment.Center },
+                    Txt(name, 15, Theme.Stone900, bold: true),
+                    Caps(subtitle, 9, Theme.Stone500),
+                    Txt(description, 13, Theme.Stone600),
                 },
             }));
         }
-        foreach (var (name, subtitle, description) in entries)
-        {
-            var info = new VerticalStackLayout
-            {
-                Spacing = 3,
-                Children =
-                {
-                    Txt(name, 17, Theme.AccentLight, bold: true),
-                    Muted(subtitle, 12),
-                    Txt(description, 14, Theme.Text),
-                },
-            };
-            stack.Add(Card(IconRow(Icon(current.Icon, 30), info)));
-        }
+        stack.Add(TitledCard(current.Icon, current.Label, list, Badge(entries.Count.ToString(), Theme.Stone500)));
         Content = stack;
     }
 }
@@ -81,22 +75,14 @@ public sealed class ShopView : ContentView
     {
         var s = page.Session;
         s.BrowseShop();
-        var stack = new VerticalStackLayout { Spacing = 12 };
-
-        stack.Add(GradientCard(IconRow(Icon("🛒", 40), new VerticalStackLayout
-        {
-            Spacing = 0,
-            Children =
-            {
-                Txt($"Boutique de {s.CurrentLocation.Name}", 20, Theme.AccentLight, bold: true),
-                Muted(page.ShopSelling ? "Le marchand rachète à moitié prix." : "Bienvenue, voyageur ! Jetez un œil.", 13),
-            },
-        }), Color.FromArgb("#4A3418"), Color.FromArgb("#1A130A")));
+        var stack = new VerticalStackLayout { Spacing = 14 };
+        stack.Add(PageHeader(Ico.Store, $"Boutique", page.ShopSelling ? "Le marchand rachète à moitié prix" : s.CurrentLocation.Name));
 
         stack.Add(ButtonRow(
             Btn("Acheter", () => { page.ShopSelling = false; page.Render(); }, selected: !page.ShopSelling),
             Btn("Vendre", () => { page.ShopSelling = true; page.Render(); }, selected: page.ShopSelling)));
 
+        var list = new VerticalStackLayout { Spacing = 14 };
         if (!page.ShopSelling)
         {
             foreach (var item in s.ShopStock)
@@ -108,41 +94,41 @@ public sealed class ShopView : ContentView
                     Spacing = 2,
                     Children =
                     {
-                        Txt(item.Name, 16, Theme.Text, bold: true),
-                        Muted(ItemSummary(item) + (owned > 0 ? $" · possédé : {owned}" : ""), 12),
-                        Txt(item.Description, 13, Theme.Muted),
+                        Txt(item.Name, 15, Theme.Stone900, bold: true),
+                        Caps(ItemSummary(item) + (owned > 0 ? $" · possédé : {owned}" : ""), 9, Theme.Stone500),
+                        Txt(item.Description, 12, Theme.Stone500),
                     },
                 };
                 var buy = Btn($"{item.Price} or", () =>
                 {
-                    page.Notify(s.Buy(id) ? $"🛍️ {item.Name} acheté." : "Pas assez d'or.");
+                    page.Notify(s.Buy(id) ? $"{item.Name} acheté." : "Pas assez d'or.");
                     page.Render();
-                }, enabled: !(item.IsUnique && s.OwnsItem(id)));
-                buy.TextColor = Theme.AccentLight;
-                stack.Add(Card(IconRow(Icon(Theme.ItemIcon(item), 32), info, buy)));
+                }, enabled: !(item.IsUnique && s.OwnsItem(id)), selected: true);
+                list.Add(IconRow(IconBox(Theme.ItemIcon(item)), info, buy));
             }
+            stack.Add(TitledCard(Ico.ShoppingBag, "Étal du marchand", list));
         }
         else
         {
             var sellable = s.Bag().Where(b => b.Item.IsSellable).ToList();
-            if (sellable.Count == 0)
-                stack.Add(Card(Muted("Rien à vendre. Les objets équipés doivent d'abord être retirés au camp.", 14)));
+            if (sellable.Count == 0) list.Add(Muted("Rien à vendre. Les objets équipés doivent d'abord être retirés au camp.", 13));
             foreach (var (item, count) in sellable)
             {
                 var id = item.Id;
                 var info = new VerticalStackLayout
                 {
                     Spacing = 2,
-                    Children = { Txt($"{item.Name}  x{count}", 16, Theme.Text, bold: true), Muted(ItemSummary(item), 12) },
+                    Children = { Txt($"{item.Name}  x{count}", 15, Theme.Stone900, bold: true), Caps(ItemSummary(item), 9, Theme.Stone500) },
                 };
                 var sell = Btn($"+{s.SellPrice(item)} or", () =>
                 {
-                    if (s.Sell(id)) page.Notify($"💰 {item.Name} vendu.");
+                    if (s.Sell(id)) page.Notify($"{item.Name} vendu.");
                     page.Render();
                 });
-                sell.TextColor = Theme.Good;
-                stack.Add(Card(IconRow(Icon(Theme.ItemIcon(item), 32), info, sell)));
+                sell.TextColor = Theme.Green600;
+                list.Add(IconRow(IconBox(Theme.ItemIcon(item)), info, sell));
             }
+            stack.Add(TitledCard(Ico.Coins, "Revendre", list));
         }
         Content = stack;
     }
@@ -156,41 +142,35 @@ public sealed class JournalView : ContentView
         var editor = new Editor
         {
             Text = page.Session.State.Journal,
-            Placeholder = "Page blanche... Note ici tes découvertes, tes pistes, tes plans.",
-            PlaceholderColor = Color.FromArgb("#8C7A5A"),
-            TextColor = Theme.Ink,
+            Placeholder = "Page blanche… Note ici tes découvertes, tes pistes, tes plans.",
+            PlaceholderColor = Theme.Stone400,
+            TextColor = Theme.Stone900,
+            FontFamily = "serif",
             BackgroundColor = Colors.Transparent,
             FontSize = 16,
             AutoSize = EditorAutoSizeOption.TextChanges,
-            MinimumHeightRequest = 520,
+            MinimumHeightRequest = 480,
         };
         editor.TextChanged += (_, e) => page.Session.State.Journal = e.NewTextValue ?? "";
         editor.Unfocused += (_, _) => page.AutoSave();
 
-        var parchment = new Border
+        var sheet = Card(new VerticalStackLayout
         {
-            Background = Theme.Vertical(Theme.Parchment, Color.FromArgb("#D9C9A0")),
-            Stroke = Color.FromArgb("#8C6A3A"),
-            StrokeThickness = 2,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
-            Padding = new Thickness(18, 16),
-            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 6), Radius = 14, Opacity = 0.5f },
-            Content = new VerticalStackLayout
+            Spacing = 8,
+            Children =
             {
-                Spacing = 6,
-                Children =
-                {
-                    new Label
-                    {
-                        Text = "Carnet de voyage", FontSize = 20, FontAttributes = FontAttributes.Bold | FontAttributes.Italic,
-                        TextColor = Theme.Ink, HorizontalTextAlignment = TextAlignment.Center,
-                    },
-                    new BoxView { HeightRequest = 1, Color = Color.FromArgb("#8C6A3A"), Margin = new Thickness(30, 0) },
-                    editor,
-                },
+                IconCaps(Ico.NotebookPen, "Carnet de voyage", Theme.Stone500),
+                new BoxView { HeightRequest = 1, Color = Theme.Stone200 },
+                editor,
             },
+        }, Theme.ParchmentLight, Theme.Stone300);
+        sheet.Padding = new Thickness(18, 14);
+
+        Content = new VerticalStackLayout
+        {
+            Spacing = 14,
+            Children = { PageHeader(Ico.Feather, "Journal", "Tes notes personnelles"), sheet },
         };
-        Content = parchment;
     }
 }
 
@@ -201,30 +181,28 @@ public sealed class MenuView : ContentView
     {
         var s = page.Session;
         var config = s.Config;
-        var stack = new VerticalStackLayout { Spacing = 12 };
+        var stack = new VerticalStackLayout { Spacing = 14 };
+        stack.Add(PageHeader(Ico.Settings, "Menu", page.IsTestGame ? "Partie de test" : $"Emplacement {page.Slot + 1}"));
 
-        stack.Add(Section("Partie"));
-        stack.Add(Card(Stack(
-            IconRow(Icon("💾", 30), Stack(
-                Txt(page.IsTestGame ? "Partie de test" : $"Emplacement {page.Slot + 1}", 16, Theme.Text, bold: true),
-                Muted(page.IsTestGame ? "Jamais sauvegardée." : "Sauvegarde automatique activée.", 12))),
+        stack.Add(TitledCard(Ico.Save, "Sauvegarde", Stack(
+            Muted(page.IsTestGame ? "Partie de test : jamais sauvegardée." : "La partie est aussi sauvegardée automatiquement.", 13),
             Primary("Sauvegarder", () =>
             {
                 page.AutoSave();
-                page.Notify(page.IsTestGame ? "Partie de test : rien n'est sauvegardé." : "💾 Partie sauvegardée.");
+                page.Notify("Partie sauvegardée.");
                 page.Render();
             }, enabled: !page.IsTestGame))));
 
-        stack.Add(Section("Paramètres"));
-        stack.Add(Setting("🧭", "Combats en voyage", Describe(config.TravelEncounters), () => config.TravelEncounters = Next(config.TravelEncounters)));
-        stack.Add(Setting("☠️", "En cas de défaite", Describe(config.Defeat), () => config.Defeat = Next(config.Defeat)));
-        stack.Add(Setting("🏃", "Fuite", Describe(config.Flee), () => config.Flee = Next(config.Flee)));
-        stack.Add(Muted("Touchez une valeur pour la changer. Les boss empêchent toujours la fuite.", 12));
+        var settings = new VerticalStackLayout { Spacing = 12 };
+        settings.Add(Setting(Ico.Compass, "Combats en voyage", Describe(config.TravelEncounters), () => config.TravelEncounters = Next(config.TravelEncounters)));
+        settings.Add(Setting(Ico.Skull, "En cas de défaite", Describe(config.Defeat), () => config.Defeat = Next(config.Defeat)));
+        settings.Add(Setting(Ico.Footprints, "Fuite", Describe(config.Flee), () => config.Flee = Next(config.Flee)));
+        settings.Add(Muted("Touchez une valeur pour la changer. Les boss empêchent toujours la fuite.", 11));
+        stack.Add(TitledCard(Ico.SlidersHorizontal, "Paramètres", settings));
 
         if (SkeApp.DevUnlocked)
         {
-            stack.Add(Section("Mode développeur"));
-            stack.Add(Btn(page.MenuShowDevTools ? "🛠️  Masquer les outils de test" : "🛠️  Outils de test", () =>
+            stack.Add(Btn(page.MenuShowDevTools ? "Masquer les outils de test" : "Outils de test", () =>
             {
                 page.MenuShowDevTools = !page.MenuShowDevTools;
                 page.Render();
@@ -232,16 +210,14 @@ public sealed class MenuView : ContentView
             if (page.MenuShowDevTools) stack.Add(new Dev.DevToolsView(page));
         }
 
-        stack.Add(new BoxView { HeightRequest = 10, Color = Colors.Transparent });
-        stack.Add(Btn(page.IsTestGame ? "Quitter le test" : "🚪  Retour au titre", page.QuitToTitle));
-
+        stack.Add(Btn(page.IsTestGame ? "Quitter le test" : "Retour au titre", page.QuitToTitle));
         Content = stack;
 
-        View Setting(string icon, string label, string value, Action change)
+        View Setting(string glyph, string label, string value, Action change)
         {
-            var button = Btn(value, () => { change(); page.Render(); });
-            button.TextColor = Theme.AccentLight;
-            return Card(IconRow(Icon(icon, 26), Txt(label, 15, Theme.Text, bold: true), button));
+            var button = Btn(value, () => { change(); page.Render(); }, selected: true);
+            button.FontSize = 11;
+            return IconRow(IconBox(glyph), Txt(label, 14, Theme.Stone900, bold: true), button);
         }
     }
 }

@@ -27,6 +27,10 @@ dotnet publish src/ProjetSKE.App/ProjetSKE.App.csproj -f net10.0-android -c Rele
 dotnet test tests/ProjetSKE.Core.Tests
 ```
 
+## Direction artistique
+
+Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre soulignés d'un filet d'or, cartes blanches avec bandeau de titre, petits libellés en capitales espacées, titres à empattements et boutons pierre / texte or. Les icônes viennent de [Lucide](https://lucide.dev) (police `Resources/Fonts/lucide.ttf`, licence ISC). Toute la palette et les composants sont dans `src/ProjetSKE.App/Ui/UiKit.cs`.
+
 ## Ce qui est en place
 
 | Écran | Contenu |

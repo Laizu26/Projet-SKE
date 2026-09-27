@@ -4,7 +4,10 @@ using static ProjetSKE.App.Ui.UiKit;
 
 namespace ProjetSKE.App.Views;
 
-/// <summary>Mode Histoire : boîte de dialogue centrée, par-dessus tout, avec choix de réponse.</summary>
+/// <summary>
+/// Mode Histoire : boîte de dialogue centrée, par-dessus tout.
+/// Style « carte d'accès » de Service Impérial : bandeau pierre + filet d'or, corps parchemin.
+/// </summary>
 public sealed class DialogueView : ContentView
 {
     private readonly GameSession _session;
@@ -30,84 +33,99 @@ public sealed class DialogueView : ContentView
             return;
         }
 
-        var box = new VerticalStackLayout { Spacing = 14 };
+        var node = _runner.Current;
+        var speaker = node?.Speaker ?? "";
+        var narration = speaker.Length == 0;
 
-        if (_runner.Current is { } node)
+        // Bandeau sombre : qui parle.
+        var band = new VerticalStackLayout
         {
-            if (node.Speaker.Length > 0)
+            BackgroundColor = Theme.Stone900,
+            Spacing = 0,
+            Children =
             {
-                box.Add(new VerticalStackLayout
+                GoldLine(4),
+                new VerticalStackLayout
                 {
-                    Spacing = 6,
+                    Padding = new Thickness(20, 18, 20, 16),
+                    Spacing = 8,
                     Children =
                     {
-                        Avatar(node.Speaker, Theme.AvatarColor(node.Speaker), 72),
+                        narration ? Emblem(Ico.Feather, 64) : Avatar(speaker, Theme.AvatarColor(speaker), 64),
                         new Label
                         {
-                            Text = node.Speaker, FontSize = 20, FontAttributes = FontAttributes.Bold,
-                            TextColor = Theme.AccentLight, HorizontalTextAlignment = TextAlignment.Center, CharacterSpacing = 1,
+                            Text = (narration ? "Récit" : speaker).ToUpperInvariant(), FontFamily = "serif", FontSize = 20,
+                            FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 3,
+                            HorizontalTextAlignment = TextAlignment.Center,
+                        },
+                        new Label
+                        {
+                            Text = narration ? "NARRATION" : "DIALOGUE", FontSize = 9, FontAttributes = FontAttributes.Bold,
+                            TextColor = Theme.Stone500, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center,
                         },
                     },
-                });
-                box.Add(new Label
-                {
-                    Text = node.Text, FontSize = 18, TextColor = Theme.Text,
-                    HorizontalTextAlignment = TextAlignment.Center, LineHeight = 1.2,
-                });
-            }
-            else
+                },
+            },
+        };
+
+        // Corps parchemin : le texte et les choix.
+        var body = new VerticalStackLayout { Padding = new Thickness(20, 18, 20, 20), Spacing = 12, BackgroundColor = Theme.Parchment };
+        if (node is not null)
+        {
+            body.Add(new Label
             {
-                box.Add(new Label { Text = "✦", FontSize = 22, TextColor = Theme.Accent, HorizontalTextAlignment = TextAlignment.Center });
-                box.Add(new Label
-                {
-                    Text = node.Text, FontSize = 18, TextColor = Theme.Text, FontAttributes = FontAttributes.Italic,
-                    HorizontalTextAlignment = TextAlignment.Center, LineHeight = 1.2,
-                });
-            }
+                Text = narration ? node.Text : $"« {node.Text} »",
+                FontFamily = "serif",
+                FontSize = 17,
+                FontAttributes = narration ? FontAttributes.Italic : FontAttributes.None,
+                TextColor = Theme.Stone900,
+                HorizontalTextAlignment = TextAlignment.Center,
+                LineHeight = 1.25,
+            });
         }
 
         foreach (var n in notifications)
         {
-            var note = Card(Txt("✔ " + n, 14, Theme.Good, bold: true), Theme.Surface2, Theme.Good.WithAlpha(0.5f), 12);
+            var note = Card(IconRow(Icon(Ico.CircleCheck, 18, Theme.Green600), Txt(n, 13, Theme.Stone900, bold: true)), Colors.White, Theme.Green600.WithAlpha(0.4f), 10);
             note.Padding = new Thickness(12, 8);
-            box.Add(note);
+            body.Add(note);
         }
 
-        if (_runner.Current is { } current)
+        if (node is not null)
         {
             var choices = _runner.Choices;
             if (choices.Count > 0)
             {
-                box.Add(new BoxView { HeightRequest = 1, Color = Theme.Stroke, Margin = new Thickness(0, 4) });
+                body.Add(Caps("Votre réponse", 9, Theme.Stone500));
                 for (var i = 0; i < choices.Count; i++)
                 {
                     var index = i;
-                    var choice = Btn("›  " + choices[i].Text, () => { _runner.Choose(index); Render(); });
+                    var choice = Btn(choices[i].Text, () => { _runner.Choose(index); Render(); });
                     choice.MinimumHeightRequest = 50;
-                    box.Add(choice);
+                    body.Add(choice);
                 }
             }
             else
             {
-                box.Add(Primary(current.NextId is null ? "Fermer" : "Suite  ▸", () => { _runner.Continue(); Render(); }));
+                body.Add(Primary(node.NextId is null ? "Fermer" : "Suite  ▸", () => { _runner.Continue(); Render(); }));
             }
         }
         else
         {
-            box.Add(Primary("Fermer", _onEnd));
+            body.Add(Primary("Fermer", _onEnd));
         }
 
         var card = new Border
         {
-            Content = box,
-            Background = Theme.Vertical(Theme.Surface2, Theme.Surface),
-            Stroke = Theme.Accent.WithAlpha(0.6f),
-            StrokeThickness = 1.5,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 22 },
-            Padding = new Thickness(22, 24),
+            Content = new VerticalStackLayout { Spacing = 0, Children = { band, body } },
+            BackgroundColor = Theme.Parchment,
+            Stroke = Theme.Stone800,
+            StrokeThickness = 4,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
+            Padding = 0,
             Margin = new Thickness(18),
             VerticalOptions = LayoutOptions.Center,
-            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 10), Radius = 30, Opacity = 0.7f },
+            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 12), Radius = 30, Opacity = 0.6f },
         };
 
         // La boîte est centrée verticalement sur tout l'écran.

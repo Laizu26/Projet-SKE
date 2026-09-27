@@ -35,8 +35,9 @@ public sealed class GamePage : ContentPage
     private readonly Label _message;
     private readonly Border _toast;
     private readonly View _testBadge;
+    private readonly ContentView _avatarHost;
     private readonly ContentView _body = new();
-    private readonly Grid _tabBar = new() { ColumnSpacing = 0, Padding = new Thickness(4, 6, 4, 8), BackgroundColor = Theme.Surface };
+    private readonly Grid _tabBar = new() { ColumnSpacing = 2, Padding = new Thickness(6, 6, 6, 10), BackgroundColor = Theme.Stone950 };
     private readonly ContentView _overlay = new() { IsVisible = false, ZIndex = 10, BackgroundColor = Theme.Overlay };
     private string? _pendingMessage;
     private bool _saveDisabled;
@@ -47,45 +48,55 @@ public sealed class GamePage : ContentPage
         Slot = slot;
         BackgroundColor = Theme.Bg;
 
-        _title = Txt("", 20, Theme.Accent, bold: true);
-        _title.CharacterSpacing = 1;
-        _subtitle = Muted("", 13);
-        _message = Txt("", 14, Theme.Good, bold: true);
-        _toast = Card(_message, Theme.Surface2, Theme.Good.WithAlpha(0.6f), 14);
-        _toast.Margin = new Thickness(14, 8, 14, 0);
-        _testBadge = Badge("TEST", Theme.Danger);
+        _title = Txt("", 16, Theme.Stone100, bold: true);
+        _subtitle = Caps("", 9, Theme.Stone500);
+        _message = Txt("", 13, Theme.Stone100, bold: true);
+        _toast = new Border
+        {
+            BackgroundColor = Theme.Stone900,
+            Stroke = Theme.Gold600,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 12 },
+            Padding = new Thickness(14, 10),
+            Margin = new Thickness(14, 10, 14, 0),
+            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 4), Radius = 10, Opacity = 0.3f },
+            Content = IconRow(Icon(Ico.Bell, 18, Theme.Gold500), _message),
+        };
+        _testBadge = Badge("Test", Theme.Red500);
+        _avatarHost = new ContentView();
 
         var header = new Grid
         {
-            Background = Theme.Vertical(Theme.Surface2, Theme.BgTop),
-            Padding = new Thickness(18, 14, 18, 12),
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
+            BackgroundColor = Theme.Stone900,
+            Padding = new Thickness(16, 12),
+            ColumnSpacing = 12,
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
         };
-        header.Add(new VerticalStackLayout { Spacing = 0, Children = { _title, _subtitle } }, 0, 0);
-        header.Add(_testBadge, 1, 0);
+        header.Add(_avatarHost, 0, 0);
+        header.Add(new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center, Children = { _title, _subtitle } }, 1, 0);
+        header.Add(_testBadge, 2, 0);
 
         var root = new Grid
         {
+            BackgroundColor = Theme.Parchment,
             RowDefinitions =
             {
                 new RowDefinition(GridLength.Auto),
-                new RowDefinition(new GridLength(1)),
+                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Star),
-                new RowDefinition(new GridLength(1)),
                 new RowDefinition(GridLength.Auto),
             },
         };
         root.Add(header, 0, 0);
-        root.Add(new BoxView { Color = Theme.Accent.WithAlpha(0.4f) }, 0, 1);
+        root.Add(GoldLine(2), 0, 1);
         root.Add(_toast, 0, 2);
         root.Add(_body, 0, 3);
-        root.Add(new BoxView { Color = Theme.Stroke }, 0, 4);
-        root.Add(_tabBar, 0, 5);
+        root.Add(_tabBar, 0, 4);
         root.Add(_overlay, 0, 0);
-        Grid.SetRowSpan(_overlay, 6);
+        Grid.SetRowSpan(_overlay, 5);
         Content = root;
-        Background = Theme.PageBackground;
+        BackgroundColor = Theme.Stone900;
 
         Render();
         if (playIntro && session.Db.Start.IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
@@ -95,22 +106,25 @@ public sealed class GamePage : ContentPage
 
     private static readonly (GameTab Tab, string Icon, string Label)[] Tabs =
     [
-        (GameTab.Camp, "🏕️", "Camp"),
-        (GameTab.Map, "🗺️", "Carte"),
-        (GameTab.Quests, "📜", "Quêtes"),
-        (GameTab.Encyclopedia, "📖", "Savoir"),
-        (GameTab.Shop, "🛒", "Shop"),
-        (GameTab.Journal, "✒️", "Journal"),
-        (GameTab.Menu, "⚙️", "Menu"),
+        (GameTab.Camp, Ico.Tent, "Camp"),
+        (GameTab.Map, Ico.Map, "Carte"),
+        (GameTab.Quests, Ico.ScrollText, "Quêtes"),
+        (GameTab.Encyclopedia, Ico.Library, "Savoir"),
+        (GameTab.Shop, Ico.Store, "Shop"),
+        (GameTab.Journal, Ico.Feather, "Journal"),
+        (GameTab.Menu, Ico.Settings, "Menu"),
     ];
 
     public void Render()
     {
         var loc = Session.CurrentLocation;
         if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
-        var current = Tabs.First(t => t.Tab == Tab);
-        _title.Text = Tab == GameTab.Map ? $"{Theme.LocationStyle(loc.Type).Icon}  {loc.Name}" : $"{current.Icon}  {TabTitle(Tab)}";
-        _subtitle.Text = Tab == GameTab.Map ? GameSession.LocationTypeName(loc.Type) : $"📍 {loc.Name}";
+        var hero = Session.State.Party.FirstOrDefault(c => c.DefId == Session.State.HeroId) ?? Session.State.Party.FirstOrDefault();
+        _avatarHost.Content = hero is null
+            ? Emblem(Ico.Shield, 38)
+            : Avatar(Session.DefOf(hero).Name, Theme.Gold600, 38);
+        _title.Text = loc.Name;
+        _subtitle.Text = $"{GameSession.LocationTypeName(loc.Type)} · {TabTitle(Tab)}".ToUpperInvariant();
         _testBadge.IsVisible = IsTestGame;
 
         Session.UpdateQuests();
@@ -136,7 +150,7 @@ public sealed class GamePage : ContentPage
             GameTab.Menu => new MenuView(this),
             _ => new MapView(this),
         };
-        _body.Content = new ScrollView { Content = new ContentView { Content = view, Padding = new Thickness(14, 12, 14, 24) } };
+        _body.Content = new ScrollView { Content = new ContentView { Content = view, Padding = new Thickness(14, 16, 14, 28) } };
     }
 
     private static string TabTitle(GameTab tab) => tab switch
@@ -161,23 +175,32 @@ public sealed class GamePage : ContentPage
             var selected = Tab == t.Tab;
             _tabBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 
-            var cell = new Grid
+            var cell = new Border
             {
-                RowDefinitions = { new RowDefinition(new GridLength(3)), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto) },
-                RowSpacing = 2,
-                Opacity = enabled ? 1 : 0.3,
-                BackgroundColor = Colors.Transparent,
+                BackgroundColor = selected ? Theme.Stone800 : Colors.Transparent,
+                Stroke = selected ? Theme.Stone700 : Colors.Transparent,
+                StrokeThickness = 1,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
+                Padding = new Thickness(0, 7, 0, 6),
+                Opacity = enabled ? 1 : 0.25,
+                Content = new VerticalStackLayout
+                {
+                    Spacing = 3,
+                    Children =
+                    {
+                        Icon(t.Icon, 20, selected ? Theme.Gold500 : Theme.Stone500),
+                        new Label
+                        {
+                            Text = t.Label.ToUpperInvariant(),
+                            FontSize = 8,
+                            FontAttributes = FontAttributes.Bold,
+                            CharacterSpacing = 1,
+                            TextColor = selected ? Theme.Gold500 : Theme.Stone500,
+                            HorizontalTextAlignment = TextAlignment.Center,
+                        },
+                    },
+                },
             };
-            cell.Add(new BoxView { Color = selected ? Theme.Accent : Colors.Transparent, CornerRadius = 2, Margin = new Thickness(12, 0) }, 0, 0);
-            cell.Add(new Label { Text = t.Icon, FontSize = selected ? 24 : 20, HorizontalTextAlignment = TextAlignment.Center }, 0, 1);
-            cell.Add(new Label
-            {
-                Text = t.Label,
-                FontSize = 10,
-                FontAttributes = selected ? FontAttributes.Bold : FontAttributes.None,
-                TextColor = selected ? Theme.Accent : Theme.Muted,
-                HorizontalTextAlignment = TextAlignment.Center,
-            }, 0, 2);
             if (enabled) OnTap(cell, () => SwitchTab(t.Tab));
             _tabBar.Add(cell, i, 0);
         }
