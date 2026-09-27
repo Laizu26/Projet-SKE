@@ -58,11 +58,11 @@ public sealed class HexMapView : ContentView
 
     private (double W, double H) Extent(double size)
     {
-        var (minX, minY, maxX, maxY) = Bounds(size);
+        var (minX, minY, maxX, maxY) = MapBounds(size);
         return (maxX - minX, maxY - minY);
     }
 
-    private (double MinX, double MinY, double MaxX, double MaxY) Bounds(double size)
+    private (double MinX, double MinY, double MaxX, double MaxY) MapBounds(double size)
     {
         if (_tiles.Count == 0) return (0, 0, 1, 1);
         var centers = _tiles.Select(t => Center(t.Hex, size)).ToList();
@@ -86,7 +86,7 @@ public sealed class HexMapView : ContentView
 
     private void Build(double size)
     {
-        var (minX, minY, maxX, maxY) = Bounds(size);
+        var (minX, minY, maxX, maxY) = MapBounds(size);
         var canvas = new AbsoluteLayout
         {
             WidthRequest = maxX - minX,

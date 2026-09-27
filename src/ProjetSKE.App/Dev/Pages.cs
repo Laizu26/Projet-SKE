@@ -247,14 +247,14 @@ public sealed class DevHomePage : ContentPage
         if (conflicts.Count > 0)
         {
             var list = new VerticalStackLayout { Spacing = 12 };
-            foreach (var c in conflicts.AsEnumerable().Reverse())
+            foreach (var item in conflicts.AsEnumerable().Reverse())
             {
-                var conflict = c;
+                var conflict = item;
                 list.Add(Stack(
-                    Txt($"{c.Kind} « {c.Name} »", 14, Theme.Stone900, bold: true),
-                    Muted(c.LocalJson.Length == 0
-                        ? $"Supprimé chez toi mais modifié en ligne : il a été gardé. ({c.When:dd/MM HH:mm})"
-                        : $"Modifié des deux côtés : la version en ligne a été gardée. ({c.When:dd/MM HH:mm})", 11),
+                    Txt($"{item.Kind} « {item.Name} »", 14, Theme.Stone900, bold: true),
+                    Muted(item.LocalJson.Length == 0
+                        ? $"Supprimé chez toi mais modifié en ligne : il a été gardé. ({item.When:dd/MM HH:mm})"
+                        : $"Modifié des deux côtés : la version en ligne a été gardée. ({item.When:dd/MM HH:mm})", 11),
                     ButtonRow(
                         Btn("Remettre ma version", () =>
                         {
@@ -262,7 +262,7 @@ public sealed class DevHomePage : ContentPage
                                 ? $"Ta version de « {conflict.Name} » est dans le brouillon : touche « Enregistrer » pour la publier."
                                 : "Impossible de restaurer cet élément.";
                             Render();
-                        }, enabled: c.LocalJson.Length > 0),
+                        }, enabled: item.LocalJson.Length > 0),
                         Btn("Garder l'autre", () => { CloudSync.Dismiss(conflict); Render(); }))));
             }
             stack.Add(TitledCard(Ico.CircleAlert, $"Conflits ({conflicts.Count})", list));
