@@ -90,6 +90,10 @@ Boutons de l'accueil de l'éditeur :
 
 Les anciennes sauvegardes restent jouables : tout ce qui a été supprimé du contenu est retiré de la partie au chargement.
 
+### Base de données partagée
+
+Le contenu peut être partagé entre tous les téléphones grâce à une base Firebase Firestore : chaque appareil récupère la dernière version au lancement, et « Enregistrer » la publie. Pour la mise en place, voir [docs/BASE-DE-DONNEES.md](docs/BASE-DE-DONNEES.md).
+
 ### Écrire un dialogue en texte
 
 ```

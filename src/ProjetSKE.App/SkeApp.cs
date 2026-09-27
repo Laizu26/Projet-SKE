@@ -53,8 +53,12 @@ public class SkeApp : Application
         _db = GameDatabase.Default;
     }
 
-    protected override Window CreateWindow(IActivationState? activationState) =>
-        new(new TitlePage());
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        // Base en ligne configurée : on récupère la dernière version du contenu en arrière-plan.
+        _ = Dev.CloudSync.PullIfNewerAsync();
+        return new Window(new TitlePage());
+    }
 
     /// <summary>Remplace l'écran affiché (pas de pile de navigation : style menus de jeu).</summary>
     public static void GoTo(Page page)

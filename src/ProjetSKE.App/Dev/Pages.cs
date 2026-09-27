@@ -178,6 +178,8 @@ public sealed class DevHomePage : ContentPage
     private IReadOnlyList<string>? _errors;
     private string? _message;
     private bool _confirmReset;
+    private bool _conflict;
+    private bool _busy;
 
     public DevHomePage()
     {
@@ -224,6 +226,31 @@ public sealed class DevHomePage : ContentPage
             }
         }
 
+        stack.Add(Section("Base de données en ligne"));
+        stack.Add(Card(Stack(
+            IconRow(Icon(Ico.Globe, 22, CloudSync.IsReady ? Theme.Green600 : Theme.Stone400), new VerticalStackLayout
+            {
+                Spacing = 1,
+                Children =
+                {
+                    Txt(CloudSync.IsReady ? "Synchronisation active" : "Non configurée", 14, Theme.Stone900, bold: true),
+                    Muted(_busy ? "Opération en cours…" : CloudSync.LastStatus, 12),
+                },
+            }),
+            ButtonRow(
+                Btn("Récupérer", PullCloud, enabled: CloudSync.IsReady && !_busy),
+                Btn("Publier", () => PushCloud(force: false), enabled: CloudSync.IsReady && !_busy, selected: true)),
+            Btn("Configurer la base", () => SkeApp.GoTo(new CloudSettingsPage())))));
+        if (_conflict)
+        {
+            stack.Add(Card(Stack(
+                Txt("Quelqu'un a publié une autre version entre-temps. Récupérez-la d'abord (vos modifications non " +
+                    "publiées seront perdues) ou écrasez-la avec la vôtre.", 13, Theme.Red600, bold: true),
+                ButtonRow(
+                    Btn("Récupérer la leur", PullCloud),
+                    Btn("Écraser avec la mienne", () => PushCloud(force: true))))));
+        }
+
         stack.Add(Section("Envoyer / recevoir le contenu"));
         stack.Add(Muted("Exporte le fichier ou copie le texte pour l'envoyer : il pourra devenir le contenu officiel du jeu."));
         stack.Add(ButtonRow(Btn("Exporter le fichier", Export), Btn("Copier le texte", Copy)));
@@ -259,6 +286,35 @@ public sealed class DevHomePage : ContentPage
         _message = _errors.Count == 0
             ? "Enregistré ! Le jeu utilise maintenant ce contenu."
             : "Enregistré, mais il reste des problèmes (voir ci-dessous).";
+        Render();
+        // Base en ligne configurée : on publie aussitôt pour que les autres appareils l'aient.
+        if (CloudSync.IsReady) PushCloud(force: false);
+    }
+
+    private async void PullCloud()
+    {
+        _busy = true;
+        Render();
+        _message = await CloudSync.PullAsync();
+        _conflict = false;
+        _busy = false;
+        Render();
+    }
+
+    private async void PushCloud(bool force)
+    {
+        if (DevState.Dirty) DevState.Save();
+        _busy = true;
+        Render();
+        var result = await CloudSync.PushAsync(DevState.Draft, force);
+        _busy = false;
+        _conflict = result.Status == Core.Cloud.PushStatus.Conflict;
+        _message = result.Status switch
+        {
+            Core.Cloud.PushStatus.Ok => $"Publié en ligne (révision {result.Revision}) : tous les appareils le recevront.",
+            Core.Cloud.PushStatus.Conflict => "Publication refusée : conflit de versions.",
+            _ => "Publication impossible : " + result.Error,
+        };
         Render();
     }
 

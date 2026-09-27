@@ -1,0 +1,170 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using ProjetSKE.Core.Data;
+using ProjetSKE.Core.Models;
+
+namespace ProjetSKE.Core.Cloud;
+
+/// <summary>Connexion à la base Firestore (même technologie que Service Impérial).</summary>
+public sealed record CloudSettings(
+    string ProjectId,
+    string ApiKey,
+    string Collection = "projet-ske",
+    string Document = "contenu")
+{
+    public bool IsComplete => ProjectId.Length > 0 && ApiKey.Length > 0 && Collection.Length > 0 && Document.Length > 0;
+}
+
+/// <summary>Contenu lu en ligne, avec sa version.</summary>
+public sealed record CloudSnapshot(GameContent Content, string UpdateTime, int Revision, string UpdatedBy, DateTime UpdatedAt);
+
+public enum PushStatus { Ok, Conflict, Error }
+
+public sealed record PushResult(PushStatus Status, string? UpdateTime = null, int Revision = 0, string? Error = null);
+
+/// <summary>Endroit où le contenu du mode développeur est partagé entre tous les appareils.</summary>
+public interface IContentRepository
+{
+    /// <summary>Lit le contenu en ligne (null si rien n'a encore été publié).</summary>
+    Task<CloudSnapshot?> PullAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Publie le contenu. <paramref name="expectedUpdateTime"/> = version sur laquelle on a travaillé :
+    /// si quelqu'un a publié entre-temps, renvoie <see cref="PushStatus.Conflict"/> (rien n'est écrasé).
+    /// null = écraser sans vérifier (ou premier envoi si <paramref name="firstPublish"/>).
+    /// </summary>
+    Task<PushResult> PushAsync(GameContent content, string? expectedUpdateTime, int baseRevision, string author,
+        bool firstPublish = false, CancellationToken ct = default);
+}
+
+/// <summary>Conversion entre le contenu du jeu et un document Firestore (API REST).</summary>
+public static class FirestoreFormat
+{
+    /// <summary>Le contenu est rangé en JSON dans un seul champ texte (limite Firestore : 1 Mo par document).</summary>
+    public static string BuildDocument(GameContent content, int revision, string author, DateTime now)
+    {
+        var fields = new JsonObject
+        {
+            ["json"] = new JsonObject { ["stringValue"] = ContentSerializer.ToJson(content) },
+            ["revision"] = new JsonObject { ["integerValue"] = revision.ToString() },
+            ["updatedBy"] = new JsonObject { ["stringValue"] = author },
+            ["updatedAt"] = new JsonObject { ["timestampValue"] = now.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") },
+            ["title"] = new JsonObject { ["stringValue"] = content.Title },
+        };
+        return new JsonObject { ["fields"] = fields }.ToJsonString();
+    }
+
+    public static CloudSnapshot ParseDocument(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        var fields = root.GetProperty("fields");
+        string Str(string name, string kind) =>
+            fields.TryGetProperty(name, out var f) && f.TryGetProperty(kind, out var v) ? v.GetString() ?? "" : "";
+
+        var content = ContentSerializer.FromJson(Str("json", "stringValue"));
+        var revision = int.TryParse(Str("revision", "integerValue"), out var r) ? r : 0;
+        var updatedAt = DateTime.TryParse(Str("updatedAt", "timestampValue"), out var d) ? d : DateTime.MinValue;
+        var updateTime = root.TryGetProperty("updateTime", out var ut) ? ut.GetString() ?? "" : "";
+        return new CloudSnapshot(content, updateTime, revision, Str("updatedBy", "stringValue"), updatedAt);
+    }
+}
+
+/// <summary>
+/// Accès Firestore par l'API REST (pas de SDK natif nécessaire sur Android).
+/// Authentification anonyme Firebase : les règles de sécurité peuvent exiger un utilisateur connecté.
+/// </summary>
+public sealed class FirestoreContentRepository : IContentRepository
+{
+    private readonly CloudSettings _settings;
+    private readonly HttpClient _http;
+    private string? _idToken;
+    private DateTime _tokenExpiry;
+
+    public FirestoreContentRepository(CloudSettings settings, HttpClient? http = null)
+    {
+        _settings = settings;
+        _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+    }
+
+    private string DocumentUrl =>
+        $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_settings.ProjectId)}/databases/(default)/documents/" +
+        $"{Uri.EscapeDataString(_settings.Collection)}/{Uri.EscapeDataString(_settings.Document)}?key={Uri.EscapeDataString(_settings.ApiKey)}";
+
+    /// <summary>Connexion anonyme (Firebase Auth). Si elle n'est pas activée, on continue sans jeton.</summary>
+    private async Task AuthorizeAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        if (_idToken is null || DateTime.UtcNow >= _tokenExpiry)
+        {
+            _idToken = null;
+            try
+            {
+                var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={Uri.EscapeDataString(_settings.ApiKey)}";
+                using var response = await _http.PostAsync(url,
+                    new StringContent("{\"returnSecureToken\":true}", Encoding.UTF8, "application/json"), ct);
+                if (response.IsSuccessStatusCode)
+                {
+                    using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                    _idToken = doc.RootElement.GetProperty("idToken").GetString();
+                    var seconds = int.TryParse(doc.RootElement.GetProperty("expiresIn").GetString(), out var s) ? s : 3600;
+                    _tokenExpiry = DateTime.UtcNow.AddSeconds(seconds - 120);
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // Pas de connexion anonyme : les règles doivent alors autoriser l'accès public.
+            }
+        }
+        if (_idToken is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _idToken);
+    }
+
+    public async Task<CloudSnapshot?> PullAsync(CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, DocumentUrl);
+        await AuthorizeAsync(request, ct);
+        using var response = await _http.SendAsync(request, ct);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Firestore {(int)response.StatusCode} : {Short(body)}");
+        return FirestoreFormat.ParseDocument(body);
+    }
+
+    public async Task<PushResult> PushAsync(GameContent content, string? expectedUpdateTime, int baseRevision, string author,
+        bool firstPublish = false, CancellationToken ct = default)
+    {
+        var url = DocumentUrl;
+        if (expectedUpdateTime is { Length: > 0 }) url += "&currentDocument.updateTime=" + Uri.EscapeDataString(expectedUpdateTime);
+        else if (firstPublish) url += "&currentDocument.exists=false";
+
+        var revision = baseRevision + 1;
+        using var request = new HttpRequestMessage(HttpMethod.Patch, url)
+        {
+            Content = new StringContent(FirestoreFormat.BuildDocument(content, revision, author, DateTime.UtcNow), Encoding.UTF8, "application/json"),
+        };
+        await AuthorizeAsync(request, ct);
+        try
+        {
+            using var response = await _http.SendAsync(request, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (response.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(body);
+                var updateTime = doc.RootElement.TryGetProperty("updateTime", out var ut) ? ut.GetString() : null;
+                return new PushResult(PushStatus.Ok, updateTime, revision);
+            }
+            // Précondition refusée = quelqu'un a publié une autre version entre-temps.
+            if (body.Contains("FAILED_PRECONDITION") || body.Contains("ALREADY_EXISTS") || response.StatusCode == HttpStatusCode.Conflict)
+                return new PushResult(PushStatus.Conflict, Error: "Le contenu en ligne a été modifié par quelqu'un d'autre.");
+            return new PushResult(PushStatus.Error, Error: $"Firestore {(int)response.StatusCode} : {Short(body)}");
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return new PushResult(PushStatus.Error, Error: e.Message);
+        }
+    }
+
+    private static string Short(string text) => text.Length > 200 ? text[..200] + "…" : text;
+}
