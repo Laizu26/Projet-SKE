@@ -1,0 +1,47 @@
+name: Compiler l'APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
+      - name: Tests du moteur de jeu
+        run: dotnet test tests/ProjetSKE.Core.Tests/ProjetSKE.Core.Tests.csproj -c Release
+
+      - name: Installer .NET MAUI (Android)
+        run: dotnet workload install maui-android
+
+      - name: Installer les dépendances Android
+        run: >
+          dotnet build src/ProjetSKE.App/ProjetSKE.App.csproj
+          -t:InstallAndroidDependencies -f net10.0-android
+          -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT" -p:AcceptAndroidSdkLicenses=True
+
+      - name: Compiler l'APK
+        run: >
+          dotnet publish src/ProjetSKE.App/ProjetSKE.App.csproj
+          -f net10.0-android -c Release
+          -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT"
+          -o out
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjetSKE-apk
+          path: out/*-Signed.apk
+          if-no-files-found: error
