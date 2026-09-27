@@ -9,16 +9,31 @@ namespace ProjetSKE.App.Dev;
 public static class DevState
 {
     private static GameContent? _draft;
+    private static GameContent? _draftBase;
 
     /// <summary>Copie de travail : les modifications n'affectent le jeu qu'après « Enregistrer ».</summary>
-    public static GameContent Draft => _draft ??= ContentSerializer.Clone(SkeApp.Db.Content);
+    public static GameContent Draft
+    {
+        get
+        {
+            if (_draft is null) Reset();
+            return _draft!;
+        }
+    }
 
     public static bool Dirty { get; private set; }
 
     public static void Touch() => Dirty = true;
 
+    private static void Reset()
+    {
+        _draft = ContentSerializer.Clone(SkeApp.Db.Content);
+        _draftBase = ContentSerializer.Clone(SkeApp.Db.Content);
+    }
+
     public static void Replace(GameContent content)
     {
+        if (_draft is null) Reset();
         _draft = content;
         Dirty = true;
     }
@@ -26,20 +41,43 @@ public static class DevState
     /// <summary>Abandonne les modifications non enregistrées.</summary>
     public static void Revert()
     {
-        _draft = ContentSerializer.Clone(SkeApp.Db.Content);
+        Reset();
         Dirty = false;
     }
 
-    public static void Save()
+    /// <summary>
+    /// Le brouillon peut être remplacé par la dernière version synchronisée sans rien perdre :
+    /// pas de modification en cours, et aucun écran d'édition ouvert sur ses objets.
+    /// </summary>
+    public static bool CanRefresh
     {
-        SkeApp.ApplyContent(Draft);
+        get
+        {
+            if (Dirty) return false;
+            var page = Application.Current?.Windows.Count > 0 ? Application.Current.Windows[0].Page : null;
+            return page is not EditorPage && page?.GetType().Name.StartsWith("EntityListPage") != true;
+        }
+    }
+
+    /// <summary>
+    /// Enregistre le brouillon en le fusionnant avec le contenu actif : ce que d'autres ont publié
+    /// pendant l'édition n'est pas annulé. En cas de conflit sur un même élément, la version déjà active
+    /// est gardée et la tienne est mise de côté (restaurable).
+    /// </summary>
+    public static IReadOnlyList<Core.Cloud.MergeConflict> Save()
+    {
+        var result = Core.Cloud.ContentMerger.Merge(_draftBase ?? SkeApp.Db.Content, Draft, SkeApp.Db.Content);
+        SkeApp.ApplyContent(result.Merged);
+        CloudSync.AddConflicts(result.Conflicts);
+        Reset();
         Dirty = false;
+        return result.Conflicts;
     }
 
     public static void ResetToOfficial()
     {
         SkeApp.ResetContent();
-        _draft = ContentSerializer.Clone(SkeApp.Db.Content);
+        Reset();
         Dirty = false;
     }
 

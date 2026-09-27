@@ -1,12 +1,15 @@
 using ProjetSKE.Core.Cloud;
+using ProjetSKE.Core.Data;
 using ProjetSKE.Core.Models;
 
 namespace ProjetSKE.App.Dev;
 
 /// <summary>
-/// Synchronisation du contenu avec la base en ligne (Firestore) : le mode développeur est ainsi
-/// partagé et modifiable depuis tous les téléphones. Les réglages restent sur l'appareil
-/// (jamais dans le dépôt Git).
+/// Synchronisation automatique du contenu avec la base en ligne (Firestore).
+/// À chaque synchronisation : lecture de la version en ligne, fusion élément par élément avec le contenu
+/// local (voir <see cref="ContentMerger"/>), publication du résultat si besoin. Rien n'est jamais écrasé
+/// sans trace : en cas de conflit la version en ligne est gardée et la locale est mise de côté (restaurable),
+/// une copie locale est faite avant chaque changement et chaque révision publiée est archivée en ligne.
 /// </summary>
 public static class CloudSync
 {
@@ -16,6 +19,16 @@ public static class CloudSync
     // La clé API Firebase n'est pas un secret : l'accès est protégé par les règles Firestore et la connexion anonyme.
     public const string DefaultProjectId = "projet-ske-597e2";
     public const string DefaultApiKey = "AIzaSyAmrQR9V2OXqmaWLXP8gUCRz15snv6f-hY";
+
+    /// <summary>Intervalle de la synchronisation automatique.</summary>
+    public static readonly TimeSpan AutoInterval = TimeSpan.FromSeconds(45);
+
+    private static readonly SemaphoreSlim Lock = new(1, 1);
+
+    /// <summary>Déclenché après chaque synchronisation (pour rafraîchir l'écran).</summary>
+    public static event Action? Changed;
+
+    // ------------------------------------------------------------------ Réglages (sur l'appareil)
 
     public static bool Enabled
     {
@@ -47,7 +60,6 @@ public static class CloudSync
         set => Preferences.Default.Set(Prefix + "author", value);
     }
 
-    /// <summary>Version en ligne sur laquelle repose le contenu local.</summary>
     public static string? BaseUpdateTime
     {
         get => Preferences.Default.Get<string?>(Prefix + "updateTime", null);
@@ -64,12 +76,176 @@ public static class CloudSync
         private set => Preferences.Default.Set(Prefix + "revision", value);
     }
 
-    public static string LastStatus { get; private set; } = "Non connecté.";
+    public static string LastStatus { get; private set; } = "Pas encore synchronisé.";
+    public static DateTime? LastSync { get; private set; }
+    public static bool Busy { get; private set; }
 
     public static bool IsReady => Enabled && Settings.IsComplete;
 
     private static IContentRepository? _repository;
     private static IContentRepository Repository => _repository ??= new FirestoreContentRepository(Settings);
+
+    // ------------------------------------------------------------------ Fichiers locaux
+
+    private static string BasePath => Path.Combine(FileSystem.AppDataDirectory, "cloud-base.json");
+    private static string ConflictsPath => Path.Combine(FileSystem.AppDataDirectory, "cloud-conflits.json");
+    private static string BackupDir => Path.Combine(FileSystem.AppDataDirectory, "copies-contenu");
+
+    /// <summary>Dernière version commune (point de départ de la fusion). Par défaut : le contenu officiel.</summary>
+    private static GameContent LoadBase()
+    {
+        try
+        {
+            if (File.Exists(BasePath)) return ContentSerializer.FromJson(File.ReadAllText(BasePath));
+        }
+        catch (Exception) { }
+        return ContentSerializer.Clone(GameDatabase.Default.Content);
+    }
+
+    private static void SaveBase(GameContent content) => File.WriteAllText(BasePath, ContentSerializer.ToJson(content));
+
+    /// <summary>Copie locale avant tout changement (les 20 dernières sont gardées).</summary>
+    private static void Backup(GameContent content, string label)
+    {
+        try
+        {
+            Directory.CreateDirectory(BackupDir);
+            File.WriteAllText(Path.Combine(BackupDir, $"{DateTime.Now:yyyyMMdd-HHmmss}-{label}.json"), ContentSerializer.ToJson(content));
+            foreach (var old in Directory.GetFiles(BackupDir).OrderByDescending(f => f).Skip(20)) File.Delete(old);
+        }
+        catch (Exception) { }
+    }
+
+    public static int BackupCount => Directory.Exists(BackupDir) ? Directory.GetFiles(BackupDir).Length : 0;
+
+    public static List<MergeConflict> Conflicts
+    {
+        get
+        {
+            try
+            {
+                return File.Exists(ConflictsPath) ? ContentMerger.ConflictsFromJson(File.ReadAllText(ConflictsPath)) : [];
+            }
+            catch (Exception) { return []; }
+        }
+    }
+
+    private static void SaveConflicts(List<MergeConflict> list)
+    {
+        try { File.WriteAllText(ConflictsPath, ContentMerger.ConflictsToJson(list)); }
+        catch (Exception) { }
+    }
+
+    public static void AddConflicts(IEnumerable<MergeConflict> conflicts)
+    {
+        var added = conflicts.ToList();
+        if (added.Count == 0) return;
+        var list = Conflicts;
+        list.AddRange(added);
+        SaveConflicts(list.TakeLast(50).ToList());
+    }
+
+    public static void Dismiss(MergeConflict conflict)
+    {
+        var list = Conflicts;
+        list.RemoveAll(c => c.Kind == conflict.Kind && c.Id == conflict.Id && c.When == conflict.When);
+        SaveConflicts(list);
+    }
+
+    /// <summary>Remet ta version d'un élément en conflit dans le brouillon (à enregistrer ensuite).</summary>
+    public static bool RestoreMine(MergeConflict conflict)
+    {
+        if (!ContentMerger.Restore(DevState.Draft, conflict)) return false;
+        DevState.Touch();
+        Dismiss(conflict);
+        return true;
+    }
+
+    // ------------------------------------------------------------------ Synchronisation
+
+    /// <summary>Lance la synchronisation automatique : au démarrage, puis à intervalle régulier.</summary>
+    public static void StartAuto(IDispatcher dispatcher)
+    {
+        _ = SyncAsync();
+        dispatcher.StartTimer(AutoInterval, () =>
+        {
+            _ = SyncAsync();
+            return true;
+        });
+    }
+
+    /// <summary>Récupère, fusionne et publie. Sans danger si appelée souvent (une seule à la fois).</summary>
+    public static async Task<string> SyncAsync()
+    {
+        if (!IsReady) return LastStatus = "Synchronisation désactivée.";
+        if (!await Lock.WaitAsync(0)) return LastStatus;
+        Busy = true;
+        try
+        {
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                var local = SkeApp.Db.Content;
+                var remote = await Repository.PullAsync();
+
+                if (remote is null)
+                {
+                    // Première publication.
+                    var first = await Repository.PushAsync(local, null, 0, Author, firstPublish: true);
+                    if (first.Status == PushStatus.Conflict) continue;
+                    if (first.Status == PushStatus.Error) return LastStatus = "Publication impossible : " + first.Error;
+                    SaveBase(local);
+                    Remember(first.UpdateTime, first.Revision);
+                    return Done($"Contenu publié en ligne (révision {first.Revision}).");
+                }
+
+                var @base = LoadBase();
+                var localUnchanged = ContentSerializer.ToJson(local) == ContentSerializer.ToJson(@base);
+                if (localUnchanged && remote.UpdateTime == BaseUpdateTime)
+                    return Done($"À jour · révision {remote.Revision} ({remote.UpdatedBy}).");
+
+                var merge = ContentMerger.Merge(@base, local, remote.Content);
+                AddConflicts(merge.Conflicts);
+
+                string? updateTime = remote.UpdateTime;
+                var revision = remote.Revision;
+                if (merge.HasLocalChanges)
+                {
+                    var push = await Repository.PushAsync(merge.Merged, remote.UpdateTime, remote.Revision, Author);
+                    if (push.Status == PushStatus.Conflict) continue; // quelqu'un vient de publier : on refusionne
+                    if (push.Status == PushStatus.Error) return LastStatus = "Publication impossible : " + push.Error;
+                    updateTime = push.UpdateTime;
+                    revision = push.Revision;
+                }
+
+                if (ContentSerializer.ToJson(merge.Merged) != ContentSerializer.ToJson(local))
+                {
+                    Backup(local, "avant-synchro");
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        SkeApp.ApplyContent(merge.Merged);
+                        if (DevState.CanRefresh) DevState.Revert();
+                    });
+                }
+                SaveBase(merge.Merged);
+                Remember(updateTime, revision);
+
+                var what = merge.HasLocalChanges ? "Vos modifications sont publiées" : $"Révision {revision} de {remote.UpdatedBy} récupérée";
+                var warn = merge.Conflicts.Count > 0 ? $" · {merge.Conflicts.Count} conflit(s) à vérifier" : "";
+                return Done($"{what}{warn}.");
+            }
+            return LastStatus = "Beaucoup de modifications en même temps : nouvel essai dans un instant.";
+        }
+        catch (Exception e)
+        {
+            return LastStatus = "Hors ligne : " + e.Message;
+        }
+        finally
+        {
+            Busy = false;
+            Lock.Release();
+            MainThread.BeginInvokeOnMainThread(() => Changed?.Invoke());
+        }
+    }
 
     private static void Remember(string? updateTime, int revision)
     {
@@ -77,79 +253,10 @@ public static class CloudSync
         BaseRevision = revision;
     }
 
-    /// <summary>Au lancement : récupère la dernière version en ligne si elle a changé.</summary>
-    public static async Task<bool> PullIfNewerAsync()
+    private static string Done(string status)
     {
-        if (!IsReady) return false;
-        try
-        {
-            var snap = await Repository.PullAsync();
-            if (snap is null)
-            {
-                LastStatus = "Base en ligne vide : publiez votre contenu.";
-                return false;
-            }
-            if (snap.UpdateTime == BaseUpdateTime)
-            {
-                LastStatus = $"À jour · révision {snap.Revision} ({snap.UpdatedBy}).";
-                return false;
-            }
-            SkeApp.ApplyContent(snap.Content);
-            DevState.Revert();
-            Remember(snap.UpdateTime, snap.Revision);
-            LastStatus = $"Nouvelle version récupérée · révision {snap.Revision} par {snap.UpdatedBy}.";
-            return true;
-        }
-        catch (Exception e)
-        {
-            LastStatus = "Hors ligne : " + e.Message;
-            return false;
-        }
-    }
-
-    /// <summary>Remplace le brouillon par la version en ligne (et l'active).</summary>
-    public static async Task<string> PullAsync()
-    {
-        if (!IsReady) return "Base en ligne non configurée.";
-        try
-        {
-            var snap = await Repository.PullAsync();
-            if (snap is null) return LastStatus = "Rien n'a encore été publié en ligne.";
-            SkeApp.ApplyContent(snap.Content);
-            DevState.Revert();
-            Remember(snap.UpdateTime, snap.Revision);
-            return LastStatus = $"Récupéré : révision {snap.Revision} par {snap.UpdatedBy} ({snap.UpdatedAt.ToLocalTime():dd/MM HH:mm}).";
-        }
-        catch (Exception e)
-        {
-            return LastStatus = "Échec de la récupération : " + e.Message;
-        }
-    }
-
-    /// <summary>Publie le contenu. En cas de conflit, rien n'est écrasé sauf si <paramref name="force"/>.</summary>
-    public static async Task<PushResult> PushAsync(GameContent content, bool force = false)
-    {
-        if (!IsReady) return new PushResult(PushStatus.Error, Error: "Base en ligne non configurée.");
-        var expected = force ? null : BaseUpdateTime;
-        PushResult result;
-        try
-        {
-            result = await Repository.PushAsync(content, expected, BaseRevision, Author, firstPublish: !force && BaseUpdateTime is null);
-        }
-        catch (Exception e)
-        {
-            result = new PushResult(PushStatus.Error, Error: e.Message);
-        }
-        if (result.Status == PushStatus.Ok)
-        {
-            Remember(result.UpdateTime, result.Revision);
-            LastStatus = $"Publié : révision {result.Revision}.";
-        }
-        else
-        {
-            LastStatus = result.Error ?? "Erreur inconnue.";
-        }
-        return result;
+        LastSync = DateTime.Now;
+        return LastStatus = status;
     }
 
     /// <summary>Vérifie les réglages en lisant le document.</summary>
@@ -159,7 +266,7 @@ public static class CloudSync
         {
             var snap = await new FirestoreContentRepository(settings).PullAsync();
             return snap is null
-                ? "Connexion réussie. La base est vide : utilisez « Publier » pour y envoyer votre contenu."
+                ? "Connexion réussie. La base est vide : la première synchronisation y publiera le contenu."
                 : $"Connexion réussie. Révision {snap.Revision} publiée par {snap.UpdatedBy}.";
         }
         catch (Exception e)

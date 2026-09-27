@@ -178,8 +178,6 @@ public sealed class DevHomePage : ContentPage
     private IReadOnlyList<string>? _errors;
     private string? _message;
     private bool _confirmReset;
-    private bool _conflict;
-    private bool _busy;
 
     public DevHomePage()
     {
@@ -227,28 +225,47 @@ public sealed class DevHomePage : ContentPage
         }
 
         stack.Add(Section("Base de données en ligne"));
+        var last = CloudSync.LastSync is { } when ? $"Dernière synchro : {when:HH:mm:ss}" : "Pas encore synchronisé";
         stack.Add(Card(Stack(
             IconRow(Icon(Ico.Globe, 22, CloudSync.IsReady ? Theme.Green600 : Theme.Stone400), new VerticalStackLayout
             {
                 Spacing = 1,
                 Children =
                 {
-                    Txt(CloudSync.IsReady ? "Synchronisation active" : "Non configurée", 14, Theme.Stone900, bold: true),
-                    Muted(_busy ? "Opération en cours…" : CloudSync.LastStatus, 12),
+                    Txt(CloudSync.IsReady ? "Synchronisation automatique active" : "Synchronisation désactivée", 14, Theme.Stone900, bold: true),
+                    Muted(CloudSync.Busy ? "Synchronisation en cours…" : CloudSync.LastStatus, 12),
+                    Muted($"{last} · toutes les {CloudSync.AutoInterval.TotalSeconds:0} s · {CloudSync.BackupCount} copie(s) locale(s)", 11),
                 },
             }),
             ButtonRow(
-                Btn("Récupérer", PullCloud, enabled: CloudSync.IsReady && !_busy),
-                Btn("Publier", () => PushCloud(force: false), enabled: CloudSync.IsReady && !_busy, selected: true)),
-            Btn("Configurer la base", () => SkeApp.GoTo(new CloudSettingsPage())))));
-        if (_conflict)
+                Btn("Synchroniser", SyncNow, enabled: CloudSync.IsReady && !CloudSync.Busy, selected: true),
+                Btn("Configurer", () => SkeApp.GoTo(new CloudSettingsPage()))),
+            Muted("Les modifications de chacun sont fusionnées élément par élément : rien n'est écrasé. " +
+                  "Si un même élément a été modifié des deux côtés, la version en ligne est gardée et la tienne est mise de côté ci-dessous.", 11))));
+
+        var conflicts = CloudSync.Conflicts;
+        if (conflicts.Count > 0)
         {
-            stack.Add(Card(Stack(
-                Txt("Quelqu'un a publié une autre version entre-temps. Récupérez-la d'abord (vos modifications non " +
-                    "publiées seront perdues) ou écrasez-la avec la vôtre.", 13, Theme.Red600, bold: true),
-                ButtonRow(
-                    Btn("Récupérer la leur", PullCloud),
-                    Btn("Écraser avec la mienne", () => PushCloud(force: true))))));
+            var list = new VerticalStackLayout { Spacing = 12 };
+            foreach (var c in conflicts.AsEnumerable().Reverse())
+            {
+                var conflict = c;
+                list.Add(Stack(
+                    Txt($"{c.Kind} « {c.Name} »", 14, Theme.Stone900, bold: true),
+                    Muted(c.LocalJson.Length == 0
+                        ? $"Supprimé chez toi mais modifié en ligne : il a été gardé. ({c.When:dd/MM HH:mm})"
+                        : $"Modifié des deux côtés : la version en ligne a été gardée. ({c.When:dd/MM HH:mm})", 11),
+                    ButtonRow(
+                        Btn("Remettre ma version", () =>
+                        {
+                            _message = CloudSync.RestoreMine(conflict)
+                                ? $"Ta version de « {conflict.Name} » est dans le brouillon : touche « Enregistrer » pour la publier."
+                                : "Impossible de restaurer cet élément.";
+                            Render();
+                        }, enabled: c.LocalJson.Length > 0),
+                        Btn("Garder l'autre", () => { CloudSync.Dismiss(conflict); Render(); }))));
+            }
+            stack.Add(TitledCard(Ico.CircleAlert, $"Conflits ({conflicts.Count})", list));
         }
 
         stack.Add(Section("Envoyer / recevoir le contenu"));
@@ -259,7 +276,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Section("Autres"));
         stack.Add(Btn("Annuler les modifications", () => { DevState.Revert(); _message = "Modifications annulées."; Render(); },
             enabled: DevState.Dirty));
-        stack.Add(Btn(_confirmReset ? "Confirmer : revenir au contenu d'origine ?" : "Revenir au contenu d'origine", () =>
+        if (!CloudSync.IsReady) stack.Add(Btn(_confirmReset ? "Confirmer : revenir au contenu d'origine ?" : "Revenir au contenu d'origine", () =>
         {
             if (!_confirmReset) { _confirmReset = true; Render(); return; }
             DevState.ResetToOfficial();
@@ -282,41 +299,39 @@ public sealed class DevHomePage : ContentPage
     private void Save()
     {
         _errors = DevState.Validate();
-        DevState.Save();
-        _message = _errors.Count == 0
-            ? "Enregistré ! Le jeu utilise maintenant ce contenu."
-            : "Enregistré, mais il reste des problèmes (voir ci-dessous).";
+        var conflicts = DevState.Save();
+        _message = conflicts.Count > 0
+            ? $"Enregistré. {conflicts.Count} élément(s) modifié(s) entre-temps par quelqu'un d'autre : voir « Conflits »."
+            : _errors.Count == 0
+                ? "Enregistré ! Le jeu utilise maintenant ce contenu."
+                : "Enregistré, mais il reste des problèmes (voir ci-dessous).";
         Render();
-        // Base en ligne configurée : on publie aussitôt pour que les autres appareils l'aient.
-        if (CloudSync.IsReady) PushCloud(force: false);
+        // Publication immédiate pour que les autres appareils le reçoivent.
+        SyncNow();
     }
 
-    private async void PullCloud()
+    private async void SyncNow()
     {
-        _busy = true;
+        if (!CloudSync.IsReady) return;
+        var task = CloudSync.SyncAsync();
         Render();
-        _message = await CloudSync.PullAsync();
-        _conflict = false;
-        _busy = false;
+        await task;
         Render();
     }
 
-    private async void PushCloud(bool force)
+    protected override void OnAppearing()
     {
-        if (DevState.Dirty) DevState.Save();
-        _busy = true;
-        Render();
-        var result = await CloudSync.PushAsync(DevState.Draft, force);
-        _busy = false;
-        _conflict = result.Status == Core.Cloud.PushStatus.Conflict;
-        _message = result.Status switch
-        {
-            Core.Cloud.PushStatus.Ok => $"Publié en ligne (révision {result.Revision}) : tous les appareils le recevront.",
-            Core.Cloud.PushStatus.Conflict => "Publication refusée : conflit de versions.",
-            _ => "Publication impossible : " + result.Error,
-        };
-        Render();
+        base.OnAppearing();
+        CloudSync.Changed += OnCloudChanged;
     }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        CloudSync.Changed -= OnCloudChanged;
+    }
+
+    private void OnCloudChanged() => Render();
 
     private static string ExportJson() => ContentSerializer.ToJson(DevState.Draft);
 

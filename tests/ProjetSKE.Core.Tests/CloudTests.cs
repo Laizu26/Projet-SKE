@@ -76,6 +76,86 @@ public class CloudTests
         Assert.Equal(PushStatus.Ok, result.Status);
         Assert.Equal("2026-09-27T13:00:00Z", result.UpdateTime);
         Assert.Equal(1, result.Revision);
-        Assert.Contains("currentDocument.exists=false", handler.Requests.Last().Url);
+        var patches = handler.Requests.Where(r => r.Method == HttpMethod.Patch).ToList();
+        Assert.Contains("currentDocument.exists=false", patches[0].Url);
+        Assert.Contains("/historique/r000001", patches[1].Url); // copie de sauvegarde de la révision
+    }
+}
+
+public class MergeTests
+{
+    private static Models.GameContent Copy() => ContentSerializer.Clone(GameDatabase.Default.Content);
+
+    [Fact]
+    public void DifferentElementsChanged_BothKept()
+    {
+        var @base = Copy();
+        var local = Copy();
+        var remote = Copy();
+        local.Items.First(i => i.Id == "potion").Price = 25;
+        remote.Monsters.First(m => m.Id == "loup").Xp = 99;
+        local.Npcs.Add(new Models.NpcDef { Id = "nouveau_local", Name = "Local", LocationId = "havrefort" });
+        remote.Quests.Add(new Models.QuestDef { Id = "nouvelle_en_ligne", Name = "En ligne" });
+
+        var r = ContentMerger.Merge(@base, local, remote);
+        Assert.Empty(r.Conflicts);
+        Assert.True(r.HasLocalChanges);
+        Assert.Equal(25, r.Merged.Items.First(i => i.Id == "potion").Price);
+        Assert.Equal(99, r.Merged.Monsters.First(m => m.Id == "loup").Xp);
+        Assert.Contains(r.Merged.Npcs, n => n.Id == "nouveau_local");
+        Assert.Contains(r.Merged.Quests, q => q.Id == "nouvelle_en_ligne");
+    }
+
+    [Fact]
+    public void SameElementChangedDifferently_RemoteKept_LocalSavedInConflict()
+    {
+        var @base = Copy();
+        var local = Copy();
+        var remote = Copy();
+        local.Items.First(i => i.Id == "potion").Price = 25;
+        remote.Items.First(i => i.Id == "potion").Price = 30;
+
+        var r = ContentMerger.Merge(@base, local, remote);
+        var conflict = Assert.Single(r.Conflicts);
+        Assert.Equal("potion", conflict.Id);
+        Assert.Equal(30, r.Merged.Items.First(i => i.Id == "potion").Price);
+
+        Assert.True(ContentMerger.Restore(r.Merged, conflict));
+        Assert.Equal(25, r.Merged.Items.First(i => i.Id == "potion").Price);
+    }
+
+    [Fact]
+    public void DeletedOnOneSide_ModifiedOnOther_IsKept()
+    {
+        var @base = Copy();
+        var local = Copy();
+        var remote = Copy();
+        local.Monsters.RemoveAll(m => m.Id == "gobelin");
+        remote.Monsters.First(m => m.Id == "gobelin").Gold = 50;
+        remote.Skills.RemoveAll(s => s.Id == "priere");
+
+        var r = ContentMerger.Merge(@base, local, remote);
+        Assert.Equal(50, r.Merged.Monsters.First(m => m.Id == "gobelin").Gold); // pas de suppression d'un travail
+        Assert.DoesNotContain(r.Merged.Skills, s => s.Id == "priere");         // suppression propre, personne ne l'a modifié
+    }
+
+    [Fact]
+    public void NoLocalChange_TakesRemote()
+    {
+        var @base = Copy();
+        var remote = Copy();
+        remote.Start.Gold = 500;
+        var r = ContentMerger.Merge(@base, Copy(), remote);
+        Assert.False(r.HasLocalChanges);
+        Assert.Empty(r.Conflicts);
+        Assert.Equal(500, r.Merged.Start.Gold);
+    }
+
+    [Fact]
+    public void Conflicts_Serialize()
+    {
+        var list = new List<MergeConflict> { new() { Kind = "Objet", Id = "potion", Name = "Potion", LocalJson = "{}" } };
+        var back = ContentMerger.ConflictsFromJson(ContentMerger.ConflictsToJson(list));
+        Assert.Equal("potion", Assert.Single(back).Id);
     }
 }

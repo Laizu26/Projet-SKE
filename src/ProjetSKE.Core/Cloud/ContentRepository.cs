@@ -154,6 +154,7 @@ public sealed class FirestoreContentRepository : IContentRepository
             {
                 using var doc = JsonDocument.Parse(body);
                 var updateTime = doc.RootElement.TryGetProperty("updateTime", out var ut) ? ut.GetString() : null;
+                await SaveHistoryAsync(content, revision, author, ct);
                 return new PushResult(PushStatus.Ok, updateTime, revision);
             }
             // Précondition refusée = quelqu'un a publié une autre version entre-temps.
@@ -164,6 +165,31 @@ public sealed class FirestoreContentRepository : IContentRepository
         catch (Exception e)
         {
             return new PushResult(PushStatus.Error, Error: e.Message);
+        }
+    }
+
+    /// <summary>
+    /// Copie de chaque révision publiée dans la sous-collection « historique » : même en cas d'erreur,
+    /// aucune version n'est jamais perdue. Échec silencieux (la publication principale a réussi).
+    /// </summary>
+    private async Task SaveHistoryAsync(GameContent content, int revision, string author, CancellationToken ct)
+    {
+        try
+        {
+            var url =
+                $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_settings.ProjectId)}/databases/(default)/documents/" +
+                $"{Uri.EscapeDataString(_settings.Collection)}/{Uri.EscapeDataString(_settings.Document)}/historique/r{revision:D6}" +
+                $"?key={Uri.EscapeDataString(_settings.ApiKey)}";
+            using var request = new HttpRequestMessage(HttpMethod.Patch, url)
+            {
+                Content = new StringContent(FirestoreFormat.BuildDocument(content, revision, author, DateTime.UtcNow), Encoding.UTF8, "application/json"),
+            };
+            await AuthorizeAsync(request, ct);
+            using var _ = await _http.SendAsync(request, ct);
+        }
+        catch (Exception)
+        {
+            // L'historique est un bonus : on n'échoue pas la publication pour lui.
         }
     }
 

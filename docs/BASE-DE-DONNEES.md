@@ -4,18 +4,34 @@ Le contenu du jeu (PJ, PNJ, dialogues, quêtes, objets, monstres, lieux…) peut
 
 ## Fonctionnement
 
-- Tout le contenu tient dans **un seul document** Firestore : `projet-ske/contenu` par défaut. Il contient :
-  - `json` : le contenu complet, au même format que l'export de l'éditeur ;
+**Stockage en ligne**
+- Tout le contenu tient dans **un seul document** Firestore : `projet-ske/contenu`. Il contient :
+  - `json` : le contenu complet ;
   - `revision` : un numéro qui augmente à chaque publication ;
   - `updatedBy` et `updatedAt` : qui a publié, et quand.
-- **Au lancement de l'app**, si la synchronisation est activée, la dernière version en ligne est récupérée et le jeu l'utilise.
-- **Dans le mode développeur :**
-  - « Enregistrer » publie automatiquement ;
-  - « Publier » et « Récupérer » sont aussi disponibles à la main.
-- **Conflits :** si quelqu'un a publié entre-temps, la publication est refusée et rien n'est écrasé. Tu choisis alors :
-  - « Récupérer la leur », qui fait perdre tes modifications non publiées ;
-  - ou « Écraser avec la mienne ».
-- Le code (`src/ProjetSKE.Core/Cloud/ContentRepository.cs`) passe par une interface `IContentRepository`. Une autre base (Supabase, serveur maison…) pourra la remplacer sans toucher au reste.
+- **Chaque révision publiée est aussi archivée** dans `projet-ske/contenu/historique/r000012` (etc.) : aucune version n'est jamais perdue.
+
+**Synchronisation automatique**
+- Elle a lieu au lancement, puis toutes les 45 secondes, et à chaque « Enregistrer ».
+- Le bouton « Synchroniser » du mode développeur la déclenche à la main.
+
+**Pas d'écrasement : fusion élément par élément**
+
+Chaque PJ, PNJ, dialogue, quête, objet, monstre, compétence et lieu est comparé séparément entre trois versions : la dernière version commune, la tienne et celle en ligne.
+
+| Situation | Résultat |
+|---|---|
+| Modifié d'un seul côté | Cette version est prise |
+| Deux personnes modifient des éléments différents | Tout est gardé |
+| Même élément modifié des deux côtés | La version en ligne est gardée, la tienne est **mise de côté** (menu « Conflits » : « Remettre ma version » ou « Garder l'autre ») |
+| Supprimé d'un côté mais modifié de l'autre | L'élément est **gardé** |
+| Quelqu'un publie pendant ta publication | Refus automatique (précondition Firestore), nouvelle fusion, nouvel essai |
+
+**Protections supplémentaires**
+- **Copie locale** du contenu avant chaque changement : les 20 dernières sont gardées sur le téléphone.
+- **Brouillon de l'éditeur** : « Enregistrer » le fusionne avec ce qui a été reçu entre-temps. Tu n'annules donc jamais une modification publiée par un autre pendant que tu éditais.
+- **Écran d'édition ouvert** : tant qu'il y a des modifications en cours ou qu'un écran d'édition est ouvert, la synchronisation ne remplace pas le brouillon.
+- **« Revenir au contenu d'origine »** est masqué quand la synchronisation est active, pour ne pas effacer le travail de tout le monde.
 
 ## Projet utilisé
 
@@ -34,7 +50,7 @@ La clé API Firebase n'est pas un secret : elle sert à identifier le projet. La
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       match /projet-ske/{doc} {
+       match /projet-ske/{document=**} {
          allow read: if true;
          allow write: if request.auth != null;
        }
@@ -42,15 +58,14 @@ La clé API Firebase n'est pas un secret : elle sert à identifier le projet. La
    }
    ```
 
-   Si le projet contient déjà d'autres règles (celles de *Service Impérial*), ajoute seulement le bloc `match /projet-ske/{doc}` à côté des règles existantes.
+   `{document=**}` couvre aussi l'historique des révisions.
 5. **Dans l'app :** ouvre *Mode développeur*, puis « Configurer la base ».
    - Renseigne ton nom, puis touche « Tester ».
-   - « Publier » envoie ensuite le contenu une première fois.
+   - La première synchronisation publie ensuite le contenu une première fois.
 
 Les réglages restent sur le téléphone : ils ne sont jamais écrits dans le dépôt.
 
 ## Pistes pour la suite
 
-- Écoute en direct des changements (aujourd'hui, la mise à jour se fait au lancement ou avec « Récupérer »).
-- Historique des révisions, pour revenir à une version précédente.
+- Écran pour parcourir l'historique en ligne et revenir à une révision précédente.
 - Droits d'édition par personne, avec connexion par e-mail au lieu de la connexion anonyme.

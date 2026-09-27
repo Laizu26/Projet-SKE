@@ -59,7 +59,7 @@ public class SkeApp : Application
         if (Dev.AutoTest.Requested)
             Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(3), () => _ = Dev.AutoTest.RunAsync());
         else
-            _ = Dev.CloudSync.PullIfNewerAsync();
+            Dev.CloudSync.StartAuto(Dispatcher);
         return new Window(new TitlePage());
     }
 

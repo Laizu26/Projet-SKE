@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ProjetSKE.Core.Cloud;
 using ProjetSKE.Core.Models;
 
 namespace ProjetSKE.Core.Data;
@@ -34,6 +35,8 @@ public static class ContentSerializer
 [JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(GameContent))]
+[JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(List<MergeConflict>))]
 internal partial class ContentJsonContext : JsonSerializerContext
 {
 }
