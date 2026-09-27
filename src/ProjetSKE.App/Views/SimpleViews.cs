@@ -81,7 +81,7 @@ public sealed class ShopView : ContentView
                 var id = item.Id;
                 stack.Add(Panel(Row(
                     Stack(Txt($"{item.Name} x{count}", 14, Theme.Accent, bold: true), Muted(ItemSummary(item))),
-                    Btn($"+{item.SellPrice} or", () =>
+                    Btn($"+{s.SellPrice(item)} or", () =>
                     {
                         if (s.Sell(id)) page.Notify($"{item.Name} vendu.");
                         page.Render();
@@ -137,7 +137,18 @@ public sealed class MenuView : ContentView
                 Setting("Défaite", Describe(config.Defeat), () => config.Defeat = Next(config.Defeat)),
                 Setting("Fuite", Describe(config.Flee), () => config.Flee = Next(config.Flee)),
                 Muted("Touchez une valeur pour la changer. Les boss empêchent toujours la fuite."))),
-            Btn("Retour au titre", page.QuitToTitle));
+            Btn(page.IsTestGame ? "Quitter le test" : "Retour au titre", page.QuitToTitle));
+
+        if (SkeApp.DevUnlocked)
+        {
+            stack.Add(Section("Mode développeur"));
+            stack.Add(Btn(page.MenuShowDevTools ? "Masquer les outils de test" : "Outils de test", () =>
+            {
+                page.MenuShowDevTools = !page.MenuShowDevTools;
+                page.Render();
+            }));
+            if (page.MenuShowDevTools) stack.Add(new Dev.DevToolsView(page));
+        }
 
         Content = stack;
 

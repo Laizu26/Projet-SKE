@@ -46,6 +46,15 @@ public sealed class CharacterState
     }
 }
 
+public sealed class QuestProgress
+{
+    public QuestStatus Status { get; set; } = QuestStatus.Active;
+    /// <summary>Index de l'objectif en cours (les objectifs se font dans l'ordre).</summary>
+    public int Step { get; set; }
+    /// <summary>Compteur de l'objectif en cours (ex : monstres vaincus).</summary>
+    public int Count { get; set; }
+}
+
 public sealed class GameState
 {
     public int Version { get; set; } = 1;
@@ -62,6 +71,9 @@ public sealed class GameState
     public HashSet<string> SeenLocations { get; set; } = [];
     public HashSet<string> SeenWeapons { get; set; } = [];
     public HashSet<string> SeenRelics { get; set; } = [];
+    public HashSet<string> SeenNpcs { get; set; } = [];
+    /// <summary>Avancement des quêtes commencées : id de quête → progression.</summary>
+    public Dictionary<string, QuestProgress> Quests { get; set; } = [];
     public string Journal { get; set; } = "";
     public GameConfig Config { get; set; } = new();
     public DateTime SavedAt { get; set; }

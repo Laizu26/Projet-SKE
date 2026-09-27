@@ -1,14 +1,27 @@
 namespace ProjetSKE.Core.Models;
 
-public sealed record StatBlock(
-    int MaxHp = 0,
-    int MaxMana = 0,
-    int Attack = 0,
-    int Defense = 0,
-    int Magic = 0,
-    int Speed = 0)
+public sealed class StatBlock
 {
-    public static readonly StatBlock Zero = new();
+    public int MaxHp { get; set; }
+    public int MaxMana { get; set; }
+    public int Attack { get; set; }
+    public int Defense { get; set; }
+    public int Magic { get; set; }
+    public int Speed { get; set; }
+
+    public StatBlock()
+    {
+    }
+
+    public StatBlock(int MaxHp = 0, int MaxMana = 0, int Attack = 0, int Defense = 0, int Magic = 0, int Speed = 0)
+    {
+        this.MaxHp = MaxHp;
+        this.MaxMana = MaxMana;
+        this.Attack = Attack;
+        this.Defense = Defense;
+        this.Magic = Magic;
+        this.Speed = Speed;
+    }
 
     public static StatBlock operator +(StatBlock a, StatBlock b) => new(
         a.MaxHp + b.MaxHp,

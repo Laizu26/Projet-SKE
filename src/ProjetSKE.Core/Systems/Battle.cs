@@ -76,14 +76,14 @@ public sealed class Battle
                 Name = name,
                 Monster = def,
                 Stats = def.Stats,
-                Skills = def.SkillIds.Select(id => session.Db.Skills[id]).ToList(),
+                Skills = def.SkillIds.Where(session.Db.Skills.ContainsKey).Select(id => session.Db.Skills[id]).ToList(),
                 Hp = def.Stats.MaxHp,
                 Mana = def.Stats.MaxMana,
             });
         }
         Enemies = enemies;
 
-        Log.Add($"Combat ! {string.Join(", ", Enemies.Select(e => e.Name))}");
+        Log.Add(Enemies.Count > 0 ? $"Combat ! {string.Join(", ", Enemies.Select(e => e.Name))}" : "Aucun ennemi.");
         CheckEnd();
         NextTurn();
     }
@@ -135,6 +135,14 @@ public sealed class Battle
         Log.Add($"{CurrentActor!.Name} utilise {item.Name} sur {target.Name}{(gains.Count > 0 ? " : " + string.Join(" ", gains) : "")}.");
         EndAction();
         return true;
+    }
+
+    /// <summary>Passer son tour.</summary>
+    public void Wait()
+    {
+        if (!IsPlayerTurn) return;
+        Log.Add($"{CurrentActor!.Name} attend.");
+        EndAction();
     }
 
     public double FleeChance()
@@ -222,22 +230,25 @@ public sealed class Battle
 
     private void Perform(Combatant actor, SkillDef skill, List<Combatant> targets)
     {
+        var balance = _session.Balance;
         actor.Mana -= skill.ManaCost;
         var parts = new List<string>();
         foreach (var t in targets)
         {
-            var variance = 0.9 + _session.Rng.NextDouble() * 0.2;
+            var spread = Math.Clamp(balance.DamageVariancePercent, 0, 100) / 100.0;
+            var variance = 1 - spread + _session.Rng.NextDouble() * spread * 2;
             if (skill.Kind == SkillKind.Heal)
             {
-                var amount = Math.Min((int)(actor.Stats.Magic * skill.Power * 2 * variance) + 5, t.Stats.MaxHp - t.Hp);
+                var heal = (int)(actor.Stats.Magic * skill.Power * balance.HealMultiplier * variance) + balance.HealFlat;
+                var amount = Math.Max(0, Math.Min(heal, t.Stats.MaxHp - t.Hp));
                 t.Hp += amount;
                 parts.Add($"{t.Name} +{amount} PV");
             }
             else
             {
                 var raw = skill.Kind == SkillKind.Physical
-                    ? actor.Stats.Attack * skill.Power - t.Stats.Defense / 2.0
-                    : actor.Stats.Magic * skill.Power * 1.2 - t.Stats.Defense / 4.0;
+                    ? actor.Stats.Attack * skill.Power - t.Stats.Defense * balance.PhysicalDefenseFactor
+                    : actor.Stats.Magic * skill.Power * balance.MagicMultiplier - t.Stats.Defense * balance.MagicDefenseFactor;
                 var damage = Math.Max(1, (int)Math.Round(raw * variance));
                 t.Hp = Math.Max(0, t.Hp - damage);
                 parts.Add(t.IsAlive ? $"{t.Name} -{damage} PV" : $"{t.Name} -{damage} PV, vaincu !");

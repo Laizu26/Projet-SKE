@@ -52,8 +52,8 @@ public sealed class MapView : ContentView
             var panel = Stack();
             foreach (var npc in npcs)
             {
-                var dialogueId = npc.DialogueId;
-                panel.Add(Row(Txt(npc.Name), Btn("Parler", () => page.ShowDialogue(dialogueId))));
+                var npcId = npc.Id;
+                panel.Add(Row(Txt(npc.Name), Btn("Parler", () => page.TalkTo(npcId))));
             }
             stack.Add(Panel(panel));
         }
@@ -64,7 +64,7 @@ public sealed class MapView : ContentView
             var panel = Stack();
             if (s.PendingFixedBattle is { } fb)
             {
-                var names = string.Join(", ", fb.MonsterIds.Distinct().Select(id => s.Db.Monsters[id].Name));
+                var names = string.Join(", ", fb.MonsterIds.Distinct().Where(s.Db.Monsters.ContainsKey).Select(id => s.Db.Monsters[id].Name));
                 panel.Add(Row(Txt($"Affronter : {names}", 14, Theme.Danger), Btn("Combattre", () => page.StartFixedBattle(fb))));
             }
             if (loc.RandomEncounters.Count > 0)
@@ -87,9 +87,11 @@ public sealed class MapView : ContentView
         foreach (var dest in s.Destinations)
         {
             var visited = s.State.SeenLocations.Contains(dest.Id);
+            var open = s.CanEnter(dest);
             var id = dest.Id;
             panel.Add(Row(
-                Stack(Txt(visited ? dest.Name : dest.Name + " (inconnu)"), Muted(GameSession.LocationTypeName(dest.Type))),
+                Stack(Txt(visited ? dest.Name : dest.Name + " (inconnu)"),
+                    Muted(GameSession.LocationTypeName(dest.Type) + (open ? "" : " · bloqué"))),
                 Btn("Aller", () => page.Travel(id))));
         }
         stack.Add(Panel(panel));

@@ -60,7 +60,7 @@ public sealed class CampView : ContentView
         stack.Add(Btn("◂ Retour à l'équipe", () => { _page.SelectedCharacter = null; _page.Render(); }));
         stack.Add(Panel(Stack(
             Txt(def.Name, 18, Theme.Accent, bold: true),
-            Muted($"{def.Title} · Niveau {c.Level} · XP {c.Xp}/{GameSession.XpToNextLevel(c.Level)}"),
+            Muted($"{def.Title} · Niveau {c.Level} · XP {c.Xp}/{s.XpToNextLevel(c.Level)}"),
             Txt(def.Description, 13),
             Bar("PV", c.CurrentHp, stats.MaxHp, Theme.Hp),
             Bar("PM", c.CurrentMana, stats.MaxMana, Theme.Mana))));
@@ -89,7 +89,7 @@ public sealed class CampView : ContentView
         var skillPanel = Stack();
         foreach (var unlock in def.Skills)
         {
-            var skill = s.Db.Skills[unlock.SkillId];
+            if (!s.Db.Skills.TryGetValue(unlock.SkillId, out var skill)) continue;
             var cost = skill.ManaCost > 0 ? $" · {skill.ManaCost} PM" : "";
             skillPanel.Add(unlock.Level <= c.Level
                 ? Txt($"{skill.Name}{cost} — {skill.Description}", 13)

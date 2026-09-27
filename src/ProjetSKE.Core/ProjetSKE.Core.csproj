@@ -7,4 +7,9 @@
     <RootNamespace>ProjetSKE.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Contenu officiel exporté depuis l'éditeur : remplace le contenu d'exemple s'il existe. -->
+    <EmbeddedResource Include="Data\content.json" LogicalName="ProjetSKE.Core.Data.content.json" Condition="Exists('Data\content.json')" />
+  </ItemGroup>
+
 </Project>

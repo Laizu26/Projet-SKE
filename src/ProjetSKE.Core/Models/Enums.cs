@@ -15,7 +15,23 @@ public enum LocationType { City, Wild, Dungeon }
 
 public enum EncyclopediaCategory { Characters, Monsters, Locations, Weapons, Relics }
 
-public enum DialogueActionType { SetFlag, Recruit, GiveItem, GiveGold, StartBattle }
+/// <summary>Effets déclenchés par un dialogue ou une récompense de quête.</summary>
+public enum ActionType
+{
+    SetFlag, ClearFlag, Recruit, GiveItem, TakeItem, GiveGold, TakeGold, GiveXp,
+    StartBattle, StartQuest, CompleteQuest, HealParty, Teleport,
+}
+
+/// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
+public enum ConditionType
+{
+    FlagSet, FlagNotSet, QuestNotStarted, QuestActive, QuestCompleted,
+    HasItem, InParty, NotInParty, GoldAtLeast, LevelAtLeast,
+}
+
+public enum ObjectiveType { TalkTo, Defeat, Reach, Bring }
+
+public enum QuestStatus { NotStarted, Active, Completed }
 
 /// <summary>Quels combats peuvent se déclencher en voyageant.</summary>
 public enum TravelEncounterMode { None, RandomOnly, FixedOnly, Both }

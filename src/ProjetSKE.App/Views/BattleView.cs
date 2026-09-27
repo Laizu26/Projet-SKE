@@ -111,6 +111,7 @@ public sealed class BattleView : ContentView
                     var s = skill;
                     stack.Add(Btn(skill.Name + cost, () => PickSkill(s), enabled: _battle.CanUse(skill)));
                 }
+                stack.Add(Btn("Passer son tour", () => { _battle.Wait(); SetMode(Mode.Main); }));
                 stack.Add(Btn("◂ Retour", () => SetMode(Mode.Main)));
                 return stack;
             }

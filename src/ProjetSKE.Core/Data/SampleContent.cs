@@ -3,22 +3,30 @@ using ProjetSKE.Core.Models;
 namespace ProjetSKE.Core.Data;
 
 /// <summary>
-/// Contenu d'exemple (fantasy médiévale). Tout se modifie ici :
-/// ajouter un personnage, un monstre, un lieu ou un dialogue = ajouter une entrée dans la liste.
+/// Contenu d'exemple (fantasy médiévale), utilisé tant qu'aucun Data/content.json n'est fourni.
+/// Il se modifie aussi entièrement depuis l'éditeur du mode développeur.
 /// </summary>
 internal static class SampleContent
 {
-    public static GameDatabase Build() => new(
-        Skills(),
-        Items(),
-        Characters(),
-        Monsters(),
-        Locations(),
-        Dialogues(),
-        startLocationId: "havrefort",
-        startGold: 100,
-        startInventory: new Dictionary<string, int> { ["potion"] = 3, ["ether"] = 1 },
-        introDialogueId: "intro");
+    public static GameContent Build() => new()
+    {
+        Title = "Chroniques de Valdor",
+        Skills = [.. Skills()],
+        Items = [.. Items()],
+        Characters = [.. Characters()],
+        Monsters = [.. Monsters()],
+        Locations = [.. Locations()],
+        Npcs = [.. Npcs()],
+        Dialogues = [.. Dialogues()],
+        Quests = [.. Quests()],
+        Start = new()
+        {
+            LocationId = "havrefort",
+            Gold = 100,
+            Inventory = [new("potion", 3), new("ether", 1)],
+            IntroDialogueId = "intro",
+        },
+    };
 
     // ------------------------------------------------------------------ Compétences
 
@@ -143,6 +151,14 @@ internal static class SampleContent
             Drops = [new("fragment_couronne", 1.0), new("amulette_valdor", 1.0)] },
     ];
 
+    // ------------------------------------------------------------------ Raccourcis
+
+    private static Condition IfFlag(string flag) => new(ConditionType.FlagSet, flag);
+    private static Condition IfQuestActive(string id) => new(ConditionType.QuestActive, id);
+    private static Condition IfQuestDone(string id) => new(ConditionType.QuestCompleted, id);
+    private static GameAction Recruit(string id) => new(ActionType.Recruit, id);
+    private static GameAction StartQuest(string id) => new(ActionType.StartQuest, id);
+
     // ------------------------------------------------------------------ Lieux
 
     private static IEnumerable<LocationDef> Locations() =>
@@ -154,11 +170,6 @@ internal static class SampleContent
             ConnectedIds = ["route_roi"],
             ShopItemIds = ["potion", "ether", "epee_courte", "epee_longue", "dague", "baton_chene", "masse", "armure_cuir", "cotte_mailles", "robe_mage"],
             InnPrice = 10,
-            Npcs =
-            [
-                new("Capitaine Hardin", "capitaine"),
-                new("Sœur Maëlle", "recruter_maelle", HiddenIfFlag: "recruited:maelle"),
-            ],
         },
         new()
         {
@@ -176,11 +187,6 @@ internal static class SampleContent
             ShopItemIds = ["potion", "grande_potion", "ether", "baton_runique", "dague_ombre", "robe_mage"],
             InnPrice = 8,
             FirstVisitDialogueId = "rencontre_lyra",
-            Npcs =
-            [
-                new("Lyra", "rencontre_lyra", HiddenIfFlag: "recruited:lyra"),
-                new("Aubergiste", "rumeurs"),
-            ],
         },
         new()
         {
@@ -190,7 +196,6 @@ internal static class SampleContent
             EncounterChance = 0.5,
             RandomEncounters = [new(["araignee"], 3), new(["loup", "loup", "loup"], 1), new(["bandit"], 2), new(["araignee", "loup"], 1)],
             FirstVisitDialogueId = "rencontre_tobin",
-            Npcs = [new("Tobin", "rencontre_tobin", HiddenIfFlag: "recruited:tobin")],
         },
         new()
         {
@@ -209,28 +214,133 @@ internal static class SampleContent
             EncounterChance = 0.6,
             RandomEncounters = [new(["squelette"], 3), new(["squelette", "squelette"], 2), new(["squelette", "araignee"], 1)],
             FixedBattle = new("morvath", ["morvath"], "intro_morvath"),
+            AccessConditions = [IfFlag("crypte_ouverte")],
+            LockedMessage = "Une grille scellée bloque l'entrée. Le Capitaine Hardin en a peut-être la clé.",
+        },
+    ];
+
+    // ------------------------------------------------------------------ PNJ
+
+    private static IEnumerable<NpcDef> Npcs() =>
+    [
+        new()
+        {
+            Id = "capitaine_hardin", Name = "Capitaine Hardin", LocationId = "havrefort",
+            Description = "Commandant de la garde de Havrefort.",
+            ConditionalDialogues =
+            [
+                new("capitaine_fin", IfQuestDone("quete_crypte")),
+                new("capitaine_attente", IfQuestActive("quete_crypte")),
+            ],
+            DefaultDialogueId = "capitaine",
+        },
+        new()
+        {
+            Id = "soeur_maelle", Name = "Sœur Maëlle", LocationId = "havrefort",
+            Description = "Prêtresse de la chapelle.",
+            VisibleConditions = [new(ConditionType.NotInParty, "maelle")],
+            DefaultDialogueId = "recruter_maelle",
+        },
+        new()
+        {
+            Id = "fermier_joss", Name = "Fermier Joss", LocationId = "havrefort",
+            Description = "Éleveur de moutons inquiet.",
+            ConditionalDialogues =
+            [
+                new("joss_merci", IfQuestDone("chasse_loups")),
+                new("joss_attente", IfQuestActive("chasse_loups")),
+            ],
+            DefaultDialogueId = "joss_quete",
+        },
+        new()
+        {
+            Id = "lyra_npc", Name = "Lyra", LocationId = "bourg_brume",
+            Description = "Jeune mage qui s'ennuie sur la place du bourg.",
+            VisibleConditions = [new(ConditionType.NotInParty, "lyra")],
+            DefaultDialogueId = "rencontre_lyra",
+        },
+        new()
+        {
+            Id = "aubergiste", Name = "Aubergiste", LocationId = "bourg_brume",
+            Description = "Connaît toutes les rumeurs du pays.",
+            DefaultDialogueId = "rumeurs",
+        },
+        new()
+        {
+            Id = "herboriste", Name = "Mère Ortie", LocationId = "bourg_brume",
+            Description = "Herboriste du bourg.",
+            ConditionalDialogues =
+            [
+                new("herboriste_merci", IfQuestDone("remede")),
+                new("herboriste_attente", IfQuestActive("remede")),
+            ],
+            DefaultDialogueId = "herboriste_quete",
+        },
+        new()
+        {
+            Id = "tobin_npc", Name = "Tobin", LocationId = "foret_sombrebois",
+            Description = "Voleur perché dans les arbres.",
+            VisibleConditions = [new(ConditionType.NotInParty, "tobin")],
+            DefaultDialogueId = "rencontre_tobin",
+        },
+    ];
+
+    // ------------------------------------------------------------------ Quêtes
+
+    private static IEnumerable<QuestDef> Quests() =>
+    [
+        new()
+        {
+            Id = "quete_crypte", Name = "La Crypte oubliée",
+            Description = "Le Capitaine Hardin demande de mettre fin aux morts-vivants de la Crypte oubliée.",
+            Objectives =
+            [
+                new() { Type = ObjectiveType.Reach, TargetId = "crypte" },
+                new() { Type = ObjectiveType.Defeat, TargetId = "morvath" },
+                new() { Type = ObjectiveType.TalkTo, TargetId = "capitaine_hardin", Description = "Faire son rapport au Capitaine Hardin" },
+            ],
+            Rewards = [new(ActionType.GiveGold, amount: 300), new(ActionType.GiveXp, amount: 100), new(ActionType.SetFlag, "royaume_sauve")],
+        },
+        new()
+        {
+            Id = "chasse_loups", Name = "Chasse aux loups",
+            Description = "Le Fermier Joss perd ses moutons à cause des loups de la Route du Roi.",
+            Objectives =
+            [
+                new() { Type = ObjectiveType.Defeat, TargetId = "loup", Count = 3 },
+                new() { Type = ObjectiveType.TalkTo, TargetId = "fermier_joss" },
+            ],
+            Rewards = [new(ActionType.GiveGold, amount: 60), new(ActionType.GiveItem, "potion", 2)],
+        },
+        new()
+        {
+            Id = "remede", Name = "Le remède de Mère Ortie",
+            Description = "L'herboriste a besoin d'un Éther pour préparer un remède.",
+            Objectives = [new() { Type = ObjectiveType.Bring, TargetId = "ether", NpcId = "herboriste" }],
+            Rewards = [new(ActionType.GiveItem, "grande_potion", 1), new(ActionType.GiveXp, amount: 30)],
         },
     ];
 
     // ------------------------------------------------------------------ Dialogues
 
-    private static DialogueAction Recruit(string id) => new(DialogueActionType.Recruit, id);
+    private static DialogueNode Line(string id, string speaker, string text, string? next = null) =>
+        new() { Id = id, Speaker = speaker, Text = text, NextId = next };
 
     private static IEnumerable<DialogueDef> Dialogues() =>
     [
         new()
         {
-            Id = "intro",
+            Id = "intro", Name = "Introduction",
             Nodes =
             [
-                new() { Id = "1", Speaker = "", Text = "Le royaume de Valdor vacille. Depuis la disparition de la couronne, les morts ne dorment plus.", NextId = "2" },
-                new() { Id = "2", Speaker = "", Text = "Tu arrives à Havrefort, la capitale, avec ton épée et quelques pièces en poche.", NextId = "3" },
-                new() { Id = "3", Speaker = "", Text = "Le Capitaine Hardin cherche des volontaires. C'est peut-être le début de ton aventure." },
+                Line("1", "", "Le royaume de Valdor vacille. Depuis la disparition de la couronne, les morts ne dorment plus.", "2"),
+                Line("2", "", "Tu arrives à Havrefort, la capitale, avec ton épée et quelques pièces en poche.", "3"),
+                Line("3", "", "Le Capitaine Hardin cherche des volontaires. C'est peut-être le début de ton aventure."),
             ],
         },
         new()
         {
-            Id = "capitaine",
+            Id = "capitaine", Name = "Capitaine : la crypte",
             Nodes =
             [
                 new()
@@ -246,17 +356,25 @@ internal static class SampleContent
                 new()
                 {
                     Id = "oui", Speaker = "Capitaine Hardin",
-                    Text = "Brave. Prends ceci pour la route. Et passe voir Sœur Maëlle à la chapelle : les morts la craignent.",
-                    Actions = [new(DialogueActionType.GiveGold, Amount: 50), new(DialogueActionType.SetFlag, "quete_crypte")],
-                    NextId = "fin",
+                    Text = "Brave. Voici la clé de la grille et de quoi t'équiper. Passe voir Sœur Maëlle à la chapelle : les morts la craignent.",
+                    Actions = [new(ActionType.GiveGold, amount: 50), new(ActionType.SetFlag, "crypte_ouverte"), StartQuest("quete_crypte")],
                 },
-                new() { Id = "non", Speaker = "Capitaine Hardin", Text = "Reviens quand tu seras prêt." },
-                new() { Id = "fin", Speaker = "", Text = "Nouvel objectif : purifier la Crypte oubliée." },
+                Line("non", "Capitaine Hardin", "Reviens quand tu seras prêt."),
             ],
         },
         new()
         {
-            Id = "recruter_maelle",
+            Id = "capitaine_attente", Name = "Capitaine : en attente",
+            Nodes = [Line("1", "Capitaine Hardin", "La crypte est toujours infestée. Courage, et reviens me faire ton rapport.")],
+        },
+        new()
+        {
+            Id = "capitaine_fin", Name = "Capitaine : victoire",
+            Nodes = [Line("1", "Capitaine Hardin", "Tu as vaincu Morvath ! Tout Valdor te doit une fière chandelle, héros.")],
+        },
+        new()
+        {
+            Id = "recruter_maelle", Name = "Recruter Maëlle",
             Nodes =
             [
                 new()
@@ -269,16 +387,16 @@ internal static class SampleContent
                         new() { Text = "Plus tard.", NextId = "non" },
                     ],
                 },
-                new() { Id = "oui", Speaker = "Sœur Maëlle", Text = "Que la lumière nous guide." },
-                new() { Id = "non", Speaker = "Sœur Maëlle", Text = "Je prierai pour toi. Tu sais où me trouver." },
+                Line("oui", "Sœur Maëlle", "Que la lumière nous guide."),
+                Line("non", "Sœur Maëlle", "Je prierai pour toi. Tu sais où me trouver."),
             ],
         },
         new()
         {
-            Id = "rencontre_lyra",
+            Id = "rencontre_lyra", Name = "Rencontre avec Lyra",
             Nodes =
             [
-                new() { Id = "1", Speaker = "", Text = "Sur la place du bourg, une jeune femme fait danser des flammes au bout de ses doigts.", NextId = "2" },
+                Line("1", "", "Sur la place du bourg, une jeune femme fait danser des flammes au bout de ses doigts.", "2"),
                 new()
                 {
                     Id = "2", Speaker = "Lyra",
@@ -289,16 +407,16 @@ internal static class SampleContent
                         new() { Text = "Non merci.", NextId = "non" },
                     ],
                 },
-                new() { Id = "oui", Speaker = "Lyra", Text = "Génial ! Je prends mes affaires. Enfin, mon bâton." },
-                new() { Id = "non", Speaker = "Lyra", Text = "Tant pis. Si tu changes d'avis, je suis sur la place." },
+                Line("oui", "Lyra", "Génial ! Je prends mes affaires. Enfin, mon bâton."),
+                Line("non", "Lyra", "Tant pis. Si tu changes d'avis, je suis sur la place."),
             ],
         },
         new()
         {
-            Id = "rencontre_tobin",
+            Id = "rencontre_tobin", Name = "Rencontre avec Tobin",
             Nodes =
             [
-                new() { Id = "1", Speaker = "", Text = "Une silhouette tombe d'un arbre juste devant toi, dague à la main.", NextId = "2" },
+                Line("1", "", "Une silhouette tombe d'un arbre juste devant toi, dague à la main.", "2"),
                 new()
                 {
                     Id = "2", Speaker = "Tobin",
@@ -309,31 +427,88 @@ internal static class SampleContent
                         new() { Text = "Passe ton chemin.", NextId = "non" },
                     ],
                 },
-                new() { Id = "oui", Speaker = "Tobin", Text = "Marché conclu. Je prends 10 % du butin. Bon, 5 %." },
-                new() { Id = "non", Speaker = "", Text = "Tobin disparaît dans les fourrés en ricanant." },
+                Line("oui", "Tobin", "Marché conclu. Je prends 10 % du butin. Bon, 5 %."),
+                Line("non", "", "Tobin disparaît dans les fourrés en ricanant."),
             ],
         },
         new()
         {
-            Id = "rumeurs",
+            Id = "rumeurs", Name = "Rumeurs de l'auberge",
             Nodes =
             [
-                new() { Id = "1", Speaker = "Aubergiste", Text = "On raconte qu'un bandit balafré tient le Col des Corbeaux. Personne ne passe sans payer.", NextId = "2" },
-                new() { Id = "2", Speaker = "Aubergiste", Text = "Et dans la forêt, méfie-toi des araignées. Certaines portent de drôles de bijoux dans leur toile." },
+                Line("1", "Aubergiste", "On raconte qu'un bandit balafré tient le Col des Corbeaux. Personne ne passe sans payer.", "2"),
+                Line("2", "Aubergiste", "Et dans la forêt, méfie-toi des araignées. Certaines portent de drôles de bijoux dans leur toile."),
             ],
         },
         new()
         {
-            Id = "intro_garrick",
-            Nodes = [new() { Id = "1", Speaker = "Garrick le Balafré", Text = "Personne ne passe le col sans payer. Et toi, tu vas payer cher !" }],
+            Id = "joss_quete", Name = "Joss : les loups",
+            Nodes =
+            [
+                new()
+                {
+                    Id = "1", Speaker = "Fermier Joss",
+                    Text = "Les loups de la Route du Roi me volent mes moutons ! Tu pourrais en abattre trois ?",
+                    Choices =
+                    [
+                        new() { Text = "Compte sur moi.", NextId = "oui", Actions = [StartQuest("chasse_loups")] },
+                        new() { Text = "Désolé, pas le temps.", NextId = "non" },
+                    ],
+                },
+                Line("oui", "Fermier Joss", "Merci ! Reviens me voir quand ce sera fait."),
+                Line("non", "Fermier Joss", "Mes pauvres moutons..."),
+            ],
         },
         new()
         {
-            Id = "intro_morvath",
+            Id = "joss_attente", Name = "Joss : en attente",
+            Nodes = [Line("1", "Fermier Joss", "Alors, ces loups ? Il en reste encore sur la route, je les entends hurler.")],
+        },
+        new()
+        {
+            Id = "joss_merci", Name = "Joss : merci",
+            Nodes = [Line("1", "Fermier Joss", "Plus un loup à l'horizon ! Mes moutons et moi te remercions.")],
+        },
+        new()
+        {
+            Id = "herboriste_quete", Name = "Mère Ortie : le remède",
             Nodes =
             [
-                new() { Id = "1", Speaker = "", Text = "Au fond de la crypte, une silhouette couronnée se lève de son trône d'os.", NextId = "2" },
-                new() { Id = "2", Speaker = "Roi-Liche Morvath", Text = "Encore un héros... Ma collection d'os s'agrandit." },
+                new()
+                {
+                    Id = "1", Speaker = "Mère Ortie",
+                    Text = "Il me manque un Éther pour mon remède. Tu m'en rapporterais un ?",
+                    Choices =
+                    [
+                        new() { Text = "D'accord.", NextId = "oui", Actions = [StartQuest("remede")] },
+                        new() { Text = "Non.", NextId = null },
+                    ],
+                },
+                Line("oui", "Mère Ortie", "Merci, mon petit. Ça se vend dans les boutiques, si tu n'en as pas."),
+            ],
+        },
+        new()
+        {
+            Id = "herboriste_attente", Name = "Mère Ortie : en attente",
+            Nodes = [Line("1", "Mère Ortie", "Toujours pas d'Éther ? Mon chaudron refroidit...")],
+        },
+        new()
+        {
+            Id = "herboriste_merci", Name = "Mère Ortie : merci",
+            Nodes = [Line("1", "Mère Ortie", "Le remède est prêt. Tiens, garde ceci pour tes blessures.")],
+        },
+        new()
+        {
+            Id = "intro_garrick", Name = "Garrick",
+            Nodes = [Line("1", "Garrick le Balafré", "Personne ne passe le col sans payer. Et toi, tu vas payer cher !")],
+        },
+        new()
+        {
+            Id = "intro_morvath", Name = "Morvath",
+            Nodes =
+            [
+                Line("1", "", "Au fond de la crypte, une silhouette couronnée se lève de son trône d'os.", "2"),
+                Line("2", "Roi-Liche Morvath", "Encore un héros... Ma collection d'os s'agrandit."),
             ],
         },
     ];

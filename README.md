@@ -35,7 +35,8 @@ dotnet test tests/ProjetSKE.Core.Tests
 | **Sélection** | Choix du personnage de départ (1 héros pour l'instant, on peut en ajouter d'autres) |
 | **Camp** | Titulaires et réserve, fiche de chaque personnage (stats, niveau, XP, compétences), équipement (arme, armure, relique), sac commun |
 | **Carte** | Vue du lieu actuel (ville : auberge, boutique, habitants ; nature : explorer, combat fixe), puis vue du pays avec la liste des destinations |
-| **Encyclo** | Personnages, monstres, lieux, armes et reliques rencontrés (les autres restent invisibles) |
+| **Quêtes** | Quêtes en cours (objectif actuel, compteur) et quêtes terminées |
+| **Encyclo** | Personnages (PJ et PNJ), monstres, lieux, armes et reliques rencontrés (les autres restent invisibles) |
 | **Shop** | Uniquement en ville : achat et revente (à moitié prix) |
 | **Journal** | Page blanche où l'on écrit librement, sauvegardée avec la partie |
 | **Menu** | Sauvegarde, paramètres, retour au titre |
@@ -52,28 +53,92 @@ dotnet test tests/ProjetSKE.Core.Tests
 
 Une relique est un **objet unique**. Elle peut être **équipable**, pour un bonus permanent, ou servir d'**objet de quête**, sans effet en combat. Ce choix se règle avec `RelicUsage` dans le contenu.
 
+## Mode développeur
+
+Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
+
+### Éditeur (tout le contenu est modifiable)
+
+| Catégorie | Ce qu'on règle |
+|---|---|
+| **PJ** | Nom, classe, description, stats de base et gain par niveau, compétences (et niveau d'apprentissage), équipement de départ, « proposé au départ » |
+| **PNJ** | Nom, lieu, dialogue par défaut, dialogues selon l'avancement (conditions), conditions d'apparition |
+| **Histoire** | Dialogues en **formulaire** ou en **texte** (voir ci-dessous) : répliques, choix, conditions, effets |
+| **Quêtes** | Objectifs dans l'ordre (parler à un PNJ, vaincre des monstres, aller à un lieu, apporter un objet) et récompenses |
+| **Objets / Reliques** | Type, prix, soins, bonus d'équipement, objet unique, relique équipable ou de quête |
+| **Monstres** | Stats, compétences, XP, or, butin (avec probabilités), boss |
+| **Compétences** | Physique / magique / soin, cible, coût en PM, puissance |
+| **Lieux et carte** | Type, liens entre lieux (créés dans les deux sens), boutique, auberge, rencontres aléatoires, combat fixe, accès sous condition, dialogue de première visite |
+| **Départ** | Lieu, or, objets, dialogue d'introduction, héros proposés |
+| **Équilibrage** | XP par niveau, niveau max, prix de revente, formules de dégâts et de soin |
+
+- **Effets** possibles (dialogues et récompenses) : poser ou retirer un flag, recruter un PJ, donner ou prendre un objet ou de l'or, donner de l'XP, lancer un combat, démarrer ou terminer une quête, soigner l'équipe, téléporter.
+- **Conditions** possibles : flag posé ou absent, quête pas commencée / en cours / terminée, possède un objet, PJ dans l'équipe ou non, or minimum, niveau minimum.
+
+Boutons de l'accueil de l'éditeur :
+
+- **Vérifier** : liste les références cassées (un PNJ dont le dialogue n'existe plus, par exemple).
+- **Enregistrer** : le jeu utilise alors ce contenu sur le téléphone.
+- **Tester** : lance une partie de test avec le brouillon. Elle n'est jamais sauvegardée.
+- **Exporter le fichier** / **Copier le texte** : pour envoyer ton contenu. Une fois déposé dans `src/ProjetSKE.Core/Data/content.json` (en ressource embarquée), il devient le contenu officiel de l'APK.
+- **Importer un fichier** / **Coller le texte** : pour charger un contenu.
+- **Revenir au contenu d'origine** : efface le contenu de l'éditeur.
+
+Les anciennes sauvegardes restent jouables : tout ce qui a été supprimé du contenu est retiré de la partie au chargement.
+
+### Écrire un dialogue en texte
+
+```
+- Sur la place, une jeune femme fait danser des flammes.
+Lyra: Un aventurier ! Tu m'emmènes ?
+> Rejoins-moi. -> oui [recrute lyra]
+> Non merci. -> non
+> Je t'offre 50 or. -> oui {or 50} [payer 50] [recrute lyra]
+
+@oui
+Lyra: Génial !
+
+@non
+Lyra: Tant pis.
+```
+
+- `Nom: texte` : une réplique ; `- texte` : de la narration.
+- `> choix -> étiquette` : un choix de réponse ; `@étiquette` : le début d'un bloc ; `-> étiquette` : un saut (`-> fin` pour terminer).
+- `[effet]` : un effet, par exemple `[flag x]`, `[recrute id]`, `[objet id 2]`, `[or 50]`, `[xp 30]`, `[combat loup,loup]`, `[quete id]`, `[soin]` ou `[teleport lieu]`.
+- `{condition}` : une condition sur un choix, par exemple `{flag x}`, `{quete_active id}`, `{objet id}`, `{or 50}` ou `{niveau 3}`.
+
+L'aide complète est affichée dans l'éditeur.
+
+### Outils de test en partie
+
+Une fois le mode développeur déverrouillé, **Menu → Outils de test** permet de :
+
+- se téléporter ;
+- ajouter de l'or ou de l'XP, soigner l'équipe ;
+- donner des objets, recruter un PJ ;
+- lancer un combat ou un dialogue ;
+- démarrer, terminer ou oublier une quête ;
+- poser ou retirer des flags.
+
 ## Organisation du code
 
 ```
 src/ProjetSKE.Core/          Moteur du jeu (C# pur, testable, sans interface)
   Models/                    Définitions : compétences, objets, personnages, monstres, lieux, dialogues
-  Data/SampleContent.cs      ← TOUT LE CONTENU DU JEU (à modifier pour ajouter des éléments)
+  Data/SampleContent.cs      Contenu d'exemple (utilisé tant qu'il n'y a pas de Data/content.json)
+  Data/DialogueScript.cs     Format texte des dialogues
   State/GameState.cs         Ce qui est sauvegardé
   Systems/                   Règles : partie, combat, dialogues, sauvegarde
 src/ProjetSKE.App/           Application Android (.NET MAUI)
   Pages/                     Titre, emplacements, sélection, écran de jeu
   Views/                     Onglets, combat, dialogue
+  Dev/                       Mode développeur : éditeur et outils de test
   Ui/UiKit.cs                Couleurs et briques d'interface
 tests/ProjetSKE.Core.Tests/  Tests automatiques du moteur
 ```
 
 ### Ajouter du contenu
 
-Tout se passe dans `src/ProjetSKE.Core/Data/SampleContent.cs` :
+Le plus simple est d'utiliser le **mode développeur**, directement sur le téléphone. Pour intégrer un contenu exporté à l'APK officiel, dépose le fichier dans `src/ProjetSKE.Core/Data/content.json` : il remplace alors automatiquement le contenu d'exemple.
 
-- **Un personnage recrutable** : ajoute-le à `Characters()`, puis crée un dialogue avec le choix `Recruit("id")`. Pour qu'il soit proposé au départ, mets `IsStarter = true`.
-- **Un monstre** : ajoute-le à `Monsters()`, puis place-le dans les `RandomEncounters` d'un lieu.
-- **Un lieu** : ajoute-le à `Locations()` et relie-le aux autres avec `ConnectedIds`, dans les deux sens.
-- **Un objet** : ajoute-le à `Items()`. Pour qu'il soit vendu dans une ville, ajoute-le aux `ShopItemIds` de cette ville.
-
-Le test `SampleContent_IsValid` vérifie que toutes les références existent (par exemple, qu'un monstre placé dans un lieu est bien défini).
+Le test `Content_JsonRoundTrip` vérifie que le contenu d'exemple est valide et s'exporte correctement.

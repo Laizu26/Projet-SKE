@@ -46,7 +46,7 @@ public class GameTests
         var s = NewGame();
         var hero = s.State.Party[0];
         Assert.Equal(14 + 4, s.GetStats(hero).Attack);
-        s.GiveXp(hero, GameSession.XpToNextLevel(1));
+        s.GiveXp(hero, s.XpToNextLevel(1));
         Assert.Equal(2, hero.Level);
         Assert.Equal(14 + 2 + 4, s.GetStats(hero).Attack);
         Assert.Equal(s.GetStats(hero).MaxHp, hero.CurrentHp);
@@ -253,7 +253,7 @@ public class GameTests
         Assert.Equal(2, d.Choices.Count);
         d.Choose(0);
         Assert.True(s.IsInParty("lyra"));
-        Assert.Single(d.Notifications);
+        Assert.Contains(s.Notifications, n => n.StartsWith("Lyra rejoint"));
         d.Continue();
         Assert.True(d.IsFinished);
     }
@@ -265,7 +265,8 @@ public class GameTests
         var d = s.StartDialogue("capitaine");
         d.Choose(0);
         Assert.Equal(150, s.State.Gold);
-        Assert.True(s.HasFlag("quete_crypte"));
+        Assert.True(s.HasFlag("crypte_ouverte"));
+        Assert.Equal(QuestStatus.Active, s.GetQuestStatus("quete_crypte"));
     }
 
     [Fact]

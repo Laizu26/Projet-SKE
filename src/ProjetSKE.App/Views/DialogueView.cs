@@ -7,11 +7,13 @@ namespace ProjetSKE.App.Views;
 /// <summary>Mode Histoire : boîte de dialogue par-dessus tout, avec choix de réponse.</summary>
 public sealed class DialogueView : ContentView
 {
+    private readonly GameSession _session;
     private readonly DialogueRunner _runner;
     private readonly Action _onEnd;
 
-    public DialogueView(DialogueRunner runner, Action onEnd)
+    public DialogueView(GameSession session, DialogueRunner runner, Action onEnd)
     {
+        _session = session;
         _runner = runner;
         _onEnd = onEnd;
         Render();
@@ -19,8 +21,8 @@ public sealed class DialogueView : ContentView
 
     private void Render()
     {
-        var notifications = _runner.Notifications.ToList();
-        _runner.Notifications.Clear();
+        var notifications = _session.Notifications.ToList();
+        _session.Notifications.Clear();
 
         if (_runner.IsFinished && notifications.Count == 0)
         {
@@ -36,12 +38,13 @@ public sealed class DialogueView : ContentView
             if (node.Speaker.Length > 0) box.Add(Txt(node.Speaker, 16, Theme.Accent, bold: true));
             box.Add(Txt(node.Text, 16, node.Speaker.Length > 0 ? Theme.Text : Theme.Muted));
 
-            if (node.Choices.Count > 0)
+            var choices = _runner.Choices;
+            if (choices.Count > 0)
             {
-                for (var i = 0; i < node.Choices.Count; i++)
+                for (var i = 0; i < choices.Count; i++)
                 {
                     var index = i;
-                    box.Add(Btn(node.Choices[i].Text, () => { _runner.Choose(index); Render(); }));
+                    box.Add(Btn(choices[i].Text, () => { _runner.Choose(index); Render(); }));
                 }
             }
             else

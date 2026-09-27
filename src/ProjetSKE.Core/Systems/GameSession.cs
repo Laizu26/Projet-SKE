@@ -17,18 +17,22 @@ public sealed record BattleRewards(int Xp, int Gold, IReadOnlyList<string> ItemI
 
 public sealed record DefeatResult(bool IsGameOver, int GoldLost, string? ReturnLocationId);
 
-/// <summary>Partie en cours : toutes les règles du jeu hors combat et dialogue.</summary>
+/// <summary>Partie en cours : toutes les règles du jeu hors déroulé du combat et du dialogue.</summary>
 public sealed class GameSession
 {
     public GameDatabase Db { get; }
     public GameState State { get; }
     public Random Rng { get; }
 
+    /// <summary>Messages à afficher au joueur (recrutement, objectif accompli, récompense...).</summary>
+    public List<string> Notifications { get; } = [];
+
     public GameSession(GameDatabase db, GameState state, Random? rng = null)
     {
         Db = db;
         State = state;
         Rng = rng ?? new Random();
+        Sanitize();
     }
 
     public static GameSession NewGame(GameDatabase db, string heroId, Random? rng = null)
@@ -36,22 +40,227 @@ public sealed class GameSession
         var state = new GameState
         {
             HeroId = heroId,
-            Gold = db.StartGold,
-            CurrentLocationId = db.StartLocationId,
-            LastCityId = db.StartLocationId,
+            Gold = db.Start.Gold,
+            CurrentLocationId = db.Start.LocationId,
+            LastCityId = db.Start.LocationId,
         };
         var session = new GameSession(db, state, rng);
-        foreach (var (id, count) in db.StartInventory) session.AddItem(id, count);
+        foreach (var stack in db.Start.Inventory) session.AddItem(stack.ItemId, stack.Count);
         session.Recruit(heroId);
-        session.DiscoverLocation(db.StartLocationId);
+        session.DiscoverLocation(state.CurrentLocationId);
+        session.Notifications.Clear();
         return session;
     }
 
+    /// <summary>
+    /// Retire d'une sauvegarde tout ce qui n'existe plus dans le contenu (après modification dans l'éditeur),
+    /// pour qu'une ancienne partie reste jouable.
+    /// </summary>
+    private void Sanitize()
+    {
+        State.Party.RemoveAll(c => !Db.Characters.ContainsKey(c.DefId));
+        foreach (var c in State.Party)
+        {
+            foreach (var slot in Enum.GetValues<EquipSlot>())
+                if (c.GetEquipped(slot) is { } id && !Db.Items.ContainsKey(id)) c.SetEquipped(slot, null);
+            ClampVitals(c);
+        }
+        if (State.Party.Count > 0 && !State.Party.Any(c => c.IsActive)) State.Party[0].IsActive = true;
+        foreach (var id in State.Inventory.Keys.Where(id => !Db.Items.ContainsKey(id)).ToList()) State.Inventory.Remove(id);
+        foreach (var id in State.Quests.Keys.Where(id => !Db.Quests.ContainsKey(id)).ToList()) State.Quests.Remove(id);
+        State.SeenCharacters.RemoveWhere(id => !Db.Characters.ContainsKey(id));
+        State.SeenMonsters.RemoveWhere(id => !Db.Monsters.ContainsKey(id));
+        State.SeenLocations.RemoveWhere(id => !Db.Locations.ContainsKey(id));
+        State.SeenWeapons.RemoveWhere(id => !Db.Items.ContainsKey(id));
+        State.SeenRelics.RemoveWhere(id => !Db.Items.ContainsKey(id));
+        State.SeenNpcs.RemoveWhere(id => !Db.Npcs.ContainsKey(id));
+        var fallback = Db.Locations.ContainsKey(Db.Start.LocationId) ? Db.Start.LocationId : Db.Content.Locations.FirstOrDefault()?.Id ?? "";
+        if (!Db.Locations.ContainsKey(State.CurrentLocationId)) State.CurrentLocationId = fallback;
+        if (!Db.Locations.ContainsKey(State.LastCityId)) State.LastCityId = fallback;
+    }
+
     public GameConfig Config => State.Config;
+    public BalanceSettings Balance => Db.Balance;
     public LocationDef CurrentLocation => Db.Locations[State.CurrentLocationId];
     public bool InCity => CurrentLocation.IsCity;
     public bool HasFlag(string flag) => State.Flags.Contains(flag);
     public void SetFlag(string flag) => State.Flags.Add(flag);
+
+    // ------------------------------------------------------------------ Conditions et actions
+
+    public bool Check(Condition c) => c.Type switch
+    {
+        ConditionType.FlagSet => HasFlag(c.Arg),
+        ConditionType.FlagNotSet => !HasFlag(c.Arg),
+        ConditionType.QuestNotStarted => GetQuestStatus(c.Arg) == QuestStatus.NotStarted,
+        ConditionType.QuestActive => GetQuestStatus(c.Arg) == QuestStatus.Active,
+        ConditionType.QuestCompleted => GetQuestStatus(c.Arg) == QuestStatus.Completed,
+        ConditionType.HasItem => OwnsCount(c.Arg) >= Math.Max(1, c.Amount),
+        ConditionType.InParty => IsInParty(c.Arg),
+        ConditionType.NotInParty => !IsInParty(c.Arg),
+        ConditionType.GoldAtLeast => State.Gold >= c.Amount,
+        ConditionType.LevelAtLeast => State.Party.Count > 0 && State.Party.Max(p => p.Level) >= c.Amount,
+        _ => true,
+    };
+
+    public bool CheckAll(IEnumerable<Condition> conditions) => conditions.All(Check);
+
+    /// <summary>Applique un effet. Renvoie les monstres à combattre si l'action lance un combat.</summary>
+    public IReadOnlyList<string>? Execute(GameAction a)
+    {
+        switch (a.Type)
+        {
+            case ActionType.SetFlag:
+                SetFlag(a.Arg);
+                break;
+            case ActionType.ClearFlag:
+                State.Flags.Remove(a.Arg);
+                break;
+            case ActionType.Recruit:
+                if (Recruit(a.Arg))
+                {
+                    var c = State.Party[^1];
+                    Notifications.Add($"{Db.Characters[a.Arg].Name} rejoint l'équipe{(c.IsActive ? "" : " (réserve)")} !");
+                }
+                break;
+            case ActionType.GiveItem:
+                if (Db.Items.TryGetValue(a.Arg, out var given) && AddItem(a.Arg, a.Amount))
+                    Notifications.Add($"Obtenu : {given.Name} x{a.Amount}");
+                break;
+            case ActionType.TakeItem:
+                if (Db.Items.TryGetValue(a.Arg, out var taken) && RemoveItem(a.Arg, Math.Min(a.Amount, CountItem(a.Arg))))
+                    Notifications.Add($"Donné : {taken.Name}");
+                break;
+            case ActionType.GiveGold:
+                State.Gold += a.Amount;
+                Notifications.Add($"Obtenu : {a.Amount} or");
+                break;
+            case ActionType.TakeGold:
+                State.Gold = Math.Max(0, State.Gold - a.Amount);
+                Notifications.Add($"Payé : {a.Amount} or");
+                break;
+            case ActionType.GiveXp:
+                foreach (var c in ActiveParty.ToList())
+                    if (GiveXp(c, a.Amount) > 0) Notifications.Add($"{DefOf(c).Name} passe niveau {c.Level} !");
+                Notifications.Add($"+{a.Amount} XP");
+                break;
+            case ActionType.HealParty:
+                HealAll();
+                Notifications.Add("L'équipe est soignée.");
+                break;
+            case ActionType.Teleport:
+                if (Db.Locations.TryGetValue(a.Arg, out var loc))
+                {
+                    MoveTo(loc);
+                    Notifications.Add($"Vous voici à {loc.Name}.");
+                }
+                break;
+            case ActionType.StartQuest:
+                StartQuest(a.Arg);
+                break;
+            case ActionType.CompleteQuest:
+                CompleteQuest(a.Arg);
+                break;
+            case ActionType.StartBattle:
+                var monsters = GameDatabase.SplitIds(a.Arg).Where(Db.Monsters.ContainsKey).ToList();
+                return monsters.Count > 0 ? monsters : null;
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------------ Quêtes
+
+    public QuestStatus GetQuestStatus(string questId) =>
+        State.Quests.TryGetValue(questId, out var p) ? p.Status : QuestStatus.NotStarted;
+
+    public bool StartQuest(string questId)
+    {
+        if (!Db.Quests.TryGetValue(questId, out var quest) || State.Quests.ContainsKey(questId)) return false;
+        State.Quests[questId] = new QuestProgress();
+        Notifications.Add($"Nouvelle quête : {quest.Name}");
+        UpdateQuests();
+        return true;
+    }
+
+    /// <summary>Termine une quête (tous objectifs) et donne ses récompenses.</summary>
+    public bool CompleteQuest(string questId)
+    {
+        if (!Db.Quests.TryGetValue(questId, out var quest)) return false;
+        if (GetQuestStatus(questId) == QuestStatus.Completed) return false;
+        State.Quests[questId] = new QuestProgress { Status = QuestStatus.Completed, Step = quest.Objectives.Count };
+        Notifications.Add($"Quête terminée : {quest.Name}");
+        foreach (var reward in quest.Rewards) Execute(reward);
+        return true;
+    }
+
+    /// <summary>Oublie une quête (outil développeur).</summary>
+    public void ResetQuest(string questId) => State.Quests.Remove(questId);
+
+    public IEnumerable<(QuestDef Quest, QuestProgress Progress)> QuestLog =>
+        State.Quests.Where(kv => Db.Quests.ContainsKey(kv.Key)).Select(kv => (Db.Quests[kv.Key], kv.Value));
+
+    public string ObjectiveText(QuestObjective o)
+    {
+        if (o.Description.Length > 0) return o.Description;
+        return o.Type switch
+        {
+            ObjectiveType.TalkTo => $"Parler à {NameOrId(Db.Npcs, o.TargetId, n => n.Name)}",
+            ObjectiveType.Defeat => $"Vaincre {NameOrId(Db.Monsters, o.TargetId, m => m.Name)}" + (o.Count > 1 ? $" ×{o.Count}" : ""),
+            ObjectiveType.Reach => $"Aller à {NameOrId(Db.Locations, o.TargetId, l => l.Name)}",
+            _ => $"Apporter {NameOrId(Db.Items, o.TargetId, i => i.Name)}" + (o.Count > 1 ? $" ×{o.Count}" : "")
+                 + (string.IsNullOrEmpty(o.NpcId) ? "" : $" à {NameOrId(Db.Npcs, o.NpcId, n => n.Name)}"),
+        };
+    }
+
+    private static string NameOrId<T>(IReadOnlyDictionary<string, T> dict, string id, Func<T, string> name) =>
+        dict.TryGetValue(id, out var v) ? name(v) : id;
+
+    /// <summary>
+    /// Fait avancer les quêtes actives. Appelé avec un événement (PNJ à qui l'on parle, monstre vaincu),
+    /// ou sans événement pour vérifier les objectifs "aller à" et "posséder un objet".
+    /// </summary>
+    public void UpdateQuests(ObjectiveType? eventType = null, string? eventTarget = null)
+    {
+        foreach (var questId in State.Quests.Where(kv => kv.Value.Status == QuestStatus.Active).Select(kv => kv.Key).ToList())
+        {
+            if (!Db.Quests.TryGetValue(questId, out var quest)) continue;
+            var progress = State.Quests[questId];
+            var consumed = false; // un même événement ne valide qu'un objectif par quête
+            while (progress.Status == QuestStatus.Active && progress.Step < quest.Objectives.Count)
+            {
+                var o = quest.Objectives[progress.Step];
+                var matches = !consumed && eventType == o.Type && eventTarget == o.TargetId;
+                var done = false;
+                switch (o.Type)
+                {
+                    case ObjectiveType.Defeat:
+                        if (matches) { progress.Count++; consumed = true; }
+                        done = progress.Count >= Math.Max(1, o.Count);
+                        break;
+                    case ObjectiveType.Reach:
+                        done = State.CurrentLocationId == o.TargetId;
+                        break;
+                    case ObjectiveType.TalkTo:
+                        done = matches;
+                        break;
+                    case ObjectiveType.Bring:
+                        var enough = CountItem(o.TargetId) >= Math.Max(1, o.Count);
+                        var atNpc = string.IsNullOrEmpty(o.NpcId)
+                            || (!consumed && eventType == ObjectiveType.TalkTo && eventTarget == o.NpcId);
+                        done = enough && atNpc;
+                        if (done && o.ConsumeItems) RemoveItem(o.TargetId, Math.Max(1, o.Count));
+                        break;
+                }
+                if (!done) break;
+                if (o.Type is ObjectiveType.TalkTo || (o.Type is ObjectiveType.Bring && !string.IsNullOrEmpty(o.NpcId)))
+                    consumed = true;
+                progress.Step++;
+                progress.Count = 0;
+                if (progress.Step >= quest.Objectives.Count) CompleteQuest(questId);
+                else Notifications.Add($"Objectif accompli : {ObjectiveText(o)}");
+            }
+        }
+    }
 
     // ------------------------------------------------------------------ Encyclopédie
 
@@ -72,7 +281,9 @@ public sealed class GameSession
         IEnumerable<(string, string, string)> entries = category switch
         {
             EncyclopediaCategory.Characters => State.SeenCharacters.Select(id => Db.Characters[id])
-                .Select(c => (c.Name, c.Title, c.Description)),
+                .Select(c => (c.Name, c.Title, c.Description))
+                .Concat(State.SeenNpcs.Select(id => Db.Npcs[id])
+                    .Select(n => (n.Name, "PNJ · " + NameOrId(Db.Locations, n.LocationId, l => l.Name), n.Description))),
             EncyclopediaCategory.Monsters => State.SeenMonsters.Select(id => Db.Monsters[id])
                 .Select(m => (m.Name, m.IsBoss ? "Boss" : $"PV {m.Stats.MaxHp} · ATQ {m.Stats.Attack} · DEF {m.Stats.Defense}", m.Description)),
             EncyclopediaCategory.Locations => State.SeenLocations.Select(id => Db.Locations[id])
@@ -107,11 +318,14 @@ public sealed class GameSession
             if (c.GetEquipped(slot) is { } itemId && Db.Items.TryGetValue(itemId, out var item))
                 stats += item.Bonus;
         }
-        return stats with { MaxHp = Math.Max(1, stats.MaxHp), Speed = Math.Max(1, stats.Speed) };
+        stats.MaxHp = Math.Max(1, stats.MaxHp);
+        stats.MaxMana = Math.Max(0, stats.MaxMana);
+        stats.Speed = Math.Max(1, stats.Speed);
+        return stats;
     }
 
     public IReadOnlyList<SkillDef> GetSkills(CharacterState c) =>
-        DefOf(c).Skills.Where(s => s.Level <= c.Level).Select(s => Db.Skills[s.SkillId]).ToList();
+        DefOf(c).Skills.Where(s => s.Level <= c.Level && Db.Skills.ContainsKey(s.SkillId)).Select(s => Db.Skills[s.SkillId]).ToList();
 
     public bool IsInParty(string characterId) => State.Party.Any(c => c.DefId == characterId);
 
@@ -122,8 +336,9 @@ public sealed class GameSession
         var c = new CharacterState
         {
             DefId = characterId,
-            WeaponId = def.StartingWeaponId,
-            ArmorId = def.StartingArmorId,
+            WeaponId = ValidItem(def.StartingWeaponId),
+            ArmorId = ValidItem(def.StartingArmorId),
+            RelicId = ValidItem(def.StartingRelicId),
             IsActive = ActiveParty.Count() < Config.MaxActiveParty,
         };
         var stats = GetStats(c);
@@ -132,9 +347,12 @@ public sealed class GameSession
         State.Party.Add(c);
         SetFlag($"recruited:{characterId}");
         DiscoverCharacter(characterId);
-        if (def.StartingWeaponId is { } w) DiscoverItem(w);
+        foreach (var slot in Enum.GetValues<EquipSlot>())
+            if (c.GetEquipped(slot) is { } id) DiscoverItem(id);
         return true;
     }
+
+    private string? ValidItem(string? id) => id is not null && Db.Items.ContainsKey(id) ? id : null;
 
     /// <summary>Passe un personnage de titulaire à réserve ou l'inverse.</summary>
     public bool ToggleActive(CharacterState c)
@@ -170,14 +388,14 @@ public sealed class GameSession
 
     // ------------------------------------------------------------------ Progression
 
-    public static int XpToNextLevel(int level) => 25 * level;
+    public int XpToNextLevel(int level) => Math.Max(1, Balance.XpPerLevel * level);
 
     /// <summary>Donne de l'XP. Renvoie le nombre de niveaux gagnés.</summary>
     public int GiveXp(CharacterState c, int xp)
     {
         var gained = 0;
         c.Xp += xp;
-        while (c.Xp >= XpToNextLevel(c.Level))
+        while (c.Level < Balance.MaxLevel && c.Xp >= XpToNextLevel(c.Level))
         {
             var before = GetStats(c);
             c.Xp -= XpToNextLevel(c.Level);
@@ -195,9 +413,11 @@ public sealed class GameSession
 
     public int CountItem(string itemId) => State.Inventory.GetValueOrDefault(itemId);
 
-    /// <summary>Possédé dans le sac ou équipé sur un personnage.</summary>
-    public bool OwnsItem(string itemId) =>
-        CountItem(itemId) > 0 || State.Party.Any(c => c.WeaponId == itemId || c.ArmorId == itemId || c.RelicId == itemId);
+    /// <summary>Nombre possédé, dans le sac ou équipé sur un personnage.</summary>
+    public int OwnsCount(string itemId) =>
+        CountItem(itemId) + State.Party.Count(c => c.WeaponId == itemId || c.ArmorId == itemId || c.RelicId == itemId);
+
+    public bool OwnsItem(string itemId) => OwnsCount(itemId) > 0;
 
     public bool AddItem(string itemId, int count = 1)
     {
@@ -260,10 +480,12 @@ public sealed class GameSession
         return true;
     }
 
-    // ------------------------------------------------------------------ Ville : boutique et auberge
+    // ------------------------------------------------------------------ Ville : boutique, auberge, habitants
 
     public IReadOnlyList<ItemDef> ShopStock =>
-        InCity ? CurrentLocation.ShopItemIds.Select(id => Db.Items[id]).ToList() : [];
+        InCity ? CurrentLocation.ShopItemIds.Where(Db.Items.ContainsKey).Select(id => Db.Items[id]).ToList() : [];
+
+    public int SellPrice(ItemDef item) => item.Price * Math.Clamp(Balance.SellPercent, 0, 100) / 100;
 
     public bool CanBuy(ItemDef item) =>
         InCity && CurrentLocation.ShopItemIds.Contains(item.Id) && State.Gold >= item.Price
@@ -281,7 +503,7 @@ public sealed class GameSession
     {
         if (!InCity || !Db.Items.TryGetValue(itemId, out var item) || !item.IsSellable) return false;
         if (!RemoveItem(itemId)) return false;
-        State.Gold += item.SellPrice;
+        State.Gold += SellPrice(item);
         return true;
     }
 
@@ -299,44 +521,64 @@ public sealed class GameSession
         return true;
     }
 
-    public IEnumerable<NpcDef> VisibleNpcs =>
-        CurrentLocation.Npcs.Where(n =>
-            (n.HiddenIfFlag is null || !HasFlag(n.HiddenIfFlag)) &&
-            (n.RequiresFlag is null || HasFlag(n.RequiresFlag)));
+    public IEnumerable<NpcDef> VisibleNpcs => Db.NpcsAt(State.CurrentLocationId).Where(n => CheckAll(n.VisibleConditions));
+
+    /// <summary>Parler à un PNJ : fait avancer les quêtes puis renvoie le dialogue à jouer (selon l'avancement).</summary>
+    public string? Talk(string npcId)
+    {
+        if (!Db.Npcs.TryGetValue(npcId, out var npc)) return null;
+        State.SeenNpcs.Add(npcId);
+        UpdateQuests(ObjectiveType.TalkTo, npcId);
+        var conditional = npc.ConditionalDialogues.FirstOrDefault(d => Db.Dialogues.ContainsKey(d.DialogueId) && CheckAll(d.Conditions));
+        var id = conditional?.DialogueId ?? npc.DefaultDialogueId;
+        return id is not null && Db.Dialogues.ContainsKey(id) ? id : null;
+    }
 
     // ------------------------------------------------------------------ Carte et voyage
 
     public IReadOnlyList<LocationDef> Destinations =>
-        CurrentLocation.ConnectedIds.Select(id => Db.Locations[id]).ToList();
+        CurrentLocation.ConnectedIds.Where(Db.Locations.ContainsKey).Select(id => Db.Locations[id]).ToList();
+
+    public bool CanEnter(LocationDef loc) => CheckAll(loc.AccessConditions);
 
     public static string FixedBattleDoneFlag(string battleId) => $"battle_won:{battleId}";
     private static string FixedBattleSeenFlag(string battleId) => $"battle_seen:{battleId}";
 
     /// <summary>Combat fixe du lieu actuel, s'il n'a pas encore été gagné.</summary>
     public FixedBattleDef? PendingFixedBattle =>
-        CurrentLocation.FixedBattle is { } fb && !HasFlag(FixedBattleDoneFlag(fb.Id)) ? fb : null;
+        CurrentLocation.FixedBattle is { MonsterIds.Count: > 0 } fb && !HasFlag(FixedBattleDoneFlag(fb.Id)) ? fb : null;
 
     private bool FixedAllowed => Config.TravelEncounters is TravelEncounterMode.FixedOnly or TravelEncounterMode.Both;
     private bool RandomAllowed => Config.TravelEncounters is TravelEncounterMode.RandomOnly or TravelEncounterMode.Both;
+
+    /// <summary>Déplacement direct (sans rencontre). Renvoie true si c'est une première visite.</summary>
+    public bool MoveTo(LocationDef loc)
+    {
+        State.CurrentLocationId = loc.Id;
+        if (loc.IsCity) State.LastCityId = loc.Id;
+        var first = State.SeenLocations.Add(loc.Id);
+        UpdateQuests();
+        return first;
+    }
 
     public TravelResult Travel(string destinationId)
     {
         if (!CurrentLocation.ConnectedIds.Contains(destinationId) || !Db.Locations.TryGetValue(destinationId, out var dest))
             return new TravelResult(false, "Ce lieu n'est pas accessible d'ici.");
+        if (!CanEnter(dest))
+            return new TravelResult(false, dest.LockedMessage.Length > 0 ? dest.LockedMessage : "Le passage est bloqué.");
 
-        State.CurrentLocationId = destinationId;
-        var firstVisit = State.SeenLocations.Add(destinationId);
-        if (dest.IsCity) State.LastCityId = destinationId;
+        var firstVisit = MoveTo(dest);
 
         // 1. Combat fixe : déclenché automatiquement à la première arrivée, rejouable ensuite depuis la carte.
         if (FixedAllowed && PendingFixedBattle is { } fb && !HasFlag(FixedBattleSeenFlag(fb.Id)))
         {
             SetFlag(FixedBattleSeenFlag(fb.Id));
-            return new TravelResult(true, DialogueId: fb.IntroDialogueId, BattleMonsterIds: fb.MonsterIds, FixedBattleId: fb.Id);
+            return new TravelResult(true, DialogueId: ValidDialogue(fb.IntroDialogueId), BattleMonsterIds: fb.MonsterIds, FixedBattleId: fb.Id);
         }
 
         // 2. Dialogue de première visite.
-        if (firstVisit && dest.FirstVisitDialogueId is { } dialogueId)
+        if (firstVisit && ValidDialogue(dest.FirstVisitDialogueId) is { } dialogueId)
             return new TravelResult(true, DialogueId: dialogueId);
 
         // 3. Rencontre aléatoire.
@@ -346,6 +588,8 @@ public sealed class GameSession
         return new TravelResult(true);
     }
 
+    private string? ValidDialogue(string? id) => id is not null && Db.Dialogues.ContainsKey(id) ? id : null;
+
     /// <summary>Chercher un combat dans la zone actuelle (bouton "Explorer").</summary>
     public IReadOnlyList<string>? Explore() => PickEncounter(CurrentLocation);
 
@@ -354,10 +598,11 @@ public sealed class GameSession
 
     private IReadOnlyList<string>? PickEncounter(LocationDef loc)
     {
-        var total = loc.RandomEncounters.Sum(g => g.Weight);
+        var groups = loc.RandomEncounters.Where(g => g.Weight > 0 && g.MonsterIds.Count > 0 && g.MonsterIds.All(Db.Monsters.ContainsKey)).ToList();
+        var total = groups.Sum(g => g.Weight);
         if (total <= 0) return null;
         var roll = Rng.Next(total);
-        foreach (var g in loc.RandomEncounters)
+        foreach (var g in groups)
         {
             if (roll < g.Weight) return g.MonsterIds;
             roll -= g.Weight;
@@ -368,7 +613,7 @@ public sealed class GameSession
     // ------------------------------------------------------------------ Combat
 
     public Battle StartBattle(IReadOnlyList<string> monsterIds, string? fixedBattleId = null) =>
-        new(this, monsterIds, fixedBattleId);
+        new(this, monsterIds.Where(Db.Monsters.ContainsKey).ToList(), fixedBattleId);
 
     public BattleRewards ApplyVictory(Battle battle)
     {
@@ -392,6 +637,7 @@ public sealed class GameSession
         }
 
         if (battle.FixedBattleId is { } id) SetFlag(FixedBattleDoneFlag(id));
+        foreach (var m in monsters) UpdateQuests(ObjectiveType.Defeat, m.Id);
         return new BattleRewards(xp, gold, items, levelUps);
     }
 

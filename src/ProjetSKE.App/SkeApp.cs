@@ -1,15 +1,57 @@
 using ProjetSKE.App.Pages;
 using ProjetSKE.Core.Data;
+using ProjetSKE.Core.Models;
 using ProjetSKE.Core.Systems;
 
 namespace ProjetSKE.App;
 
 public class SkeApp : Application
 {
-    public static GameDatabase Db => GameDatabase.Default;
+    /// <summary>Code d'accès au mode développeur.</summary>
+    public const string DevCode = "1234";
+
+    /// <summary>Mode développeur déverrouillé pour cette session de l'application.</summary>
+    public static bool DevUnlocked { get; set; }
+
+    private static string ContentPath => Path.Combine(FileSystem.AppDataDirectory, "content.json");
+
+    private static GameDatabase? _db;
+
+    /// <summary>Contenu actif : celui de l'éditeur s'il a été enregistré, sinon le contenu officiel.</summary>
+    public static GameDatabase Db => _db ??= LoadActiveContent();
+
+    public static bool HasCustomContent => File.Exists(ContentPath);
 
     private static SaveService? _saves;
     public static SaveService Saves => _saves ??= new SaveService(Path.Combine(FileSystem.AppDataDirectory, "saves"));
+
+    private static GameDatabase LoadActiveContent()
+    {
+        try
+        {
+            if (File.Exists(ContentPath)) return new GameDatabase(ContentSerializer.FromJson(File.ReadAllText(ContentPath)));
+        }
+        catch (Exception)
+        {
+            // Fichier illisible : on repart sur le contenu officiel.
+        }
+        return GameDatabase.Default;
+    }
+
+    /// <summary>Enregistre le contenu de l'éditeur et l'active pour les parties.</summary>
+    public static void ApplyContent(GameContent content)
+    {
+        var copy = ContentSerializer.Clone(content);
+        File.WriteAllText(ContentPath, ContentSerializer.ToJson(copy));
+        _db = new GameDatabase(copy);
+    }
+
+    /// <summary>Revient au contenu officiel (supprime le contenu de l'éditeur).</summary>
+    public static void ResetContent()
+    {
+        if (File.Exists(ContentPath)) File.Delete(ContentPath);
+        _db = GameDatabase.Default;
+    }
 
     protected override Window CreateWindow(IActivationState? activationState) =>
         new(new TitlePage());

@@ -2,123 +2,203 @@ using ProjetSKE.Core.Models;
 
 namespace ProjetSKE.Core.Data;
 
-/// <summary>Registre de tout le contenu du jeu, indexé par identifiant.</summary>
+/// <summary>Contenu du jeu indexé par identifiant, prêt à être utilisé par les règles.</summary>
 public sealed class GameDatabase
 {
+    public GameContent Content { get; }
     public IReadOnlyDictionary<string, SkillDef> Skills { get; }
     public IReadOnlyDictionary<string, ItemDef> Items { get; }
     public IReadOnlyDictionary<string, CharacterDef> Characters { get; }
     public IReadOnlyDictionary<string, MonsterDef> Monsters { get; }
     public IReadOnlyDictionary<string, LocationDef> Locations { get; }
+    public IReadOnlyDictionary<string, NpcDef> Npcs { get; }
     public IReadOnlyDictionary<string, DialogueDef> Dialogues { get; }
+    public IReadOnlyDictionary<string, QuestDef> Quests { get; }
 
-    /// <summary>Lieu de départ d'une nouvelle partie.</summary>
-    public string StartLocationId { get; }
-    public int StartGold { get; }
-    public IReadOnlyDictionary<string, int> StartInventory { get; }
-    public string? IntroDialogueId { get; }
+    public StartSettings Start => Content.Start;
+    public BalanceSettings Balance => Content.Balance;
 
-    public GameDatabase(
-        IEnumerable<SkillDef> skills,
-        IEnumerable<ItemDef> items,
-        IEnumerable<CharacterDef> characters,
-        IEnumerable<MonsterDef> monsters,
-        IEnumerable<LocationDef> locations,
-        IEnumerable<DialogueDef> dialogues,
-        string startLocationId,
-        int startGold,
-        IReadOnlyDictionary<string, int> startInventory,
-        string? introDialogueId)
+    public GameDatabase(GameContent content)
     {
-        Skills = skills.ToDictionary(s => s.Id);
-        Items = items.ToDictionary(i => i.Id);
-        Characters = characters.ToDictionary(c => c.Id);
-        Monsters = monsters.ToDictionary(m => m.Id);
-        Locations = locations.ToDictionary(l => l.Id);
-        Dialogues = dialogues.ToDictionary(d => d.Id);
-        StartLocationId = startLocationId;
-        StartGold = startGold;
-        StartInventory = startInventory;
-        IntroDialogueId = introDialogueId;
+        Content = content;
+        // En cas d'identifiant en double, le dernier gagne (la validation le signale).
+        Skills = Index(content.Skills, s => s.Id);
+        Items = Index(content.Items, i => i.Id);
+        Characters = Index(content.Characters, c => c.Id);
+        Monsters = Index(content.Monsters, m => m.Id);
+        Locations = Index(content.Locations, l => l.Id);
+        Npcs = Index(content.Npcs, n => n.Id);
+        Dialogues = Index(content.Dialogues, d => d.Id);
+        Quests = Index(content.Quests, q => q.Id);
+    }
+
+    private static Dictionary<string, T> Index<T>(IEnumerable<T> items, Func<T, string> key)
+    {
+        var dict = new Dictionary<string, T>();
+        foreach (var item in items) dict[key(item)] = item;
+        return dict;
     }
 
     private static GameDatabase? _default;
 
-    /// <summary>Contenu d'exemple fourni avec le jeu.</summary>
-    public static GameDatabase Default => _default ??= SampleContent.Build();
+    /// <summary>Contenu officiel fourni avec le jeu.</summary>
+    public static GameDatabase Default => _default ??= new GameDatabase(ContentSerializer.LoadDefault());
 
-    public IEnumerable<CharacterDef> Starters => Characters.Values.Where(c => c.IsStarter);
+    public IEnumerable<CharacterDef> Starters => Content.Characters.Where(c => c.IsStarter);
 
-    /// <summary>Vérifie que toutes les références entre contenus existent. Renvoie la liste des erreurs.</summary>
+    public IEnumerable<NpcDef> NpcsAt(string locationId) => Content.Npcs.Where(n => n.LocationId == locationId);
+
+    /// <summary>Vérifie que toutes les références entre contenus existent. Renvoie la liste des problèmes.</summary>
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
         void Check(bool ok, string message) { if (!ok) errors.Add(message); }
+        void Ref<T>(IReadOnlyDictionary<string, T> dict, string? id, string where, string what)
+        {
+            if (!string.IsNullOrEmpty(id)) Check(dict.ContainsKey(id), $"{where} : {what} « {id} » introuvable");
+        }
 
-        foreach (var c in Characters.Values)
+        CheckIds(Content.Skills.Select(x => x.Id), "Compétence");
+        CheckIds(Content.Items.Select(x => x.Id), "Objet");
+        CheckIds(Content.Characters.Select(x => x.Id), "Personnage");
+        CheckIds(Content.Monsters.Select(x => x.Id), "Monstre");
+        CheckIds(Content.Locations.Select(x => x.Id), "Lieu");
+        CheckIds(Content.Npcs.Select(x => x.Id), "PNJ");
+        CheckIds(Content.Dialogues.Select(x => x.Id), "Dialogue");
+        CheckIds(Content.Quests.Select(x => x.Id), "Quête");
+
+        foreach (var c in Content.Characters)
         {
-            foreach (var s in c.Skills) Check(Skills.ContainsKey(s.SkillId), $"Personnage {c.Id} : compétence {s.SkillId} inconnue");
-            if (c.StartingWeaponId is { } w) Check(Items.ContainsKey(w), $"Personnage {c.Id} : arme {w} inconnue");
-            if (c.StartingArmorId is { } a) Check(Items.ContainsKey(a), $"Personnage {c.Id} : armure {a} inconnue");
+            var w = $"Personnage {c.Id}";
+            foreach (var s in c.Skills) Ref(Skills, s.SkillId, w, "compétence");
+            Ref(Items, c.StartingWeaponId, w, "arme");
+            Ref(Items, c.StartingArmorId, w, "armure");
+            Ref(Items, c.StartingRelicId, w, "relique");
+            Check(c.Skills.Any(s => s.Level <= 1), $"{w} : aucune compétence au niveau 1");
         }
-        foreach (var m in Monsters.Values)
+        foreach (var m in Content.Monsters)
         {
-            foreach (var s in m.SkillIds) Check(Skills.ContainsKey(s), $"Monstre {m.Id} : compétence {s} inconnue");
-            foreach (var d in m.Drops) Check(Items.ContainsKey(d.ItemId), $"Monstre {m.Id} : butin {d.ItemId} inconnu");
-            Check(m.SkillIds.Count > 0, $"Monstre {m.Id} : aucune compétence");
+            var w = $"Monstre {m.Id}";
+            foreach (var s in m.SkillIds) Ref(Skills, s, w, "compétence");
+            foreach (var d in m.Drops) Ref(Items, d.ItemId, w, "butin");
+            Check(m.SkillIds.Count > 0, $"{w} : aucune compétence");
+            Check(m.Stats.MaxHp > 0, $"{w} : PV à 0");
         }
-        foreach (var l in Locations.Values)
+        foreach (var l in Content.Locations)
         {
-            foreach (var id in l.ConnectedIds) Check(Locations.ContainsKey(id), $"Lieu {l.Id} : lieu relié {id} inconnu");
-            foreach (var id in l.ShopItemIds) Check(Items.ContainsKey(id), $"Lieu {l.Id} : article {id} inconnu");
+            var w = $"Lieu {l.Id}";
+            foreach (var id in l.ConnectedIds) Ref(Locations, id, w, "lieu relié");
+            foreach (var id in l.ShopItemIds) Ref(Items, id, w, "article");
             foreach (var g in l.RandomEncounters)
-                foreach (var id in g.MonsterIds) Check(Monsters.ContainsKey(id), $"Lieu {l.Id} : monstre {id} inconnu");
+                foreach (var id in g.MonsterIds) Ref(Monsters, id, w, "monstre");
             if (l.FixedBattle is { } fb)
             {
-                foreach (var id in fb.MonsterIds) Check(Monsters.ContainsKey(id), $"Lieu {l.Id} : monstre {id} inconnu");
-                if (fb.IntroDialogueId is { } d) Check(Dialogues.ContainsKey(d), $"Lieu {l.Id} : dialogue {d} inconnu");
+                foreach (var id in fb.MonsterIds) Ref(Monsters, id, w, "monstre");
+                Ref(Dialogues, fb.IntroDialogueId, w, "dialogue");
             }
-            if (l.FirstVisitDialogueId is { } fv) Check(Dialogues.ContainsKey(fv), $"Lieu {l.Id} : dialogue {fv} inconnu");
-            foreach (var n in l.Npcs) Check(Dialogues.ContainsKey(n.DialogueId), $"Lieu {l.Id} : dialogue {n.DialogueId} inconnu");
+            Ref(Dialogues, l.FirstVisitDialogueId, w, "dialogue");
+            CheckConditions(l.AccessConditions, w);
         }
-        foreach (var d in Dialogues.Values)
+        foreach (var n in Content.Npcs)
         {
-            var ids = d.Nodes.Select(n => n.Id).ToHashSet();
+            var w = $"PNJ {n.Id}";
+            Ref(Locations, n.LocationId, w, "lieu");
+            Check(!string.IsNullOrEmpty(n.LocationId), $"{w} : aucun lieu");
+            Ref(Dialogues, n.DefaultDialogueId, w, "dialogue");
+            CheckConditions(n.VisibleConditions, w);
+            foreach (var cd in n.ConditionalDialogues)
+            {
+                Ref(Dialogues, cd.DialogueId, w, "dialogue");
+                CheckConditions(cd.Conditions, w);
+            }
+        }
+        foreach (var d in Content.Dialogues)
+        {
+            var w = $"Dialogue {d.Id}";
+            Check(d.Nodes.Count > 0, $"{w} : aucune réplique");
+            var ids = new HashSet<string>();
+            foreach (var n in d.Nodes) Check(ids.Add(n.Id), $"{w} : réplique « {n.Id} » en double");
             foreach (var n in d.Nodes)
             {
-                if (n.NextId is { } next) Check(ids.Contains(next), $"Dialogue {d.Id} : nœud {next} inconnu");
+                if (n.NextId is { Length: > 0 } next) Check(ids.Contains(next), $"{w} : réplique « {next} » introuvable");
+                CheckActions(n.Actions, w);
                 foreach (var ch in n.Choices)
                 {
-                    if (ch.NextId is { } cn) Check(ids.Contains(cn), $"Dialogue {d.Id} : nœud {cn} inconnu");
-                    CheckActions(ch.Actions, d.Id);
+                    if (ch.NextId is { Length: > 0 } cn) Check(ids.Contains(cn), $"{w} : réplique « {cn} » introuvable");
+                    CheckActions(ch.Actions, w);
+                    CheckConditions(ch.Conditions, w);
                 }
-                CheckActions(n.Actions, d.Id);
             }
         }
-        Check(Locations.ContainsKey(StartLocationId), $"Lieu de départ {StartLocationId} inconnu");
-        foreach (var id in StartInventory.Keys) Check(Items.ContainsKey(id), $"Inventaire de départ : {id} inconnu");
-        if (IntroDialogueId is { } intro) Check(Dialogues.ContainsKey(intro), $"Dialogue d'intro {intro} inconnu");
-        Check(Starters.Any(), "Aucun personnage de départ");
+        foreach (var q in Content.Quests)
+        {
+            var w = $"Quête {q.Id}";
+            Check(q.Objectives.Count > 0, $"{w} : aucun objectif");
+            foreach (var o in q.Objectives)
+            {
+                switch (o.Type)
+                {
+                    case ObjectiveType.TalkTo: Ref(Npcs, o.TargetId, w, "PNJ"); break;
+                    case ObjectiveType.Defeat: Ref(Monsters, o.TargetId, w, "monstre"); break;
+                    case ObjectiveType.Reach: Ref(Locations, o.TargetId, w, "lieu"); break;
+                    case ObjectiveType.Bring:
+                        Ref(Items, o.TargetId, w, "objet");
+                        Ref(Npcs, o.NpcId, w, "PNJ");
+                        break;
+                }
+                Check(!string.IsNullOrEmpty(o.TargetId), $"{w} : objectif sans cible");
+            }
+            CheckActions(q.Rewards, w);
+        }
+
+        Check(Locations.ContainsKey(Start.LocationId), $"Départ : lieu « {Start.LocationId} » introuvable");
+        foreach (var s in Start.Inventory) Ref(Items, s.ItemId, "Départ", "objet");
+        Ref(Dialogues, Start.IntroDialogueId, "Départ", "dialogue");
+        Check(Starters.Any(), "Aucun personnage de départ (cocher « Proposé au départ » sur un PJ)");
         return errors;
 
-        void CheckActions(IEnumerable<DialogueAction> actions, string dialogueId)
+        void CheckIds(IEnumerable<string> ids, string what)
+        {
+            var seen = new HashSet<string>();
+            foreach (var id in ids)
+            {
+                Check(!string.IsNullOrWhiteSpace(id), $"{what} sans identifiant");
+                Check(seen.Add(id), $"{what} : identifiant « {id} » en double");
+            }
+        }
+
+        void CheckConditions(IEnumerable<Condition> conditions, string w)
+        {
+            foreach (var c in conditions)
+            {
+                switch (c.Type)
+                {
+                    case ConditionType.QuestActive or ConditionType.QuestCompleted or ConditionType.QuestNotStarted:
+                        Ref(Quests, c.Arg, w, "quête"); break;
+                    case ConditionType.HasItem: Ref(Items, c.Arg, w, "objet"); break;
+                    case ConditionType.InParty or ConditionType.NotInParty: Ref(Characters, c.Arg, w, "personnage"); break;
+                }
+            }
+        }
+
+        void CheckActions(IEnumerable<GameAction> actions, string w)
         {
             foreach (var a in actions)
             {
                 switch (a.Type)
                 {
-                    case DialogueActionType.Recruit:
-                        Check(Characters.ContainsKey(a.Arg), $"Dialogue {dialogueId} : personnage {a.Arg} inconnu");
-                        break;
-                    case DialogueActionType.GiveItem:
-                        Check(Items.ContainsKey(a.Arg), $"Dialogue {dialogueId} : objet {a.Arg} inconnu");
-                        break;
-                    case DialogueActionType.StartBattle:
-                        foreach (var id in a.Arg.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                            Check(Monsters.ContainsKey(id), $"Dialogue {dialogueId} : monstre {id} inconnu");
+                    case ActionType.Recruit: Ref(Characters, a.Arg, w, "personnage"); break;
+                    case ActionType.GiveItem or ActionType.TakeItem: Ref(Items, a.Arg, w, "objet"); break;
+                    case ActionType.StartQuest or ActionType.CompleteQuest: Ref(Quests, a.Arg, w, "quête"); break;
+                    case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
+                    case ActionType.StartBattle:
+                        foreach (var id in SplitIds(a.Arg)) Ref(Monsters, id, w, "monstre");
                         break;
                 }
             }
         }
     }
+
+    public static string[] SplitIds(string text) =>
+        text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

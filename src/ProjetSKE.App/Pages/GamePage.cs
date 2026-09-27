@@ -6,7 +6,7 @@ using static ProjetSKE.App.Ui.UiKit;
 
 namespace ProjetSKE.App.Pages;
 
-public enum GameTab { Camp, Map, Encyclopedia, Shop, Journal, Menu }
+public enum GameTab { Camp, Map, Quests, Encyclopedia, Shop, Journal, Menu }
 
 /// <summary>
 /// Écran principal : en-tête (lieu, or), contenu de l'onglet, barre d'onglets en bas.
@@ -24,6 +24,11 @@ public sealed class GamePage : ContentPage
     public bool MapShowCountry { get; set; }
     public EncyclopediaCategory EncyclopediaCategory { get; set; } = EncyclopediaCategory.Characters;
     public bool ShopSelling { get; set; }
+    public bool QuestsShowDone { get; set; }
+    public bool MenuShowDevTools { get; set; }
+
+    /// <summary>Partie de test lancée depuis le mode développeur : jamais sauvegardée.</summary>
+    public bool IsTestGame => Slot < 0;
 
     private readonly Label _location;
     private readonly Label _gold;
@@ -72,7 +77,7 @@ public sealed class GamePage : ContentPage
         Content = root;
 
         Render();
-        if (playIntro && session.Db.IntroDialogueId is { } intro) ShowDialogue(intro);
+        if (playIntro && session.Db.Start.IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
     }
 
     // ------------------------------------------------------------------ Affichage
@@ -82,9 +87,17 @@ public sealed class GamePage : ContentPage
         var loc = Session.CurrentLocation;
         _location.Text = $"{loc.Name} · {GameSession.LocationTypeName(loc.Type)}";
         _gold.Text = $"{Session.State.Gold} or";
+        Session.UpdateQuests();
+        if (Session.Notifications.Count > 0)
+        {
+            var notes = string.Join("\n", Session.Notifications);
+            _pendingMessage = _pendingMessage is null ? notes : _pendingMessage + "\n" + notes;
+            Session.Notifications.Clear();
+        }
         _message.Text = _pendingMessage ?? "";
         _message.IsVisible = _pendingMessage is not null;
         _pendingMessage = null;
+        _location.Text = (IsTestGame ? "[TEST] " : "") + _location.Text;
 
         if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
         BuildTabBar();
@@ -92,6 +105,7 @@ public sealed class GamePage : ContentPage
         View view = Tab switch
         {
             GameTab.Camp => new CampView(this),
+            GameTab.Quests => new QuestsView(this),
             GameTab.Encyclopedia => new EncyclopediaView(this),
             GameTab.Shop => new ShopView(this),
             GameTab.Journal => new JournalView(this),
@@ -109,7 +123,8 @@ public sealed class GamePage : ContentPage
         [
             (GameTab.Camp, "Camp", true),
             (GameTab.Map, "Carte", true),
-            (GameTab.Encyclopedia, "Encyclo", true),
+            (GameTab.Quests, "Quêtes", true),
+            (GameTab.Encyclopedia, "Encyc.", true),
             (GameTab.Shop, "Shop", Session.InCity),
             (GameTab.Journal, "Journal", true),
             (GameTab.Menu, "Menu", true),
@@ -119,7 +134,7 @@ public sealed class GamePage : ContentPage
             var t = tabs[i];
             _tabBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             var button = Btn(t.Label, () => SwitchTab(t.Tab), t.Enabled, selected: Tab == t.Tab);
-            button.FontSize = 11;
+            button.FontSize = 10;
             button.Padding = new Thickness(0, 6);
             _tabBar.Add(button, i, 0);
         }
@@ -137,7 +152,7 @@ public sealed class GamePage : ContentPage
 
     public void AutoSave()
     {
-        if (!_saveDisabled) SkeApp.Saves.Save(Slot, Session.State);
+        if (!_saveDisabled && !IsTestGame) SkeApp.Saves.Save(Slot, Session.State);
     }
 
     // ------------------------------------------------------------------ Couches par-dessus (histoire, combat)
@@ -158,8 +173,13 @@ public sealed class GamePage : ContentPage
 
     public void ShowDialogue(string dialogueId, Action? onEnd = null)
     {
+        if (!Session.Db.Dialogues.ContainsKey(dialogueId))
+        {
+            onEnd?.Invoke();
+            return;
+        }
         var runner = Session.StartDialogue(dialogueId);
-        ShowOverlay(new DialogueView(runner, () =>
+        ShowOverlay(new DialogueView(Session, runner, () =>
         {
             HideOverlay();
             AutoSave();
@@ -178,6 +198,15 @@ public sealed class GamePage : ContentPage
             AutoSave();
             Render();
         }));
+    }
+
+    /// <summary>Parler à un PNJ (le dialogue dépend de l'avancement des quêtes).</summary>
+    public void TalkTo(string npcId)
+    {
+        var dialogue = Session.Talk(npcId);
+        if (dialogue is not null) ShowDialogue(dialogue);
+        else Notify("Cette personne n'a rien à dire.");
+        Render();
     }
 
     /// <summary>Combat fixe du lieu actuel, précédé de son dialogue d'introduction.</summary>
@@ -211,7 +240,7 @@ public sealed class GamePage : ContentPage
     public void GameOver()
     {
         _saveDisabled = true;
-        SkeApp.GoTo(new TitlePage());
+        SkeApp.GoTo(IsTestGame ? new Dev.DevHomePage() : (Page)new TitlePage());
     }
 
     /// <summary>Retour au titre en sauvegardant.</summary>
@@ -219,7 +248,7 @@ public sealed class GamePage : ContentPage
     {
         AutoSave();
         _saveDisabled = true;
-        SkeApp.GoTo(new TitlePage());
+        SkeApp.GoTo(IsTestGame ? new Dev.DevHomePage() : (Page)new TitlePage());
     }
 
     protected override bool OnBackButtonPressed()
