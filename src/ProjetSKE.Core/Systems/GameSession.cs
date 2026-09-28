@@ -126,6 +126,12 @@ public sealed partial class GameSession
         if (!Db.Locations.ContainsKey(State.LastCityId)) State.LastCityId = fallback;
     }
 
+    /// <summary>
+    /// Dialogues à jouer dès que possible (effet « Dialogue : lancer » depuis une quête, un départ...),
+    /// dans l'ordre. L'écran de jeu les joue un par un quand rien d'autre n'est affiché.
+    /// </summary>
+    public Queue<string> PendingDialogues { get; } = new();
+
     public GameConfig Config => State.Config;
     public BalanceSettings Balance => Db.Balance;
     public LocationDef CurrentLocation => Db.Locations[State.CurrentLocationId];
@@ -346,6 +352,9 @@ public sealed partial class GameSession
                 break;
             case ActionType.FailQuest:
                 FailQuest(a.Arg);
+                break;
+            case ActionType.StartDialogue:
+                if (Db.Dialogues.ContainsKey(a.Arg)) PendingDialogues.Enqueue(a.Arg);
                 break;
             case ActionType.StartQuestPart:
                 StartPart(a.Arg, a.Arg2);

@@ -143,3 +143,35 @@ public class ChoiceMadeTests
         Assert.Equal(ConditionType.ChoiceMade, again[1].Conditions[0].Type);
     }
 }
+
+/// <summary>Effet « Dialogue : lancer » et dialogues d'introduction multiples.</summary>
+public class StartDialogueTests
+{
+    [Fact]
+    public void StartDialogue_QueuesDialoguesInOrder()
+    {
+        var s = GameSession.NewGame(GameDatabase.Default, "aldric", new Random(1));
+        var ids = GameDatabase.Default.Content.Dialogues.Take(2).Select(d => d.Id).ToList();
+        foreach (var id in ids) s.Execute(new GameAction(ActionType.StartDialogue, id));
+        s.Execute(new GameAction(ActionType.StartDialogue, "inexistant"));
+        Assert.Equal(ids, s.PendingDialogues.ToList());
+
+        var nodes = DialogueScript.Parse($"- Test [dialogue {ids[0]}]", out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(ActionType.StartDialogue, nodes[0].Actions[0].Type);
+    }
+
+    [Fact]
+    public void Start_CanHaveSeveralIntroDialoguesAndQuestsCanLaunchDialogues()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Start.MoreIntroDialogueIds = ["intro_exile"];
+        content.Quests.First(q => q.Id == "rumeurs").Rewards.Add(new GameAction(ActionType.StartDialogue, "intro"));
+        var db = new GameDatabase(content);
+        Assert.Empty(db.Validate());
+        Assert.Equal(["intro", "intro_exile"], db.Start.IntroDialogues.ToArray());
+
+        content.Start.MoreIntroDialogueIds = ["disparu"];
+        Assert.Contains(new GameDatabase(content).Validate(), e => e.Contains("disparu"));
+    }
+}

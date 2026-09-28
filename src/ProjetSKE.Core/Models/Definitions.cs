@@ -507,6 +507,13 @@ public sealed class StartSettings
     public int Gold { get; set; } = 100;
     public List<ItemStack> Inventory { get; set; } = [];
     public string? IntroDialogueId { get; set; }
+    /// <summary>Autres dialogues d'introduction, joués à la suite (dans l'ordre).</summary>
+    public List<string> MoreIntroDialogueIds { get; set; } = [];
+
+    /// <summary>Tous les dialogues d'introduction, dans l'ordre.</summary>
+    [JsonIgnore]
+    public IEnumerable<string> IntroDialogues =>
+        (IntroDialogueId is { Length: > 0 } first ? new[] { first } : []).Concat(MoreIntroDialogueIds);
     /// <summary>PJ qui accompagnent le héros dès le début.</summary>
     public List<string> Companions { get; set; } = [];
     /// <summary>Effets au lancement (flags, variables, karma, quêtes, camp...) : le monde de départ.</summary>

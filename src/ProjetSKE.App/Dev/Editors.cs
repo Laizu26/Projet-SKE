@@ -744,6 +744,7 @@ public sealed class StartEditor : EditorPage
         f.RefField("Lieu de départ", s.LocationId, DevState.Locations, v => s.LocationId = v ?? "", allowNone: false);
         f.IntField("Or de départ", s.Gold, v => s.Gold = v);
         f.RefField("Dialogue d'introduction", s.IntroDialogueId, DevState.Dialogues, v => s.IntroDialogueId = v);
+        f.IdList("Dialogues suivants (joués à la suite, dans l'ordre)", s.MoreIntroDialogueIds, DevState.Dialogues);
         f.IdList("Compagnons dès le début", s.Companions, DevState.Characters);
         Form.OptionalInt(f, "Jour de départ", s.Day, v => s.Day = v, $"par défaut : {DevState.Draft.Time.StartDay}");
         Form.OptionalInt(f, "Heure de départ", s.Hour, v => s.Hour = v, $"par défaut : {DevState.Draft.Time.StartHour}");

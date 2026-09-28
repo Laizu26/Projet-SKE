@@ -135,7 +135,15 @@ public sealed class GamePage : ContentPage
         BackgroundColor = Theme.Stone900;
 
         Render();
-        if (playIntro && session.Db.StartById(session.State.StartId).IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
+        if (playIntro)
+        {
+            // Dialogues d'introduction du départ, à la suite (puis ceux lancés par ses effets).
+            var intros = session.Db.StartById(session.State.StartId).IntroDialogues.Where(session.Db.Dialogues.ContainsKey).ToList();
+            var queued = session.PendingDialogues.ToList();
+            session.PendingDialogues.Clear();
+            foreach (var id in intros.Skip(1).Concat(queued)) session.PendingDialogues.Enqueue(id);
+            if (intros.Count > 0) ShowDialogue(intros[0]);
+        }
     }
 
     // ------------------------------------------------------------------ Réveil : les yeux s'ouvrent
@@ -248,6 +256,8 @@ public sealed class GamePage : ContentPage
         _toast.IsVisible = _pendingMessage is not null;
         _pendingMessage = null;
         if (!OverlayVisible || _overlay.Content is not BattleView) UpdateCracks();
+        // Dialogues lancés par un effet (quête, départ...) : joués quand l'écran est libre.
+        if (Session.PendingDialogues.Count > 0) Dispatcher.Dispatch(PlayPendingDialogue);
 
         BuildTabBar();
 
@@ -386,6 +396,12 @@ public sealed class GamePage : ContentPage
     }
 
     public bool OverlayVisible => _overlay.IsVisible;
+
+    private void PlayPendingDialogue()
+    {
+        if (OverlayVisible || _endLayer.IsVisible) return; // on attendra la fin de ce qui est affiché
+        if (Session.PendingDialogues.TryDequeue(out var id)) ShowDialogue(id);
+    }
 
     public void ShowDialogue(string dialogueId, Action? onEnd = null)
     {

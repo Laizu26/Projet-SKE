@@ -149,6 +149,12 @@ public static class AutoTest
                 world = new GamePage(session, -1, playIntro: false);
                 SkeApp.GoTo(world);
             }, 2500);
+            await Step("dialogues lancés par un effet", () =>
+            {
+                var s = world!.Session;
+                foreach (var d in s.Db.Content.Dialogues.Take(2)) s.Execute(new Core.Models.GameAction(Core.Models.ActionType.StartDialogue, d.Id));
+                world.Render();
+            }, 2500);
             await Step("quête en parties (journal et outils)", () =>
             {
                 var s = world!.Session;

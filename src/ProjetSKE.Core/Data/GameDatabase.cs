@@ -304,7 +304,7 @@ public sealed class GameDatabase
             var w = $"Départ « {start.Name} »";
             Check(Locations.ContainsKey(start.LocationId), $"{w} : lieu « {start.LocationId} » introuvable");
             foreach (var s in start.Inventory) Ref(Items, s.ItemId, w, "objet");
-            Ref(Dialogues, start.IntroDialogueId, w, "dialogue");
+            foreach (var id in start.IntroDialogues) Ref(Dialogues, id, w, "dialogue");
             foreach (var id in start.HeroIds.Concat(start.Companions)) Ref(Characters, id, w, "personnage");
             CheckActions(start.Actions, w);
         }
@@ -398,6 +398,7 @@ public sealed class GameDatabase
                             Check(aq.Stages.Any(st => st.Id == a.Arg2), $"{w} : étape « {a.Arg2} » introuvable dans la quête {a.Arg}");
                         break;
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
+                    case ActionType.StartDialogue: Check(Dialogues.ContainsKey(a.Arg), $"{w} : dialogue « {a.Arg} » introuvable"); break;
                     case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
                         Ref(Quests, a.Arg, w, "quête");
                         if (Quests.TryGetValue(a.Arg, out var apq))

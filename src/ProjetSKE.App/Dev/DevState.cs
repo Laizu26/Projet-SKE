@@ -286,6 +286,7 @@ public static class DevState
         ActionType.AddCampResource => "Camp : ressource (ajouter / retirer)",
         ActionType.BuildCampBuilding => "Camp : construire un lieu (gratuit)",
         ActionType.SetQuestStage => "Quête : aller à l'étape",
+        ActionType.StartDialogue => "Dialogue : lancer",
         ActionType.StartQuestPart => "Quête : démarrer une partie",
         ActionType.CompleteQuestPart => "Quête : terminer une partie",
         ActionType.FailQuestPart => "Quête : échouer une partie",

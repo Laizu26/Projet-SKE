@@ -486,6 +486,10 @@ public sealed class Form
             case ActionType.StartQuest or ActionType.CompleteQuest or ActionType.FailQuest:
                 RefField("Quête", a.Arg, DevState.Quests, v => a.Arg = v ?? "", allowNone: false);
                 break;
+            case ActionType.StartDialogue:
+                RefField("Dialogue", a.Arg, DevState.Dialogues, v => a.Arg = v ?? "", allowNone: false);
+                Note("Joué dès que l'écran est libre (après le dialogue ou le combat en cours).");
+                break;
             case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
                 RefField("Quête", a.Arg, DevState.PartQuests, v => { a.Arg = v ?? ""; a.Arg2 = ""; }, allowNone: false, rerender: true);
                 RefField("Partie", a.Arg2, DevState.PartsOf(a.Arg), v => a.Arg2 = v ?? "", allowNone: false);

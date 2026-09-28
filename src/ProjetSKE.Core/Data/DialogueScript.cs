@@ -44,6 +44,7 @@ public static partial class DialogueScript
         [camp pnj] [camp pnj grade] [quitte_camp pnj] [grade pnj grade] [tache pnj tache]
         [ressource nourriture 5] [construit palissade]
         [etape quete etape] [echouer quete]
+        [dialogue id] (joué juste après)
         [partie quete partie] [finir_partie quete partie] [echouer_partie quete partie]
 
         Conditions : {flag x} {sans_flag x} {quete_dispo id} {quete_active id}
@@ -80,6 +81,7 @@ public static partial class DialogueScript
         ("grade", ActionType.SetCampRank, "ab"), ("tache", ActionType.SetCampTask, "ab"),
         ("ressource", ActionType.AddCampResource, "an"), ("construit", ActionType.BuildCampBuilding, "a"),
         ("etape", ActionType.SetQuestStage, "ab"),
+        ("dialogue", ActionType.StartDialogue, "a"),
         ("partie", ActionType.StartQuestPart, "ab"), ("finir_partie", ActionType.CompleteQuestPart, "ab"),
         ("echouer_partie", ActionType.FailQuestPart, "ab"), ("echouer", ActionType.FailQuest, "a"),
     ];

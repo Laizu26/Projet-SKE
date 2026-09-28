@@ -40,6 +40,8 @@ public enum ActionType
     SetQuestStage, FailQuest,
     // Quêtes en plusieurs parties
     StartQuestPart, CompleteQuestPart, FailQuestPart,
+    // Histoire : jouer un dialogue (depuis une quête, un départ, un combat...)
+    StartDialogue,
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
