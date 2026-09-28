@@ -18,6 +18,8 @@ public sealed class Combatant
     public int Mana { get; set; }
     /// <summary>En garde : dégâts reçus réduits jusqu'à son prochain tour.</summary>
     public bool Defending { get; set; }
+    /// <summary>Répliques de combat de ce participant.</summary>
+    public IReadOnlyList<BattleLine> Lines { get; init; } = [];
 
     public bool IsAlive => Hp > 0;
     public bool IsBoss => Monster?.IsBoss == true;
@@ -36,6 +38,10 @@ public sealed class Battle
     public IReadOnlyList<Combatant> Enemies { get; }
     public string? FixedBattleId { get; }
     public List<string> Log { get; } = [];
+    /// <summary>Index des lignes du journal qui sont des répliques (affichées comme des paroles).</summary>
+    public HashSet<int> SpeechLines { get; } = [];
+    private readonly HashSet<(Combatant?, BattleLine)> _said = [];
+    private readonly IReadOnlyList<BattleLine> _fixedLines = [];
     public BattleOutcome Outcome { get; private set; } = BattleOutcome.Ongoing;
     public int Round { get; private set; }
     public Combatant? CurrentActor { get; private set; }
@@ -61,6 +67,7 @@ public sealed class Battle
                 Skills = session.GetSkills(c),
                 Hp = Math.Min(c.CurrentHp, stats.MaxHp),
                 Mana = Math.Min(c.CurrentMana, stats.MaxMana),
+                Lines = session.DefOf(c).BattleLines,
             };
         }).ToList();
 
@@ -81,11 +88,16 @@ public sealed class Battle
                 Skills = def.SkillIds.Where(session.Db.Skills.ContainsKey).Select(id => session.Db.Skills[id]).ToList(),
                 Hp = def.Stats.MaxHp,
                 Mana = def.Stats.MaxMana,
+                Lines = def.BattleLines,
             });
         }
         Enemies = enemies;
 
+        if (fixedBattleId is not null)
+            _fixedLines = session.Db.Content.Locations.Select(l => l.FixedBattle).FirstOrDefault(f => f?.Id == fixedBattleId)?.BattleLines ?? [];
+
         Log.Add(Enemies.Count > 0 ? $"Combat ! {string.Join(", ", Enemies.Select(e => e.Name))}" : "Aucun ennemi.");
+        SayAll(BattleTrigger.Start);
         CheckEnd();
         NextTurn();
     }
@@ -197,6 +209,7 @@ public sealed class Battle
             if (_queue.Count == 0)
             {
                 Round++;
+                SayAll(BattleTrigger.Turn, Round);
                 foreach (var c in All.Where(c => c.IsAlive).OrderByDescending(c => c.Stats.Speed).ThenBy(c => c.IsAlly ? 0 : 1))
                     _queue.Enqueue(c);
             }
@@ -245,6 +258,7 @@ public sealed class Battle
         var balance = _session.Balance;
         actor.Mana -= skill.ManaCost;
         var parts = new List<string>();
+        var hits = new List<(Combatant Target, int Before)>();
         foreach (var t in targets)
         {
             var spread = Math.Clamp(balance.DamageVariancePercent, 0, 100) / 100.0;
@@ -262,11 +276,24 @@ public sealed class Battle
                     ? actor.Stats.Attack * skill.Power - t.Stats.Defense * balance.PhysicalDefenseFactor
                     : actor.Stats.Magic * skill.Power * balance.MagicMultiplier - t.Stats.Defense * balance.MagicDefenseFactor;
                 var damage = Math.Max(1, (int)Math.Round(raw * variance * (t.Defending ? 0.5 : 1)));
+                var before = t.Hp;
                 t.Hp = Math.Max(0, t.Hp - damage);
                 parts.Add(t.IsAlive ? $"{t.Name} -{damage} PV" : $"{t.Name} -{damage} PV, vaincu !");
+                hits.Add((t, before));
             }
         }
         Log.Add($"{actor.Name} : {skill.Name} → {string.Join(", ", parts)}");
+        foreach (var (t, before) in hits)
+        {
+            var max = Math.Max(1, t.Stats.MaxHp);
+            foreach (var line in t.Lines.Where(l => l.Trigger == BattleTrigger.HpBelow))
+                if (t.IsAlive && t.Hp * 100 < line.Amount * max && before * 100 >= line.Amount * max) Say(t, line);
+            if (!t.IsAlive)
+            {
+                Say(t, BattleTrigger.Down);
+                Say(actor, BattleTrigger.Kill);
+            }
+        }
     }
 
     private void CheckEnd()
@@ -274,14 +301,47 @@ public sealed class Battle
         if (Outcome != BattleOutcome.Ongoing) return;
         if (Enemies.All(e => !e.IsAlive))
         {
+            SayAll(BattleTrigger.Victory);
             Log.Add("Victoire !");
             Finish(BattleOutcome.Victory);
         }
         else if (Allies.All(a => !a.IsAlive))
         {
+            SayAll(BattleTrigger.Defeat);
             Log.Add("Défaite...");
             Finish(BattleOutcome.Defeat);
         }
+    }
+
+    // ------------------------------------------------------------------ Répliques de combat
+
+    /// <summary>Déclenche un moment pour tous (participants puis répliques du combat fixe).</summary>
+    private void SayAll(BattleTrigger trigger, int turn = 0)
+    {
+        foreach (var c in All)
+            foreach (var line in c.Lines.Where(l => l.Trigger == trigger && (trigger != BattleTrigger.Turn || l.Amount == turn)))
+                Say(c, line);
+        foreach (var line in _fixedLines.Where(l => l.Trigger == trigger && (trigger != BattleTrigger.Turn || l.Amount == turn)))
+            Say(null, line);
+    }
+
+    private void Say(Combatant owner, BattleTrigger trigger)
+    {
+        foreach (var line in owner.Lines.Where(l => l.Trigger == trigger)) Say(owner, line);
+    }
+
+    /// <summary>Dit une réplique (une seule fois par combat), si ses conditions et sa chance passent.</summary>
+    private void Say(Combatant? owner, BattleLine line)
+    {
+        if (line.Text.Length == 0 || _said.Contains((owner, line))) return;
+        if (!_session.CheckAll(line.Conditions)) return;
+        if (line.Chance < 100 && _session.Rng.Next(100) >= line.Chance) return;
+        _said.Add((owner, line));
+        var speaker = line.Speaker.Length > 0 ? _session.FormatText(line.Speaker) : owner?.Name ?? "";
+        var text = _session.FormatText(line.Text);
+        SpeechLines.Add(Log.Count);
+        Log.Add(speaker.Length > 0 ? $"{speaker} : « {text} »" : text);
+        foreach (var action in line.Actions.Where(a => a.Type != ActionType.StartBattle)) _session.Execute(action);
     }
 
     private void Finish(BattleOutcome outcome)

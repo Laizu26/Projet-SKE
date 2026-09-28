@@ -38,6 +38,40 @@ public sealed class DevToolsView : ContentView
                 Btn("+500 XP", () => { s.Execute(new GameAction(ActionType.GiveXp, amount: 500)); Done(); })),
             Btn("Soigner l'équipe", () => { s.HealAll(); Done("Équipe soignée."); }))));
 
+        // Temps
+        var clock = s.Clock;
+        stack.Add(Panel(Stack(
+            Muted($"Temps : {clock.DateText} · {clock.TimeText} · {clock.Period}"),
+            ButtonRow(
+                Btn("+1 h", () => { s.AdvanceTime(60); Done(); }),
+                Btn("+6 h", () => { s.AdvanceTime(360); Done(); }),
+                Btn("+1 jour", () => { s.AdvanceTime(60L * Math.Max(1, db.Content.Time.HoursPerDay)); Done(); })))));
+
+        // Karma de chaque PJ
+        var karmaBox = Stack(Muted(db.Content.Karma.Name));
+        foreach (var c in s.State.Party)
+        {
+            var id = c.DefId;
+            karmaBox.Add(Row(Txt($"{s.DefOf(c).Name} : {c.Karma} {db.Content.Karma.TierName(c.Karma)}", 13), ButtonRow(
+                Form.SmallButton("-10", () => { s.Execute(new GameAction(ActionType.AddKarma, id, -10)); Done(); }),
+                Form.SmallButton("+10", () => { s.Execute(new GameAction(ActionType.AddKarma, id, 10)); Done(); }))));
+        }
+        stack.Add(Panel(karmaBox));
+
+        // Variables
+        if (db.Content.Variables.Count > 0)
+        {
+            var varBox = Stack(Muted("Variables"));
+            foreach (var v in db.Content.Variables)
+            {
+                var id = v.Id;
+                varBox.Add(Row(Txt($"{v.Name} : {s.GetVariable(id)}", 13), ButtonRow(
+                    Form.SmallButton("-1", () => { s.SetVariable(id, s.GetVariable(id) - 1); Done(); }),
+                    Form.SmallButton("+1", () => { s.SetVariable(id, s.GetVariable(id) + 1); Done(); }))));
+            }
+            stack.Add(Panel(varBox));
+        }
+
         // Objets
         var items = db.Content.Items;
         var itemPicker = MakePicker(items.Select(i => $"{i.Name} ({DevState.Name(i.Type)})").ToList());

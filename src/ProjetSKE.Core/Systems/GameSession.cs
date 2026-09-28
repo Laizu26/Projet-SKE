@@ -49,6 +49,7 @@ public sealed partial class GameSession
         var session = new GameSession(db, state, rng);
         foreach (var stack in db.Start.Inventory) session.AddItem(stack.ItemId, stack.Count);
         session.Recruit(heroId);
+        foreach (var npc in db.Content.Npcs.Where(n => n.StartsInCamp)) session.JoinCamp(npc.Id, npc.StartRankId);
         session.DiscoverLocation(state.CurrentLocationId);
         session.Notifications.Clear();
         return session;
@@ -70,6 +71,12 @@ public sealed partial class GameSession
             State.Version = GameState.CurrentVersion;
         }
         if (State.SpeakerId is { } sp && !State.Party.Any(c => c.DefId == sp)) State.SpeakerId = null;
+        State.Camp.RemoveAll(m => !Db.Npcs.ContainsKey(m.Id) && !Db.Characters.ContainsKey(m.Id));
+        foreach (var m in State.Camp)
+        {
+            if (!Db.Content.Camp.Ranks.Any(r => r.Id == m.RankId)) m.RankId = Db.Content.Camp.Ranks.OrderBy(r => r.Level).FirstOrDefault()?.Id ?? "";
+            if (m.TaskId is { } t && !Db.Content.Camp.Tasks.Any(x => x.Id == t)) m.TaskId = null;
+        }
         State.Party.RemoveAll(c => !Db.Characters.ContainsKey(c.DefId));
         foreach (var c in State.Party)
         {
@@ -130,6 +137,9 @@ public sealed partial class GameSession
         ConditionType.Visited => State.SeenLocations.Contains(c.Arg),
         ConditionType.MetNpc => State.SeenNpcs.Contains(c.Arg),
         ConditionType.Chance => Rng.Next(100) < c.Amount,
+        ConditionType.CampMember => CampMember(ResolveWho(c.Arg)) is not null,
+        ConditionType.CampRank => CampMember(ResolveWho(c.Arg)) is not null && Compare(RankLevel(ResolveWho(c.Arg)), c.Op, c.Amount),
+        ConditionType.CampTask => CampMember(ResolveWho(c.Arg))?.TaskId == c.Arg2,
         ConditionType.AnyOf => c.Children is not { Count: > 0 } children || children.Any(Check),
         ConditionType.AllOf => c.Children is not { Count: > 0 } all || all.All(Check),
         _ => true,
@@ -264,6 +274,20 @@ public sealed partial class GameSession
                 State.RevealedLocations.Remove(a.Arg);
                 State.HiddenLocations.Add(a.Arg);
                 break;
+            case ActionType.JoinCamp:
+                if (JoinCamp(ResolveWho(a.Arg), a.Arg2.Length > 0 ? a.Arg2 : null))
+                    Notifications.Add($"{CharacterName(a.Arg)} rejoint le campement.");
+                break;
+            case ActionType.LeaveCamp:
+                if (LeaveCamp(ResolveWho(a.Arg))) Notifications.Add($"{CharacterName(a.Arg)} quitte le campement.");
+                break;
+            case ActionType.SetCampRank:
+                if (SetCampRank(ResolveWho(a.Arg), a.Arg2) && CampRules.Ranks.FirstOrDefault(r => r.Id == a.Arg2) is { } rank)
+                    Notifications.Add($"{CharacterName(a.Arg)} devient {rank.Name}.");
+                break;
+            case ActionType.SetCampTask:
+                SetCampTask(ResolveWho(a.Arg), a.Arg2);
+                break;
         }
         return null;
     }
@@ -277,7 +301,9 @@ public sealed partial class GameSession
     /// <summary>Fait passer le temps (si l'échelle de temps est activée).</summary>
     public void AdvanceTime(long minutes)
     {
-        if (Db.Content.Time.Enabled && minutes > 0) State.Minutes += minutes;
+        if (!Db.Content.Time.Enabled || minutes <= 0) return;
+        State.Minutes += minutes;
+        UpdateCamp();
     }
 
     // ------------------------------------------------------------------ Variables
@@ -310,6 +336,7 @@ public sealed partial class GameSession
     {
         "" or "@parle" => SpeakerId,
         "@heros" => State.HeroId,
+        "@membre" => _campContext ?? SpeakerId,
         _ => who,
     };
 
@@ -389,6 +416,7 @@ public sealed partial class GameSession
                 "var" => GetVariable(arg).ToString(),
                 "amitie" => GetFriendship(arg).ToString(),
                 "nom" => CharacterName(arg),
+                "membre" => CharacterName("@membre"),
                 _ => m.Value,
             };
         });

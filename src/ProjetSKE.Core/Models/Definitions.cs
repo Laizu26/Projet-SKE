@@ -77,6 +77,25 @@ public sealed class CharacterDef
     public int? BaseKarma { get; set; }
     /// <summary>Amitié de départ envers les autres (vide = valeur par défaut des réglages d'amitié).</summary>
     public int? BaseFriendship { get; set; }
+    /// <summary>Répliques de combat du personnage.</summary>
+    public List<BattleLine> BattleLines { get; set; } = [];
+    public string? PortraitId { get; set; }
+}
+
+/// <summary>Réplique dite pendant un combat (provocation, cri de douleur, dernier mot...).</summary>
+public sealed class BattleLine
+{
+    public BattleTrigger Trigger { get; set; } = BattleTrigger.Start;
+    /// <summary>Tour (déclencheur « Tour ») ou pourcentage de PV (« PV sous »).</summary>
+    public int Amount { get; set; } = 50;
+    /// <summary>Qui parle (vide = le personnage ou monstre lui-même).</summary>
+    public string Speaker { get; set; } = "";
+    public string Text { get; set; } = "";
+    /// <summary>Chance en % que la réplique soit dite quand le moment arrive.</summary>
+    public int Chance { get; set; } = 100;
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Effets (flag, karma, variable...) appliqués quand la réplique est dite.</summary>
+    public List<GameAction> Actions { get; set; } = [];
 }
 
 public sealed class ItemDrop
@@ -100,6 +119,9 @@ public sealed class MonsterDef
     public int Gold { get; set; }
     public List<ItemDrop> Drops { get; set; } = [];
     public bool IsBoss { get; set; }
+    /// <summary>Répliques de combat du monstre.</summary>
+    public List<BattleLine> BattleLines { get; set; } = [];
+    public string? PortraitId { get; set; }
 }
 
 public sealed class EncounterGroup
@@ -117,6 +139,11 @@ public sealed class FixedBattleDef
     public string Id { get; set; } = "";
     public List<string> MonsterIds { get; set; } = [];
     public string? IntroDialogueId { get; set; }
+    /// <summary>Dialogue joué après une victoire / après une défaite (sauf game over).</summary>
+    public string? VictoryDialogueId { get; set; }
+    public string? DefeatDialogueId { get; set; }
+    /// <summary>Répliques propres à ce combat (narration ou personnage nommé).</summary>
+    public List<BattleLine> BattleLines { get; set; } = [];
 
     public FixedBattleDef() { }
     public FixedBattleDef(string id, List<string> monsterIds, string? introDialogueId = null)
@@ -171,6 +198,10 @@ public sealed class NpcDef
     /// <summary>Dialogues selon l'avancement : le premier dont les conditions passent est joué.</summary>
     public List<NpcDialogue> ConditionalDialogues { get; set; } = [];
     public string? DefaultDialogueId { get; set; }
+    public string? PortraitId { get; set; }
+    /// <summary>Membre du campement dès le début de la partie (avec ce grade ; vide = grade le plus bas).</summary>
+    public bool StartsInCamp { get; set; }
+    public string? StartRankId { get; set; }
 }
 
 /// <summary>Le PNJ se trouve à ce lieu quand les conditions sont remplies (ex : la nuit, à l'auberge).</summary>
@@ -272,6 +303,8 @@ public sealed class DialogueNode
     public List<DialogueBranch> Branches { get; set; } = [];
     /// <summary>Versions alternatives du texte selon la situation (karma, amitié, qui parle, heure...).</summary>
     public List<TextVariant> Variants { get; set; } = [];
+    /// <summary>Portrait affiché (vide = celui du PJ/PNJ dont le nom est « Qui parle »).</summary>
+    public string? PortraitId { get; set; }
 }
 
 public sealed class DialogueDef
@@ -345,6 +378,76 @@ public sealed class BalanceSettings
     public int HealFlat { get; set; } = 5;
     /// <summary>Variation aléatoire des dégâts en % (10 = entre 90 % et 110 %).</summary>
     public int DamageVariancePercent { get; set; } = 10;
+}
+
+/// <summary>
+/// Image de la banque d'images : seul le lien est enregistré (l'image reste sur son site).
+/// Le cadrage (point central + zoom) s'adapte à toutes les formes de cadre (portrait, carré...).
+/// </summary>
+public sealed class PortraitDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    /// <summary>Adresse de l'image (https).</summary>
+    public string Url { get; set; } = "";
+    /// <summary>Largeur / hauteur de l'image (mesurée à l'import ; 0 = inconnu).</summary>
+    public double Aspect { get; set; }
+    /// <summary>Point de l'image placé au centre du cadre (0 à 1).</summary>
+    public double FocusX { get; set; } = 0.5;
+    public double FocusY { get; set; } = 0.35;
+    /// <summary>Zoom (1 = l'image couvre juste le cadre).</summary>
+    public double Zoom { get; set; } = 1;
+}
+
+/// <summary>Grade de la hiérarchie du campement (niveau plus haut = plus gradé).</summary>
+public sealed class CampRankDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int Level { get; set; }
+    /// <summary>Nombre de places (0 = illimité).</summary>
+    public int Max { get; set; }
+}
+
+/// <summary>Résultat possible d'une tâche, tiré au sort à la fin de chaque cycle.</summary>
+public sealed class CampOutcome
+{
+    /// <summary>Texte du journal du camp (%membre% = celui qui fait la tâche).</summary>
+    public string Text { get; set; } = "";
+    /// <summary>Poids du tirage (plus = plus fréquent).</summary>
+    public int Weight { get; set; } = 1;
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Effets ; « @membre » désigne celui qui fait la tâche (ex : amitié de @membre +2).</summary>
+    public List<GameAction> Actions { get; set; } = [];
+}
+
+/// <summary>Tâche du campement (rondes, chasse...), répétée tant que le membre y est affecté.</summary>
+public sealed class CampTaskDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    /// <summary>Icône (mot-clé : ronde, chasse, peche, cueillette, bois, forge, garde, entrainement, repos, cuisine, eclaireur, commerce, mine, construction, soin).</summary>
+    public string Icon { get; set; } = "ronde";
+    /// <summary>Durée d'un cycle, en minutes de jeu.</summary>
+    public int DurationMinutes { get; set; } = 240;
+    /// <summary>Grade minimum (niveau) pour être affecté.</summary>
+    public int MinRankLevel { get; set; }
+    /// <summary>Nombre maximum de membres affectés (0 = illimité).</summary>
+    public int MaxWorkers { get; set; }
+    /// <summary>La tâche n'est proposée que si ces conditions sont remplies.</summary>
+    public List<Condition> Conditions { get; set; } = [];
+    public List<CampOutcome> Outcomes { get; set; } = [];
+}
+
+/// <summary>Réglages du campement : hiérarchie et tâches.</summary>
+public sealed class CampSettings
+{
+    public bool Enabled { get; set; } = true;
+    /// <summary>Titre du héros à la tête du camp.</summary>
+    public string LeaderTitle { get; set; } = "Chef";
+    public List<CampRankDef> Ranks { get; set; } = [];
+    public List<CampTaskDef> Tasks { get; set; } = [];
 }
 
 /// <summary>Variable libre du scénario (réputation, dette, compteur...), modifiable par les effets et testable par les conditions.</summary>
@@ -464,4 +567,6 @@ public sealed class GameContent
         Tiers = [new("Ennemi", -100), new("Hostile", -50), new("Méfiant", -15), new("Neutre", -14), new("Amical", 15), new("Ami", 50), new("Inséparable", 90)],
     };
     public List<VariableDef> Variables { get; set; } = [];
+    public List<PortraitDef> Portraits { get; set; } = [];
+    public CampSettings Camp { get; set; } = new();
 }

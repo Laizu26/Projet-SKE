@@ -17,10 +17,26 @@ public sealed class CampView : ContentView
         var s = page.Session;
         var stack = new VerticalStackLayout { Spacing = 14 };
 
-        stack.Add(PageHeader(Ico.Tent, "Campement", $"{s.State.Party.Count} compagnon(s) · {s.Bag().Sum(b => b.Count)} objet(s)"));
+        stack.Add(PageHeader(Ico.Tent, s.Db.T("title.camp"), $"{s.State.Party.Count} compagnon(s) · {s.Bag().Sum(b => b.Count)} objet(s)"));
 
         // Trésor : carte sombre, montant en serif doré, pièces en filigrane.
-        stack.Add(DarkStat(Ico.Coins, "Trésor de l'équipe", $"{s.State.Gold} or"));
+        stack.Add(DarkStat(Ico.Coins, "Trésor de l'équipe", $"{s.State.Gold} {s.Db.T("money")}"));
+
+        // Valeurs du scénario affichées au joueur (réputation, dette...).
+        var shown = s.Db.Content.Variables.Where(v => v.Visible).ToList();
+        if (shown.Count > 0)
+        {
+            stack.Add(TileGrid(shown.Select(v =>
+            {
+                var cell = Card(new VerticalStackLayout
+                {
+                    Spacing = 2,
+                    Children = { Caps(v.Name, 9, Theme.Stone500), Txt(s.GetVariable(v.Id).ToString(), 20, Theme.Stone900, bold: true) },
+                });
+                cell.Padding = new Thickness(12, 10);
+                return (View)cell;
+            }).ToList(), Math.Min(3, shown.Count)));
+        }
 
         stack.Add(ButtonRow(
             Btn("Équipe", () => { page.CampShowBag = false; page.SelectedCharacter = null; page.Render(); }, selected: !page.CampShowBag),
@@ -59,8 +75,8 @@ public sealed class CampView : ContentView
                             Children = { Txt(def.Name, 16, Theme.Stone900, bold: true), Badge($"Nv {c.Level}", Theme.Gold700) },
                         },
                         Caps(def.Title, 9, Theme.Stone500),
-                        Bar("PV", c.CurrentHp, stats.MaxHp, Theme.Hp),
-                        Bar("PM", c.CurrentMana, stats.MaxMana, Theme.Mana),
+                        Bar(_page.T("hp"), c.CurrentHp, stats.MaxHp, Theme.Hp),
+                        Bar(_page.T("mp"), c.CurrentMana, stats.MaxMana, Theme.Mana),
                     },
                 };
                 var card = Card(IconRow(Avatar(def.Name, Theme.AvatarColor(def.Id), 56), info, Icon(Ico.ChevronRight, 20, Theme.Stone400)));
@@ -99,11 +115,18 @@ public sealed class CampView : ContentView
                     Text = def.Description, FontSize = 13, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400,
                     HorizontalTextAlignment = TextAlignment.Center,
                 },
-                Bar("PV", c.CurrentHp, stats.MaxHp, Theme.Green500, 10, dark: true),
-                Bar("PM", c.CurrentMana, stats.MaxMana, Theme.Blue500, 10, dark: true),
+                Bar(_page.T("hp"), c.CurrentHp, stats.MaxHp, Theme.Green500, 10, dark: true),
+                Bar(_page.T("mp"), c.CurrentMana, stats.MaxMana, Theme.Blue500, 10, dark: true),
                 Bar("XP", c.Xp, s.XpToNextLevel(c.Level), Theme.Gold500, 6, dark: true),
             },
         }, Ico.User, goldLine: true));
+
+        var karma = s.Db.Content.Karma;
+        if (karma.Enabled && karma.Visible)
+        {
+            var tier = karma.TierName(c.Karma);
+            stack.Add(DarkStat(Ico.Scale, karma.Name, tier.Length > 0 ? $"{c.Karma} · {tier}" : c.Karma.ToString()));
+        }
 
         stack.Add(Section("Statistiques"));
         stack.Add(TileGrid(

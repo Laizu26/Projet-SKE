@@ -26,6 +26,8 @@ public enum ActionType
     AdvanceTime, WaitUntilHour,
     // Divers
     ShowMessage, LeaveParty, MoveNpc, RevealLocation, HideLocation,
+    // Campement
+    JoinCamp, LeaveCamp, SetCampRank, SetCampTask,
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
@@ -41,6 +43,8 @@ public enum ConditionType
     HourBetween, Day, Period, WeekDay, Month,
     // Monde
     AtLocation, Visited, MetNpc, Chance,
+    // Campement
+    CampMember, CampRank, CampTask,
     // Groupes de conditions
     AnyOf, AllOf,
 }
@@ -60,3 +64,22 @@ public enum DefeatRule { ReturnToLastCity, GameOver }
 
 /// <summary>Règle de fuite (les boss empêchent toujours la fuite).</summary>
 public enum FleeRule { AlwaysSucceed, SpeedBased, Never }
+
+/// <summary>Moment où une réplique de combat est dite (du point de vue de celui qui parle).</summary>
+public enum BattleTrigger
+{
+    /// <summary>Au début du combat.</summary>
+    Start,
+    /// <summary>Au début du tour n° Quantité.</summary>
+    Turn,
+    /// <summary>Quand ses PV passent sous Quantité % (une fois).</summary>
+    HpBelow,
+    /// <summary>Quand il est mis K.O.</summary>
+    Down,
+    /// <summary>Quand il met un adversaire K.O.</summary>
+    Kill,
+    /// <summary>Quand l'équipe gagne.</summary>
+    Victory,
+    /// <summary>Quand l'équipe perd.</summary>
+    Defeat,
+}

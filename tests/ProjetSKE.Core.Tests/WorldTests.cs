@@ -327,3 +327,97 @@ public class WorldTests
         Assert.Contains(merged.Variables, v => v.Id == "dette");
     }
 }
+
+public class BattleLineTests
+{
+    [Fact]
+    public void BattleLines_AreSaidAtTheRightMoments()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Characters.First(c => c.Id == "aldric").BattleLines =
+        [
+            new() { Trigger = BattleTrigger.Start, Text = "Pour %pays% !" },
+            new() { Trigger = BattleTrigger.Kill, Text = "Au suivant.", Actions = [new(ActionType.AddVariable, "reputation", 1)] },
+            new() { Trigger = BattleTrigger.Victory, Text = "Jamais.", Conditions = [new(ConditionType.FlagSet, "absent")] },
+        ];
+        content.Monsters.First(m => m.Id == "gobelin").BattleLines =
+        [
+            new() { Trigger = BattleTrigger.HpBelow, Amount = 99, Text = "Aïe !" },
+            new() { Trigger = BattleTrigger.Down, Text = "Argh..." },
+        ];
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(3));
+        var battle = s.StartBattle(["gobelin"]);
+        Assert.Contains("Aldric : « Pour Valdor ! »", battle.Log);
+        for (var i = 0; i < 200 && battle.Outcome == BattleOutcome.Ongoing; i++)
+            battle.UseSkill(battle.CurrentActor!.Skills[0], battle.Enemies[0]);
+
+        Assert.Equal(BattleOutcome.Victory, battle.Outcome);
+        Assert.Single(battle.Log, l => l.Contains("Aïe !"));
+        Assert.Contains(battle.Log, l => l.Contains("Argh..."));
+        Assert.Contains(battle.Log, l => l.Contains("Au suivant."));
+        Assert.DoesNotContain(battle.Log, l => l.Contains("Jamais."));
+        Assert.Equal(1, s.GetVariable("reputation"));
+        Assert.All(battle.SpeechLines, i => Assert.Contains("«", battle.Log[i]));
+    }
+}
+
+public class CampTests
+{
+    private static GameSession NewGame(int seed = 5) => GameSession.NewGame(GameDatabase.Default, "aldric", new Random(seed));
+
+    [Fact]
+    public void Camp_StartsWithResidentsAndRanks()
+    {
+        var s = NewGame();
+        Assert.Equal("soldat", s.CampMember("bran")!.RankId);
+        Assert.Equal("recrue", s.CampMember("mara")!.RankId);
+    }
+
+    [Fact]
+    public void Camp_RanksHaveLimitedSlots()
+    {
+        var s = NewGame();
+        Assert.True(s.SetCampRank("bran", "lieutenant"));
+        Assert.False(s.SetCampRank("mara", "lieutenant"));
+        Assert.True(s.Check(new Condition(ConditionType.CampRank, "bran", 2)));
+    }
+
+    [Fact]
+    public void Camp_TasksNeedRankAndProduceResultsOverTime()
+    {
+        var s = NewGame();
+        Assert.False(s.SetCampTask("mara", "chasse")); // recrue : grade trop bas
+        Assert.True(s.SetCampTask("bran", "chasse"));
+        Assert.True(s.SetCampTask("mara", "rondes"));
+
+        s.AdvanceTime(24 * 60);
+        Assert.Equal(6 + 4, s.State.CampLog.Count); // 24 h : 6 chasses de 4 h et 4 rondes de 6 h
+        Assert.All(s.State.CampLog, l => Assert.DoesNotContain("%membre%", l));
+        Assert.Contains(s.State.CampLog, l => l.Contains("Bran"));
+        Assert.DoesNotContain(s.Notifications, n => n.StartsWith("Obtenu"));
+    }
+
+    [Fact]
+    public void Camp_MemberContextTargetsTheWorker()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var task = content.Camp.Tasks.First(t => t.Id == "repos");
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        var before = s.GetFriendship("mara");
+        s.SetCampTask("mara", "repos");
+        s.AdvanceTime(task.DurationMinutes);
+        Assert.Equal(before + 2, s.GetFriendship("mara"));
+        Assert.Equal(10, s.GetFriendship("bran"));
+    }
+
+    [Fact]
+    public void Camp_DialogueCanPromote()
+    {
+        var s = NewGame();
+        var d = s.StartDialogue(s.Talk("mara")!);
+        d.Choose(0);
+        Assert.Equal("soldat", s.CampMember("mara")!.RankId);
+        Assert.Equal(15, s.GetFriendship("mara"));
+        Assert.Contains("Merci, Aldric", d.Text);
+    }
+}

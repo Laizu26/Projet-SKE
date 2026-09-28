@@ -53,6 +53,8 @@ public static class ContentMerger
             Time = MergeValue("Temps", "time", @base.Time, local.Time, remote.Time, ctx.TimeSettings, conflicts),
             Karma = MergeValue("Karma", "karma", @base.Karma, local.Karma, remote.Karma, ctx.ScaleSettings, conflicts),
             Friendship = MergeValue("Amitié", "friendship", @base.Friendship, local.Friendship, remote.Friendship, ctx.ScaleSettings, conflicts),
+            Camp = MergeValue("Campement", "camp", @base.Camp, local.Camp, remote.Camp, ctx.CampSettings, conflicts),
+            Portraits = MergeList("Portrait", @base.Portraits, local.Portraits, remote.Portraits, x => x.Id, x => x.Name, ctx.PortraitDef, conflicts),
             Variables = MergeList("Variable", @base.Variables, local.Variables, remote.Variables, x => x.Id, x => x.Name, ctx.VariableDef, conflicts),
         };
         var hasLocalChanges = ContentSerializer.ToJson(merged) != ContentSerializer.ToJson(remote);
@@ -162,6 +164,10 @@ public static class ContentMerger
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.BalanceSettings) is { } balance) { content.Balance = balance; return true; }
                 return false;
             case "Variable": return Put(content.Variables, ctx.VariableDef, x => x.Id);
+            case "Portrait": return Put(content.Portraits, ctx.PortraitDef, x => x.Id);
+            case "Campement":
+                if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.CampSettings) is { } camp) { content.Camp = camp; return true; }
+                return false;
             case "Monde":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.WorldSettings) is { } world) { content.World = world; return true; }
                 return false;

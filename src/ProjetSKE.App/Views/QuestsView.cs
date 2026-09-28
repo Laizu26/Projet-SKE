@@ -11,7 +11,7 @@ public sealed class QuestsView : ContentView
     public QuestsView(GamePage page)
     {
         var s = page.Session;
-        var log = s.QuestLog.ToList();
+        var log = s.VisibleQuestLog.ToList();
         var active = log.Where(q => q.Progress.Status == QuestStatus.Active).ToList();
         var done = log.Where(q => q.Progress.Status == QuestStatus.Completed).ToList();
 

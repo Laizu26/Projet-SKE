@@ -37,6 +37,9 @@ public sealed class GamePage : ContentPage
     private readonly Label _title;
     private readonly Label _subtitle;
     private readonly Label _message;
+    private readonly Label _clockTime;
+    private readonly Label _clockDate;
+    private readonly View _clock;
     private readonly Border _toast;
     private readonly View _testBadge;
     private readonly ContentView _avatarHost;
@@ -67,6 +70,10 @@ public sealed class GamePage : ContentPage
             Content = IconRow(Icon(Ico.Bell, 18, Theme.Gold500), _message),
         };
         _testBadge = Badge("Test", Theme.Red500);
+        _clockTime = new Label { FontFamily = "serif", FontSize = 17, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500, HorizontalTextAlignment = TextAlignment.End };
+        _clockDate = Caps("", 8, Theme.Stone500);
+        _clockDate.HorizontalTextAlignment = TextAlignment.End;
+        _clock = new VerticalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.Center, Children = { _clockTime, _clockDate } };
         _avatarHost = new ContentView();
 
         var header = new Grid
@@ -78,7 +85,7 @@ public sealed class GamePage : ContentPage
         };
         header.Add(_avatarHost, 0, 0);
         header.Add(new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center, Children = { _title, _subtitle } }, 1, 0);
-        header.Add(_testBadge, 2, 0);
+        header.Add(new HorizontalStackLayout { Spacing = 8, VerticalOptions = LayoutOptions.Center, Children = { _testBadge, _clock } }, 2, 0);
 
         var root = new Grid
         {
@@ -173,16 +180,19 @@ public sealed class GamePage : ContentPage
 
     // ------------------------------------------------------------------ Affichage
 
-    private static readonly (GameTab Tab, string Icon, string Label)[] Tabs =
+    private static readonly (GameTab Tab, string Icon, string Key)[] Tabs =
     [
-        (GameTab.Camp, Ico.Tent, "Camp"),
-        (GameTab.Map, Ico.Map, "Carte"),
-        (GameTab.Quests, Ico.ScrollText, "Quêtes"),
-        (GameTab.Encyclopedia, Ico.Library, "Encyclopédie"),
-        (GameTab.Shop, Ico.Store, "Shop"),
-        (GameTab.Journal, Ico.Feather, "Journal"),
-        (GameTab.Menu, Ico.Settings, "Menu"),
+        (GameTab.Camp, Ico.Tent, "tab.camp"),
+        (GameTab.Map, Ico.Map, "tab.map"),
+        (GameTab.Quests, Ico.ScrollText, "tab.quests"),
+        (GameTab.Encyclopedia, Ico.Library, "tab.encyclopedia"),
+        (GameTab.Shop, Ico.Store, "tab.shop"),
+        (GameTab.Journal, Ico.Feather, "tab.journal"),
+        (GameTab.Menu, Ico.Settings, "tab.menu"),
     ];
+
+    /// <summary>Texte de l'interface (renommable dans le mode développeur).</summary>
+    public string T(string key) => Session.Db.T(key);
 
     public void Render()
     {
@@ -193,8 +203,16 @@ public sealed class GamePage : ContentPage
             ? Emblem(Ico.Shield, 38)
             : Avatar(Session.DefOf(hero).Name, Theme.Gold600, 38);
         _title.Text = loc.Name;
-        _subtitle.Text = $"{GameSession.LocationTypeName(loc.Type)} · {TabTitle(Tab)}".ToUpperInvariant();
+        _subtitle.Text = $"{Session.LocationTypeLabel(loc.Type)} · {TabTitle(Tab)}".ToUpperInvariant();
         _testBadge.IsVisible = IsTestGame;
+        var time = Session.Db.Content.Time;
+        _clock.IsVisible = time.Enabled;
+        if (time.Enabled)
+        {
+            var clock = Session.Clock;
+            _clockTime.Text = clock.TimeText;
+            _clockDate.Text = string.Join(" · ", new[] { clock.Period, clock.WeekDay.Length > 0 ? clock.WeekDay : $"Jour {clock.Day}" }.Where(x => x.Length > 0));
+        }
 
         Session.UpdateQuests();
         if (Session.Notifications.Count > 0)
@@ -222,15 +240,15 @@ public sealed class GamePage : ContentPage
         _body.Content = new ScrollView { Content = new ContentView { Content = view, Padding = new Thickness(14, 16, 14, 28) } };
     }
 
-    private static string TabTitle(GameTab tab) => tab switch
+    private string TabTitle(GameTab tab) => tab switch
     {
-        GameTab.Camp => "Campement",
-        GameTab.Quests => "Quêtes",
-        GameTab.Encyclopedia => "Encyclopédie",
-        GameTab.Shop => "Boutique",
-        GameTab.Journal => "Journal",
-        GameTab.Menu => "Menu",
-        _ => "Carte",
+        GameTab.Camp => T("title.camp"),
+        GameTab.Quests => T("tab.quests"),
+        GameTab.Encyclopedia => T("tab.encyclopedia"),
+        GameTab.Shop => T("title.shop"),
+        GameTab.Journal => T("tab.journal"),
+        GameTab.Menu => T("tab.menu"),
+        _ => T("title.map"),
     };
 
     private void BuildTabBar()
@@ -240,6 +258,7 @@ public sealed class GamePage : ContentPage
         for (var i = 0; i < Tabs.Length; i++)
         {
             var t = Tabs[i];
+            var label = T(t.Key);
             var enabled = t.Tab != GameTab.Shop || Session.InCity;
             var selected = Tab == t.Tab;
             _tabBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
@@ -260,8 +279,8 @@ public sealed class GamePage : ContentPage
                         Icon(t.Icon, 20, selected ? Theme.Gold500 : Theme.Stone500),
                         new Label
                         {
-                            Text = t.Label.ToUpperInvariant(),
-                            FontSize = t.Label.Length > 8 ? 6.5 : 8,
+                            Text = label.ToUpperInvariant(),
+                            FontSize = label.Length > 8 ? 6.5 : 8,
                             LineBreakMode = LineBreakMode.NoWrap,
                             FontAttributes = FontAttributes.Bold,
                             CharacterSpacing = 1,
@@ -295,6 +314,8 @@ public sealed class GamePage : ContentPage
 
     private void ShowOverlay(View view)
     {
+        // Le dialogue assombrit lui-même l'écran (en fondu) : la couche reste transparente.
+        _overlay.BackgroundColor = view is DialogueView ? Colors.Transparent : Theme.Overlay;
         _overlay.Content = view;
         _overlay.IsVisible = true;
     }
@@ -333,16 +354,91 @@ public sealed class GamePage : ContentPage
             HideOverlay();
             AutoSave();
             Render();
+            // Dialogue d'après-combat (combat fixe).
+            var fb = fixedBattleId is null ? null
+                : Session.Db.Content.Locations.Select(l => l.FixedBattle).FirstOrDefault(f => f?.Id == fixedBattleId);
+            var after = battle.Outcome switch
+            {
+                BattleOutcome.Victory => fb?.VictoryDialogueId,
+                BattleOutcome.Defeat => fb?.DefeatDialogueId,
+                _ => null,
+            };
+            if (after is not null) ShowDialogue(after);
         }));
     }
 
-    /// <summary>Parler à un PNJ (le dialogue dépend de l'avancement des quêtes).</summary>
+    /// <summary>
+    /// Parler à un PNJ. Si l'équipe compte plusieurs PJ, on choisit d'abord qui prend la parole :
+    /// le dialogue (et la réaction du PNJ) peut en dépendre.
+    /// </summary>
     public void TalkTo(string npcId)
     {
-        var dialogue = Session.Talk(npcId);
+        if (Session.Db.Content.World.AskSpeaker && Session.State.Party.Count > 1)
+        {
+            ShowOverlay(SpeakerPicker(npcId));
+            return;
+        }
+        TalkAs(npcId, null);
+    }
+
+    private void TalkAs(string npcId, string? speakerId)
+    {
+        HideOverlay();
+        var dialogue = Session.Talk(npcId, speakerId);
         if (dialogue is not null) ShowDialogue(dialogue);
         else Notify("Cette personne n'a rien à dire.");
         Render();
+    }
+
+    private View SpeakerPicker(string npcId)
+    {
+        var npc = Session.Db.Npcs[npcId];
+        var list = new VerticalStackLayout { Spacing = 8 };
+        foreach (var c in Session.State.Party)
+        {
+            var def = Session.DefOf(c);
+            var id = c.DefId;
+            var info = new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center };
+            info.Add(Txt(def.Name, 15, Theme.Stone100, bold: true));
+            var details = new List<string>();
+            if (def.Title.Length > 0) details.Add(def.Title);
+            var karma = Session.Db.Content.Karma;
+            if (karma.Enabled && karma.Visible) details.Add($"{karma.Name} {c.Karma} {karma.TierName(c.Karma)}".Trim());
+            var friendship = Session.Db.Content.Friendship;
+            if (friendship.Enabled && friendship.Visible)
+            {
+                var f = Session.GetFriendship(npcId, id);
+                details.Add($"{friendship.Name} {f} {friendship.TierName(f)}".Trim());
+            }
+            info.Add(Caps(string.Join(" · ", details), 8, Theme.Stone400));
+            var card = Card(IconRow(Avatar(def.Name, id == Session.SpeakerId ? Theme.Gold500 : Theme.AvatarColor(id), 40), info),
+                Theme.Stone800, id == Session.SpeakerId ? Theme.Gold500 : Theme.Stone700, 12);
+            card.Padding = new Thickness(12, 10);
+            list.Add(OnTap(card, () => TalkAs(npcId, id)));
+        }
+        var cancel = Btn("Annuler", () => { HideOverlay(); Render(); });
+        var panel = new Border
+        {
+            BackgroundColor = Theme.Stone900,
+            Stroke = Theme.Gold600,
+            StrokeThickness = 1.5,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
+            Padding = new Thickness(16, 18),
+            Margin = new Thickness(20),
+            VerticalOptions = LayoutOptions.Center,
+            Content = new VerticalStackLayout
+            {
+                Spacing = 12,
+                Children =
+                {
+                    IconCaps(Ico.MessageCircle, npc.Name, Theme.Gold500, 10),
+                    new Label { Text = T("speaker.ask"), FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100 },
+                    list,
+                    cancel,
+                },
+            },
+        };
+        return new ScrollView { Content = panel };
     }
 
     /// <summary>Combat fixe du lieu actuel, précédé de son dialogue d'introduction.</summary>

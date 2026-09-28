@@ -113,6 +113,23 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
 
+    public static IEnumerable<(string Id, string Name)> Variables => Draft.Variables.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> Portraits => Draft.Portraits.Select(x => (x.Id, x.Name));
+
+    /// <summary>PNJ et PJ (pour l'amitié : qui ressent).</summary>
+    public static IEnumerable<(string Id, string Name)> Persons =>
+        Draft.Npcs.Select(x => (x.Id, "PNJ " + x.Name)).Concat(Draft.Characters.Select(x => (x.Id, "PJ " + x.Name)));
+
+    /// <summary>De qui (karma) : celui qui parle par défaut.</summary>
+    public static IEnumerable<(string Id, string Name)> KarmaWho =>
+        new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (moyenne / chacun)") }
+            .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
+
+    /// <summary>Envers qui (amitié) : l'équipe entière par défaut.</summary>
+    public static IEnumerable<(string Id, string Name)> Toward =>
+        new[] { ("@equipe", "L'équipe entière"), ("@parle", "Celui qui parle"), ("@heros", "Le héros") }
+            .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
+
     public static IEnumerable<(string Id, string Name)> Items(Func<ItemDef, bool>? filter = null) =>
         Draft.Items.Where(i => filter?.Invoke(i) ?? true).Select(x => (x.Id, x.Name));
 
@@ -132,7 +149,41 @@ public static class DevState
         ActionType.StartQuest => "Démarrer une quête",
         ActionType.CompleteQuest => "Terminer une quête",
         ActionType.HealParty => "Soigner l'équipe",
-        _ => "Téléporter",
+        ActionType.Teleport => "Téléporter",
+        ActionType.SetVariable => "Variable : fixer",
+        ActionType.AddVariable => "Variable : ajouter",
+        ActionType.AddKarma => "Karma : ajouter",
+        ActionType.SetKarma => "Karma : fixer",
+        ActionType.AddFriendship => "Amitié : ajouter",
+        ActionType.SetFriendship => "Amitié : fixer",
+        ActionType.AdvanceTime => "Faire passer le temps",
+        ActionType.WaitUntilHour => "Attendre une heure précise",
+        ActionType.ShowMessage => "Afficher un message",
+        ActionType.LeaveParty => "Un PJ quitte l'équipe",
+        ActionType.MoveNpc => "Déplacer un PNJ",
+        ActionType.RevealLocation => "Révéler un lieu",
+        _ => "Cacher un lieu",
+    };
+
+    public static string Name(CompareOp t) => t switch
+    {
+        CompareOp.AtLeast => "au moins (≥)",
+        CompareOp.AtMost => "au plus (≤)",
+        CompareOp.Equal => "égal à (=)",
+        CompareOp.NotEqual => "différent de (≠)",
+        CompareOp.Greater => "plus de (>)",
+        _ => "moins de (<)",
+    };
+
+    public static string Name(BattleTrigger t) => t switch
+    {
+        BattleTrigger.Start => "Début du combat",
+        BattleTrigger.Turn => "Début d'un tour",
+        BattleTrigger.HpBelow => "PV sous un seuil",
+        BattleTrigger.Down => "Quand il tombe K.O.",
+        BattleTrigger.Kill => "Quand il met K.O.",
+        BattleTrigger.Victory => "Victoire de l'équipe",
+        _ => "Défaite de l'équipe",
     };
 
     public static string Name(ConditionType t) => t switch
@@ -146,7 +197,25 @@ public static class DevState
         ConditionType.InParty => "PJ dans l'équipe",
         ConditionType.NotInParty => "PJ pas dans l'équipe",
         ConditionType.GoldAtLeast => "Or minimum",
-        _ => "Niveau minimum",
+        ConditionType.LevelAtLeast => "Niveau minimum",
+        ConditionType.Variable => "Variable",
+        ConditionType.Karma => "Karma",
+        ConditionType.Friendship => "Amitié",
+        ConditionType.Gold => "Or (comparaison)",
+        ConditionType.Level => "Niveau (comparaison)",
+        ConditionType.PartySize => "Taille de l'équipe",
+        ConditionType.Speaker => "Qui parle",
+        ConditionType.HourBetween => "Entre deux heures",
+        ConditionType.Day => "Jour n°",
+        ConditionType.Period => "Moment de la journée",
+        ConditionType.WeekDay => "Jour de la semaine",
+        ConditionType.Month => "Mois",
+        ConditionType.AtLocation => "Se trouve à un lieu",
+        ConditionType.Visited => "A déjà visité un lieu",
+        ConditionType.MetNpc => "A déjà parlé à un PNJ",
+        ConditionType.Chance => "Hasard (%)",
+        ConditionType.AnyOf => "Groupe : au moins une de",
+        _ => "Groupe : toutes",
     };
 
     public static string Name(ObjectiveType t) => t switch

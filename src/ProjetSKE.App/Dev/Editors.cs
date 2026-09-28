@@ -116,6 +116,11 @@ public sealed class CharacterEditor : EditorPage
             sf.RefField("Compétence", s.SkillId, DevState.Skills, v => s.SkillId = v ?? "", allowNone: false);
             sf.IntField("Apprise au niveau", s.Level, v => s.Level = v);
         }, "+ Compétence");
+        f.Header("Personnalité");
+        f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
+        Form.OptionalInt(f, "Karma de départ", _x.BaseKarma, v => _x.BaseKarma = v, $"par défaut : {DevState.Draft.Karma.Default}");
+        Form.OptionalInt(f, "Amitié de départ envers les autres", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
+        f.BattleLines("Répliques de combat", _x.BattleLines);
     }
 }
 
@@ -134,9 +139,18 @@ public sealed class NpcEditor : EditorPage
         f.Note("Identifiant : " + _x.Id);
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description (encyclopédie)", _x.Description, v => _x.Description = v, multiline: true);
-        f.RefField("Lieu", _x.LocationId, DevState.Locations, v => _x.LocationId = v ?? "", allowNone: false);
+        f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
+        f.RefField("Lieu habituel", _x.LocationId, DevState.Locations, v => _x.LocationId = v ?? "", allowNone: false);
+        f.Note("Emploi du temps : le premier placement dont les conditions passent (heure, jour, flag...) remplace le lieu habituel.");
+        f.ObjectList("Placements", _x.Placements, () => new NpcPlacement { LocationId = _x.LocationId }, (pf, p, _) =>
+        {
+            pf.RefField("Lieu", p.LocationId, DevState.Locations, v => p.LocationId = v ?? "", allowNone: false);
+            pf.Conditions("Quand", p.Conditions);
+        }, "+ Placement");
+        Form.OptionalInt(f, "Amitié de départ envers l'équipe", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
         f.RefField("Dialogue par défaut", _x.DefaultDialogueId, DevState.Dialogues, v => _x.DefaultDialogueId = v);
-        f.Note("Dialogues selon l'avancement : le premier dont les conditions sont remplies est joué, sinon le dialogue par défaut.");
+        f.Note("Dialogues selon la situation : le premier dont les conditions sont remplies est joué, sinon le dialogue par défaut. "
+            + "Condition « Qui parle » = dialogue spécial selon le PJ qui s'adresse au PNJ ; « Amitié », « Karma », « Entre deux heures »... pour le reste.");
         f.ObjectList("Dialogues conditionnels", _x.ConditionalDialogues, () => new NpcDialogue(), (sf, d, _) =>
         {
             sf.RefField("Dialogue", d.DialogueId, DevState.Dialogues, v => d.DialogueId = v ?? "", allowNone: false);
@@ -212,17 +226,40 @@ public sealed class DialogueEditor : EditorPage
         f.Note("La première réplique est le début du dialogue. « Suivante » : réplique jouée après (si pas de choix).");
         f.ObjectList("Répliques", _x.Nodes, () => new DialogueNode { Id = DevState.NewId("r", _x.Nodes.Select(n => n.Id)) }, (nf, n, _) =>
         {
-            var nodeIds = _x.Nodes.Select(o => (o.Id, o.Id + " : " + Short(o.Text))).ToList();
+            // Répliques de ce dialogue, puis celles des autres dialogues (les histoires peuvent se croiser).
+            var nodeIds = _x.Nodes.Select(o => (o.Id, o.Id + " : " + Short(o.Text)))
+                .Concat(DevState.Draft.Dialogues.Where(d => d != _x).SelectMany(d =>
+                    d.Nodes.Select((o, i) => (i == 0 ? d.Id + ":" : d.Id + ":" + o.Id, $"↪ {(d.Name.Length > 0 ? d.Name : d.Id)} › {(i == 0 ? "début" : o.Id)}"))))
+                .ToList();
             nf.TextField("Étiquette", n.Id, v => n.Id = v);
-            nf.TextField("Qui parle (vide = narration)", n.Speaker, v => n.Speaker = v);
+            nf.TextField("Qui parle (vide = narration, %pj% = le PJ qui parle)", n.Speaker, v => n.Speaker = v);
             nf.TextField("Texte", n.Text, v => n.Text = v, multiline: true);
+            nf.RefField("Portrait (aucun = celui de « Qui parle »)", n.PortraitId, DevState.Portraits, v => n.PortraitId = v);
+            nf.ObjectList("Variantes du texte", n.Variants, () => new TextVariant { Text = n.Text }, (vf, v, _) =>
+            {
+                vf.Conditions("Si", v.Conditions);
+                vf.TextField("Qui parle (vide = le même)", v.Speaker, x => v.Speaker = x);
+                vf.TextField("Texte à la place", v.Text, x => v.Text = x, multiline: true);
+            }, "+ Variante");
             if (n.Choices.Count == 0)
+            {
                 nf.RefField("Réplique suivante (aucun = fin)", n.NextId, nodeIds, v => n.NextId = v);
+                nf.ObjectList("Aiguillages (testés avant la suite)", n.Branches, () => new DialogueBranch(), (bf, b, _) =>
+                {
+                    bf.Conditions("Si", b.Conditions);
+                    bf.RefField("Aller à (aucun = fin)", b.NextId, nodeIds, v => b.NextId = v);
+                }, "+ Aiguillage");
+            }
             nf.ObjectList("Choix", n.Choices, () => new DialogueChoice { Text = "..." }, (cf, c, _) =>
             {
                 cf.TextField("Texte du choix", c.Text, v => c.Text = v);
                 cf.RefField("Mène à (aucun = fin)", c.NextId, nodeIds, v => c.NextId = v);
                 cf.Conditions("Proposé seulement si", c.Conditions);
+                if (c.Conditions.Count > 0)
+                {
+                    cf.BoolField("Sinon : l'afficher grisé", c.ShowLocked, v => c.ShowLocked = v, rerender: true);
+                    if (c.ShowLocked) cf.TextField("Raison affichée", c.LockedText, v => c.LockedText = v);
+                }
                 cf.Actions("Effets du choix", c.Actions);
             }, "+ Choix");
             nf.Actions("Effets de la réplique", n.Actions);
@@ -247,6 +284,7 @@ public sealed class QuestEditor : EditorPage
         f.Note($"Identifiant : {_x.Id} — à démarrer depuis un dialogue avec l'effet « Démarrer une quête ».");
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
+        f.BoolField("Quête secrète (cachée du journal)", _x.Hidden, v => _x.Hidden = v);
         f.ObjectList("Objectifs (dans l'ordre)", _x.Objectives, () => new QuestObjective { Type = ObjectiveType.TalkTo }, (of, o, i) =>
         {
             of.Note($"Étape {i + 1}");
@@ -322,6 +360,7 @@ public sealed class MonsterEditor : EditorPage
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description (encyclopédie)", _x.Description, v => _x.Description = v, multiline: true);
         f.BoolField("Boss (fuite impossible)", _x.IsBoss, v => _x.IsBoss = v);
+        f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
         f.StatsField("Stats", _x.Stats);
         f.IntField("XP donnée", _x.Xp, v => _x.Xp = v);
         f.IntField("Or donné", _x.Gold, v => _x.Gold = v);
@@ -331,6 +370,7 @@ public sealed class MonsterEditor : EditorPage
             df.RefField("Objet", d.ItemId, DevState.Items(), v => d.ItemId = v ?? "", allowNone: false);
             df.DoubleField("Chance (0 à 1, ex : 0.25 = 25 %)", d.Chance, v => d.Chance = v);
         }, "+ Butin");
+        f.BattleLines("Répliques de combat", _x.BattleLines);
     }
 }
 
@@ -395,6 +435,8 @@ public sealed class LocationEditor : EditorPage
         f.IdList("Lieux reliés", _x.ConnectedIds, DevState.Locations.Where(l => l.Id != _x.Id),
             onAdded: id => { if (Find(id) is { } other && !other.ConnectedIds.Contains(_x.Id)) other.ConnectedIds.Add(_x.Id); },
             onRemoved: id => Find(id)?.ConnectedIds.Remove(_x.Id));
+        f.Conditions("Visible sur la carte seulement si (lieu secret)", _x.VisibleConditions);
+        Form.OptionalInt(f, "Durée du voyage pour venir ici (minutes)", _x.TravelMinutes, v => _x.TravelMinutes = v, $"par défaut : {DevState.Draft.Time.TravelMinutes}");
         f.Conditions("Accessible seulement si", _x.AccessConditions);
         if (_x.AccessConditions.Count > 0)
             f.TextField("Message si bloqué", _x.LockedMessage, v => _x.LockedMessage = v);
@@ -423,6 +465,9 @@ public sealed class LocationEditor : EditorPage
         {
             f.IdList("Monstres du combat fixe", fb.MonsterIds, DevState.Monsters);
             f.RefField("Dialogue avant le combat", fb.IntroDialogueId, DevState.Dialogues, v => fb.IntroDialogueId = v);
+            f.RefField("Dialogue après une victoire", fb.VictoryDialogueId, DevState.Dialogues, v => fb.VictoryDialogueId = v);
+            f.RefField("Dialogue après une défaite", fb.DefeatDialogueId, DevState.Dialogues, v => fb.DefeatDialogueId = v);
+            f.BattleLines("Répliques pendant ce combat", fb.BattleLines, fixedBattle: true);
         }
     }
 }

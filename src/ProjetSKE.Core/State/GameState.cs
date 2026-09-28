@@ -57,6 +57,17 @@ public sealed class QuestProgress
     public int Count { get; set; }
 }
 
+/// <summary>Un membre du campement (PNJ ou PJ).</summary>
+public sealed class CampMemberState
+{
+    public string Id { get; set; } = "";
+    public string RankId { get; set; } = "";
+    /// <summary>Tâche en cours (vide = au repos).</summary>
+    public string? TaskId { get; set; }
+    /// <summary>Moment (minutes) où le cycle en cours se termine.</summary>
+    public long NextAt { get; set; }
+}
+
 public sealed class GameState
 {
     /// <summary>Version du format : 2 = temps, karma, amitié, variables.</summary>
@@ -93,6 +104,9 @@ public sealed class GameState
     /// <summary>Lieux révélés ou cachés par un effet (prioritaires sur leurs conditions de visibilité).</summary>
     public HashSet<string> RevealedLocations { get; set; } = [];
     public HashSet<string> HiddenLocations { get; set; } = [];
+    public List<CampMemberState> Camp { get; set; } = [];
+    /// <summary>Journal du campement (derniers événements, le plus récent à la fin).</summary>
+    public List<string> CampLog { get; set; } = [];
     public GameConfig Config { get; set; } = new();
     public DateTime SavedAt { get; set; }
 }

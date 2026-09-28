@@ -69,7 +69,7 @@ public sealed class BattleView : ContentView
             Children =
             {
                 Icon(Ico.Swords, 16, Theme.Gold500),
-                new Label { Text = "COMBAT", FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4 },
+                new Label { Text = _page.T("battle.title").ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4 },
             },
         }, 0, 0);
         header.Add(Caps($"Tour {_battle.Round}", 10, Theme.Stone500), 1, 0);
@@ -88,8 +88,22 @@ public sealed class BattleView : ContentView
     private static View Padded(View v) => new ContentView { Content = v, Padding = new Thickness(14, 0) };
 
     /// <summary>Case « portrait » : icône ou initiale dans un cadre.</summary>
-    private static View Portrait(string? glyph, string name, Color accent, double size)
+    private static View Portrait(string? glyph, string name, Color accent, double size, PortraitDef? image = null)
     {
+        if (image is not null)
+        {
+            return new Border
+            {
+                WidthRequest = size,
+                HeightRequest = size * 1.2,
+                VerticalOptions = LayoutOptions.Start,
+                BackgroundColor = Theme.Stone950,
+                Stroke = accent,
+                StrokeThickness = 1.5,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
+                Content = new FramedImage(image),
+            };
+        }
         View inner = glyph is not null
             ? Icon(glyph, size * 0.5, accent)
             : new Label
@@ -120,9 +134,9 @@ public sealed class BattleView : ContentView
         name.MaxLines = 1;
         var bars = new VerticalStackLayout { Spacing = compact ? 3 : 5, VerticalOptions = LayoutOptions.Center };
         bars.Add(name);
-        bars.Add(AnimatedBar("PV", before.Hp, c.Hp, c.Stats.MaxHp, c.IsAlly ? Theme.Green500 : Theme.Red500, compact ? 6 : 9, dark: true));
+        bars.Add(AnimatedBar(_page.T("hp"), before.Hp, c.Hp, c.Stats.MaxHp, c.IsAlly ? Theme.Green500 : Theme.Red500, compact ? 6 : 9, dark: true));
         if (c.Stats.MaxMana > 0)
-            bars.Add(AnimatedBar("PM", before.Mana, c.Mana, c.Stats.MaxMana, Theme.Blue500, compact ? 4 : 6, dark: true));
+            bars.Add(AnimatedBar(_page.T("mp"), before.Mana, c.Mana, c.Stats.MaxMana, Theme.Blue500, compact ? 4 : 6, dark: true));
         if (c.Defending) bars.Add(IconRow(Icon(Ico.Shield, 11, Theme.Gold500), Txt("En garde", 10, Theme.Gold500, bold: true)));
 
         var row = new Grid
@@ -130,7 +144,9 @@ public sealed class BattleView : ContentView
             ColumnSpacing = compact ? 8 : 12,
             ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
         };
-        row.Add(Portrait(glyph, c.Name, accent, portrait), 0, 0);
+        var portraitId = c.Monster?.PortraitId ?? (c.Character is { } pc ? _page.Session.DefOf(pc).PortraitId : null);
+        var image = portraitId is not null && _page.Session.Db.Portraits.TryGetValue(portraitId, out var pd) ? pd : null;
+        row.Add(Portrait(glyph, c.Name, accent, portrait, image), 0, 0);
         row.Add(bars, 1, 0);
 
         var card = Card(row, background, stroke, 12);
@@ -174,11 +190,21 @@ public sealed class BattleView : ContentView
     private View BuildLog()
     {
         var log = new VerticalStackLayout { Spacing = 6 };
-        var lines = _battle.Log.TakeLast(10).ToList();
-        for (var i = 0; i < lines.Count; i++)
+        var first = Math.Max(0, _battle.Log.Count - 12);
+        for (var i = first; i < _battle.Log.Count; i++)
         {
-            var latest = i == lines.Count - 1;
-            log.Add(Txt(lines[i], latest ? 14 : 12, latest ? Theme.Stone900 : Theme.Stone500, bold: latest));
+            var latest = i == _battle.Log.Count - 1;
+            if (_battle.SpeechLines.Contains(i))
+            {
+                // Réplique : en italique serif, avec une icône de parole.
+                var speech = new Label
+                {
+                    Text = _battle.Log[i], FontFamily = "serif", FontSize = latest ? 15 : 13, FontAttributes = FontAttributes.Italic,
+                    TextColor = latest ? Theme.Gold700 : Theme.Stone600,
+                };
+                log.Add(IconRow(Icon(Ico.Speech, 14, Theme.Gold600), speech));
+            }
+            else log.Add(Txt(_battle.Log[i], latest ? 14 : 12, latest ? Theme.Stone900 : Theme.Stone500, bold: latest));
         }
         if (_resultTitle is not null)
         {
@@ -304,7 +330,7 @@ public sealed class BattleView : ContentView
             }
             default:
             {
-                var fleeText = _battle.CanFlee ? $"Fuite {_battle.FleeChance():P0}" : "Fuite";
+                var fleeText = _battle.CanFlee ? $"{_page.T("battle.flee")} {_battle.FleeChance():P0}" : _page.T("battle.flee");
                 return Stack(
                     new Label
                     {
@@ -313,9 +339,9 @@ public sealed class BattleView : ContentView
                     },
                     TileGrid(
                     [
-                        ActionTile(Ico.Swords, "Attaque", () => SetMode(Mode.Skills)),
-                        ActionTile(Ico.Shield, "Défense", Defend),
-                        ActionTile(Ico.FlaskConical, "Objet", () => SetMode(Mode.Items)),
+                        ActionTile(Ico.Swords, _page.T("battle.attack"), () => SetMode(Mode.Skills)),
+                        ActionTile(Ico.Shield, _page.T("battle.defend"), Defend),
+                        ActionTile(Ico.FlaskConical, _page.T("battle.item"), () => SetMode(Mode.Items)),
                         ActionTile(Ico.Footprints, fleeText, Flee, _battle.CanFlee),
                     ], 2));
             }
@@ -372,12 +398,12 @@ public sealed class BattleView : ContentView
             case BattleOutcome.Victory:
             {
                 var r = session.ApplyVictory(_battle);
-                var lines = new List<string> { $"+{r.Xp} XP   ·   +{r.Gold} or" };
+                var lines = new List<string> { $"+{r.Xp} {_page.T("xp")}   ·   +{r.Gold} {_page.T("money")}" };
                 if (r.ItemIds.Count > 0)
                     lines.Add("Butin : " + string.Join(", ", r.ItemIds.Select(id => session.Db.Items[id].Name)));
                 lines.AddRange(r.LevelUps);
                 _victory = true;
-                _resultTitle = "VICTOIRE";
+                _resultTitle = _page.T("battle.victory").ToUpperInvariant();
                 _resultText = string.Join("\n", lines);
                 break;
             }
@@ -385,10 +411,10 @@ public sealed class BattleView : ContentView
             {
                 var d = session.ApplyDefeat();
                 _gameOver = d.IsGameOver;
-                _resultTitle = "DÉFAITE";
+                _resultTitle = _page.T("battle.defeat").ToUpperInvariant();
                 _resultText = d.IsGameOver
                     ? "Game over. Retour à la dernière sauvegarde."
-                    : $"L'équipe se réveille à {session.Db.Locations[d.ReturnLocationId!].Name} (-{d.GoldLost} or).";
+                    : $"L'équipe se réveille à {session.Db.Locations[d.ReturnLocationId!].Name} (-{d.GoldLost} {_page.T("money")}).";
                 break;
             }
             default:

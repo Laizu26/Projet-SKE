@@ -27,12 +27,77 @@ internal static class SampleContent
             IntroDialogueId = "intro",
         },
         World = new() { CountryName = "Valdor" },
+        Camp = Camp(),
         Variables =
         [
             new()
             {
                 Id = "reputation", Name = "Réputation", Visible = true, Min = -100, Max = 100,
                 Description = "Ce que les gens de Valdor pensent de l'équipe.",
+            },
+        ],
+    };
+
+    // ------------------------------------------------------------------ Campement
+
+    private static CampSettings Camp() => new()
+    {
+        LeaderTitle = "Chef",
+        Ranks =
+        [
+            new() { Id = "recrue", Name = "Recrue", Level = 0 },
+            new() { Id = "soldat", Name = "Soldat", Level = 1 },
+            new() { Id = "lieutenant", Name = "Lieutenant", Level = 2, Max = 1 },
+        ],
+        Tasks =
+        [
+            new()
+            {
+                Id = "rondes", Name = "Rondes", Icon = "ronde", DurationMinutes = 360,
+                Description = "Surveiller les abords du camp.",
+                Outcomes =
+                [
+                    new() { Weight = 5, Text = "%membre% fait sa ronde : rien à signaler." },
+                    new()
+                    {
+                        Weight = 2, Text = "%membre% repousse des loups qui rôdaient autour du camp.",
+                        Actions = [new(ActionType.AddVariable, "reputation", 1), new(ActionType.AddFriendship, "@membre", 1)],
+                    },
+                    new() { Weight = 1, Text = "%membre% s'est endormi pendant sa garde...", Actions = [new(ActionType.AddFriendship, "@membre", -1)] },
+                ],
+            },
+            new()
+            {
+                Id = "chasse", Name = "Chasse", Icon = "chasse", DurationMinutes = 240, MinRankLevel = 1,
+                Description = "Rapporter de quoi manger.",
+                Outcomes =
+                [
+                    new() { Weight = 3, Text = "%membre% rapporte du gibier.", Actions = [new(ActionType.GiveItem, "gibier", 1)] },
+                    new() { Weight = 2, Text = "%membre% rentre bredouille." },
+                    new() { Weight = 1, Text = "%membre% a trouvé une vieille bourse dans les bois.", Actions = [new(ActionType.GiveGold, amount: 15)] },
+                ],
+            },
+            new()
+            {
+                Id = "cueillette", Name = "Cueillette", Icon = "cueillette", DurationMinutes = 180,
+                Description = "Ramasser des herbes médicinales.",
+                Outcomes =
+                [
+                    new() { Weight = 3, Text = "%membre% revient avec des herbes.", Actions = [new(ActionType.GiveItem, "herbes", 1)] },
+                    new() { Weight = 2, Text = "%membre% n'a rien trouvé d'utile." },
+                ],
+            },
+            new()
+            {
+                Id = "commandement", Name = "Diriger la garde", Icon = "garde", DurationMinutes = 480, MinRankLevel = 2, MaxWorkers = 1,
+                Description = "Organiser les tours de garde : le camp gagne en réputation.",
+                Outcomes = [new() { Text = "%membre% organise la garde d'une main de fer.", Actions = [new(ActionType.AddVariable, "reputation", 2)] }],
+            },
+            new()
+            {
+                Id = "repos", Name = "Veillée", Icon = "repos", DurationMinutes = 600,
+                Description = "Partager le feu et les histoires.",
+                Outcomes = [new() { Text = "%membre% raconte des histoires au coin du feu.", Actions = [new(ActionType.AddFriendship, "@membre", 2)] }],
             },
         ],
     };
@@ -71,6 +136,8 @@ internal static class SampleContent
     [
         new() { Id = "potion", Name = "Potion", Description = "Rend 50 PV.", Type = ItemType.Consumable, Price = 20, HealHp = 50 },
         new() { Id = "grande_potion", Name = "Grande potion", Description = "Rend 150 PV.", Type = ItemType.Consumable, Price = 60, HealHp = 150 },
+        new() { Id = "gibier", Name = "Gibier", Description = "Viande fraîche. Rend 25 PV.", Type = ItemType.Consumable, Price = 8, HealHp = 25 },
+        new() { Id = "herbes", Name = "Herbes médicinales", Description = "Rend 15 PV et 10 PM.", Type = ItemType.Consumable, Price = 12, HealHp = 15, HealMana = 10 },
         new() { Id = "ether", Name = "Éther", Description = "Rend 30 PM.", Type = ItemType.Consumable, Price = 40, HealMana = 30 },
 
         new() { Id = "epee_courte", Name = "Épée courte", Description = "Lame simple et fiable.", Type = ItemType.Weapon, Price = 50, Bonus = new(Attack: 4) },
@@ -157,7 +224,13 @@ internal static class SampleContent
             Drops = [new("epee_longue", 0.5), new("grande_potion", 1.0)] },
         new() { Id = "morvath", Name = "Roi-Liche Morvath", Description = "Ancien roi de Valdor, revenu d'entre les morts.", IsBoss = true,
             Stats = new(MaxHp: 400, MaxMana: 80, Attack: 14, Defense: 10, Magic: 20, Speed: 9), SkillIds = ["rayon_necrotique", "vague_morte", "coup_os"], Xp = 200, Gold = 300,
-            Drops = [new("fragment_couronne", 1.0), new("amulette_valdor", 1.0)] },
+            Drops = [new("fragment_couronne", 1.0), new("amulette_valdor", 1.0)],
+            BattleLines =
+            [
+                new() { Trigger = BattleTrigger.Start, Text = "Agenouillez-vous devant votre roi !" },
+                new() { Trigger = BattleTrigger.HpBelow, Amount = 50, Text = "Impossible... Mes os se fendent ?!" },
+                new() { Trigger = BattleTrigger.Down, Text = "Valdor... était... à moi..." },
+            ] },
     ];
 
     // ------------------------------------------------------------------ Raccourcis
@@ -215,7 +288,14 @@ internal static class SampleContent
             ConnectedIds = ["bourg_brume"],
             EncounterChance = 0.45,
             RandomEncounters = [new(["harpie"], 3), new(["harpie", "harpie"], 1), new(["bandit", "bandit"], 2)],
-            FixedBattle = new("garrick", ["garrick", "bandit"], "intro_garrick"),
+            FixedBattle = new("garrick", ["garrick", "bandit"], "intro_garrick")
+            {
+                BattleLines =
+                [
+                    new() { Trigger = BattleTrigger.Turn, Amount = 3, Speaker = "Bandit", Text = "Chef, ils sont coriaces !" },
+                    new() { Trigger = BattleTrigger.Victory, Text = "Les derniers bandits s'enfuient dans la montagne." },
+                ],
+            },
         },
         new()
         {
@@ -293,6 +373,18 @@ internal static class SampleContent
             Description = "Voleur perché dans les arbres.",
             VisibleConditions = [new(ConditionType.NotInParty, "tobin")],
             DefaultDialogueId = "rencontre_tobin",
+        },
+        new()
+        {
+            Id = "bran", Name = "Bran", Description = "Vieux chasseur bourru, fidèle au camp.",
+            StartsInCamp = true, StartRankId = "soldat", BaseFriendship = 10,
+            DefaultDialogueId = "camp_bran",
+        },
+        new()
+        {
+            Id = "mara", Name = "Mara", Description = "Jeune sentinelle, pressée de faire ses preuves.",
+            StartsInCamp = true, StartRankId = "recrue",
+            DefaultDialogueId = "camp_mara",
         },
     ];
 
@@ -535,6 +627,48 @@ internal static class SampleContent
         {
             Id = "intro_garrick", Name = "Garrick",
             Nodes = [Line("1", "Garrick le Balafré", "Personne ne passe le col sans payer. Et toi, tu vas payer cher !")],
+        },
+        new()
+        {
+            Id = "camp_bran", Name = "Camp : Bran",
+            Nodes =
+            [
+                new()
+                {
+                    Id = "1", Speaker = "Bran", Text = "Le gibier se fait rare, %pj%. Mais tant que je tiendrai un arc, le camp mangera.",
+                    Variants =
+                    [
+                        new()
+                        {
+                            Conditions = [new(ConditionType.Friendship, "bran", 30)],
+                            Text = "Ah, %pj% ! Assieds-toi, je t'ai gardé le meilleur morceau.",
+                        },
+                    ],
+                },
+            ],
+        },
+        new()
+        {
+            Id = "camp_mara", Name = "Camp : Mara",
+            Nodes =
+            [
+                new()
+                {
+                    Id = "1", Speaker = "Mara", Text = "Chef ! Donne-moi une vraie mission, je suis prête !",
+                    Choices =
+                    [
+                        new()
+                        {
+                            Text = "Tu es promue soldat.", NextId = "promue",
+                            Conditions = [new(ConditionType.CampRank, "mara", 0) { Op = CompareOp.Equal }],
+                            Actions = [new(ActionType.SetCampRank, "mara") { Arg2 = "soldat" }, new(ActionType.AddFriendship, "mara", 15)],
+                        },
+                        new() { Text = "Patience.", NextId = "patience" },
+                    ],
+                },
+                Line("promue", "Mara", "Merci, %pj% ! Je ne te décevrai pas."),
+                Line("patience", "Mara", "Toujours patience..."),
+            ],
         },
         new()
         {

@@ -206,6 +206,14 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Nav("Départ de partie", () => new StartEditor()));
         stack.Add(Nav("Équilibrage", () => new BalanceEditor()));
 
+        stack.Add(Section("Monde"));
+        stack.Add(Nav("Monde et textes (pays, vocabulaire)", () => new WorldEditor()));
+        stack.Add(Nav("Temps et calendrier", () => new TimeEditor()));
+        stack.Add(Nav("Karma", () => new ScaleEditor(karma: true)));
+        stack.Add(Nav("Amitié", () => new ScaleEditor(karma: false)));
+        stack.Add(Nav($"Variables ({c.Variables.Count})", WorldLists.VariableList));
+        stack.Add(Nav($"Banque d'images ({c.Portraits.Count})", WorldLists.ImageList));
+
         stack.Add(Section("Actions"));
         stack.Add(ButtonRow(
             Btn("Vérifier", () => { _errors = DevState.Validate(); _message = null; Render(); }),

@@ -92,7 +92,7 @@ public sealed class MapView : ContentView
             Padding = new Thickness(8, 8),
             Children =
             {
-                Crumb(Ico.Globe, "Royaume", _page.MapShowCountry, () => { _page.MapShowCountry = true; _page.Render(); }),
+                Crumb(Ico.Globe, S.Db.Content.World.CountryName, _page.MapShowCountry, () => { _page.MapShowCountry = true; _page.Render(); }),
                 Icon(Ico.ChevronRight, 12, Theme.Stone300),
                 Crumb(Ico.MapPin, S.CurrentLocation.Name, !_page.MapShowCountry, () => { _page.MapShowCountry = false; _page.Render(); }),
             },
@@ -140,6 +140,7 @@ public sealed class MapView : ContentView
         // Lieux visibles : ceux déjà visités + ceux reliés à la position actuelle.
         var visible = S.State.SeenLocations.Where(db.Locations.ContainsKey).ToHashSet();
         foreach (var id in current.ConnectedIds.Where(db.Locations.ContainsKey)) visible.Add(id);
+        visible.RemoveWhere(id => !S.IsVisible(db.Locations[id]));
         visible.Add(current.Id);
 
         var selectedId = _page.MapSelectedLocation is { } sel && visible.Contains(sel) ? sel : current.Id;
@@ -181,6 +182,9 @@ public sealed class MapView : ContentView
         return MapCard(new HexMapView(tiles, roads), WorldPanel(db.Locations[selectedId]));
     }
 
+    private static string Duration(int minutes) =>
+        minutes < 60 ? $"{minutes} min" : minutes % 60 == 0 ? $"{minutes / 60} h" : $"{minutes / 60} h {minutes % 60:00}";
+
     private View WorldPanel(LocationDef loc)
     {
         var current = S.CurrentLocation;
@@ -196,7 +200,7 @@ public sealed class MapView : ContentView
         var info = new VerticalStackLayout
         {
             Spacing = 2,
-            Children = { title, Caps(known ? GameSession.LocationTypeName(loc.Type) : "Brouillard", 9, Theme.Stone400) },
+            Children = { title, Caps(known ? S.LocationTypeLabel(loc.Type) : "Brouillard", 9, Theme.Stone400) },
         };
         var tint = known ? FillOf(loc.Type) : FogFill;
         var box = new Border
@@ -219,7 +223,8 @@ public sealed class MapView : ContentView
         else if (adjacent && open)
         {
             var id = loc.Id;
-            var go = Btn("Voyager ici", () => _page.Travel(id), selected: true);
+            var minutes = loc.TravelMinutes ?? S.Db.Content.Time.TravelMinutes;
+            var go = Btn(S.Db.Content.Time.Enabled && minutes > 0 ? $"Voyager ici · {Duration(minutes)}" : "Voyager ici", () => _page.Travel(id), selected: true);
             go.BackgroundColor = Emerald;
             go.BorderColor = Emerald;
             go.TextColor = Colors.White;
@@ -327,7 +332,7 @@ public sealed class MapView : ContentView
         if (selected is null)
         {
             var hint = buildings.Count == 0
-                ? "Rien à faire ici. Passez par le Royaume pour voyager."
+                ? $"Rien à faire ici. Passez par la carte de {S.Db.Content.World.CountryName} pour voyager."
                 : "Touchez un bâtiment ou un habitant pour interagir. Touchez une case vide pour y déplacer l'équipe.";
             var list = Stack(Muted(hint, 12));
             foreach (var b in buildings)

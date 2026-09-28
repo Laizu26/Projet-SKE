@@ -15,6 +15,7 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, DialogueDef> Dialogues { get; }
     public IReadOnlyDictionary<string, QuestDef> Quests { get; }
     public IReadOnlyDictionary<string, VariableDef> Variables { get; }
+    public IReadOnlyDictionary<string, PortraitDef> Portraits { get; }
 
     public StartSettings Start => Content.Start;
     public BalanceSettings Balance => Content.Balance;
@@ -32,6 +33,21 @@ public sealed class GameDatabase
         Dialogues = Index(content.Dialogues, d => d.Id);
         Quests = Index(content.Quests, q => q.Id);
         Variables = Index(content.Variables, v => v.Id);
+        Portraits = Index(content.Portraits, p => p.Id);
+    }
+
+    /// <summary>
+    /// Portrait de celui qui parle : portrait imposé par la réplique, sinon celui du PJ, PNJ ou monstre
+    /// portant ce nom. Null s'il n'y en a pas.
+    /// </summary>
+    public PortraitDef? PortraitFor(string speakerName, string? portraitId = null)
+    {
+        if (portraitId is not null && Portraits.TryGetValue(portraitId, out var forced)) return forced;
+        if (speakerName.Length == 0) return null;
+        var id = Content.Npcs.FirstOrDefault(n => n.Name == speakerName && n.PortraitId is not null)?.PortraitId
+            ?? Content.Characters.FirstOrDefault(c => c.Name == speakerName && c.PortraitId is not null)?.PortraitId
+            ?? Content.Monsters.FirstOrDefault(m => m.Name == speakerName && m.PortraitId is not null)?.PortraitId;
+        return id is not null && Portraits.TryGetValue(id, out var p) ? p : null;
     }
 
     /// <summary>Texte de l'interface (renommable dans le mode développeur).</summary>
@@ -72,6 +88,28 @@ public sealed class GameDatabase
         CheckIds(Content.Dialogues.Select(x => x.Id), "Dialogue");
         CheckIds(Content.Quests.Select(x => x.Id), "Quête");
         CheckIds(Content.Variables.Select(x => x.Id), "Variable");
+        CheckIds(Content.Portraits.Select(x => x.Id), "Portrait");
+        foreach (var c in Content.Characters) Ref(Portraits, c.PortraitId, $"Personnage {c.Id}", "portrait");
+        foreach (var n in Content.Npcs) Ref(Portraits, n.PortraitId, $"PNJ {n.Id}", "portrait");
+        foreach (var m in Content.Monsters) Ref(Portraits, m.PortraitId, $"Monstre {m.Id}", "portrait");
+        var camp = Content.Camp;
+        CheckIds(camp.Ranks.Select(r => r.Id), "Grade");
+        CheckIds(camp.Tasks.Select(t => t.Id), "Tâche du camp");
+        foreach (var n in Content.Npcs.Where(n => n.StartRankId is not null))
+            Check(camp.Ranks.Any(r => r.Id == n.StartRankId), $"PNJ {n.Id} : grade « {n.StartRankId} » introuvable");
+        foreach (var t in camp.Tasks)
+        {
+            var w = $"Tâche {t.Id}";
+            Check(t.DurationMinutes > 0, $"{w} : durée à 0");
+            CheckConditions(t.Conditions, w);
+            foreach (var o in t.Outcomes)
+            {
+                CheckConditions(o.Conditions, w);
+                CheckActions(o.Actions, w);
+            }
+        }
+        foreach (var p in Content.Portraits)
+            Check(p.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase), $"Image {p.Id} : le lien doit commencer par https://");
 
         foreach (var c in Content.Characters)
         {
@@ -81,6 +119,7 @@ public sealed class GameDatabase
             Ref(Items, c.StartingArmorId, w, "armure");
             Ref(Items, c.StartingRelicId, w, "relique");
             Check(c.Skills.Any(s => s.Level <= 1), $"{w} : aucune compétence au niveau 1");
+            CheckLines(c.BattleLines, w);
         }
         foreach (var m in Content.Monsters)
         {
@@ -89,6 +128,7 @@ public sealed class GameDatabase
             foreach (var d in m.Drops) Ref(Items, d.ItemId, w, "butin");
             Check(m.SkillIds.Count > 0, $"{w} : aucune compétence");
             Check(m.Stats.MaxHp > 0, $"{w} : PV à 0");
+            CheckLines(m.BattleLines, w);
         }
         foreach (var l in Content.Locations)
         {
@@ -101,6 +141,9 @@ public sealed class GameDatabase
             {
                 foreach (var id in fb.MonsterIds) Ref(Monsters, id, w, "monstre");
                 Ref(Dialogues, fb.IntroDialogueId, w, "dialogue");
+                Ref(Dialogues, fb.VictoryDialogueId, w, "dialogue");
+                Ref(Dialogues, fb.DefeatDialogueId, w, "dialogue");
+                CheckLines(fb.BattleLines, w);
             }
             Ref(Dialogues, l.FirstVisitDialogueId, w, "dialogue");
             CheckConditions(l.AccessConditions, w);
@@ -109,8 +152,8 @@ public sealed class GameDatabase
         foreach (var n in Content.Npcs)
         {
             var w = $"PNJ {n.Id}";
-            Ref(Locations, n.LocationId, w, "lieu");
-            Check(!string.IsNullOrEmpty(n.LocationId), $"{w} : aucun lieu");
+            if (!string.IsNullOrEmpty(n.LocationId)) Ref(Locations, n.LocationId, w, "lieu");
+            Check(!string.IsNullOrEmpty(n.LocationId) || n.StartsInCamp, $"{w} : aucun lieu");
             Ref(Dialogues, n.DefaultDialogueId, w, "dialogue");
             CheckConditions(n.VisibleConditions, w);
             foreach (var p in n.Placements)
@@ -214,6 +257,15 @@ public sealed class GameDatabase
                         if (c.Children is { } children) CheckConditions(children, w);
                         break;
                 }
+            }
+        }
+
+        void CheckLines(IEnumerable<BattleLine> lines, string w)
+        {
+            foreach (var line in lines)
+            {
+                CheckConditions(line.Conditions, w);
+                CheckActions(line.Actions, w);
             }
         }
 

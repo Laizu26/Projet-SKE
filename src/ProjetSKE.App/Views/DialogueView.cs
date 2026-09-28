@@ -7,9 +7,9 @@ using static ProjetSKE.App.Ui.UiKit;
 namespace ProjetSKE.App.Views;
 
 /// <summary>
-/// Mode Histoire : une vraie scène plein écran, par-dessus tout.
-/// En haut le chapitre et les commandes (historique, passer), au milieu la scène et le portrait
-/// de celui qui parle, en bas la boîte de texte (effet machine à écrire) et les choix.
+/// Mode Histoire, par-dessus le jeu : l'écran s'assombrit, le portrait de celui qui parle apparaît
+/// (s'il en a un), puis la boîte de dialogue monte (effet machine à écrire) avec les choix.
+/// En haut : le chapitre et les commandes (historique, passer).
 /// Toucher la boîte : affiche tout le texte, puis passe à la suite.
 /// </summary>
 public sealed class DialogueView : ContentView
@@ -27,17 +27,33 @@ public sealed class DialogueView : ContentView
     private bool _showHistory;
     private bool _ended;
 
+    // Couches : voile sombre (animé une fois) et contenu (reconstruit à chaque réplique).
+    private readonly BoxView _dim = new() { Color = Colors.Black, Opacity = 0 };
+    private readonly ContentView _layer = new() { Opacity = 0 };
+    private bool _entered;
+    private string? _shownPortrait;
+
     public DialogueView(GameSession session, DialogueRunner runner, Action onEnd)
     {
         _session = session;
         _runner = runner;
         _onEnd = onEnd;
-        Background = Theme.Vertical(Theme.Stone900, Theme.Stone950);
+        BackgroundColor = Colors.Transparent;
+        Content = new Grid { Children = { _dim, _layer } };
+        Loaded += async (_, _) =>
+        {
+            if (_entered) return;
+            _entered = true;
+            // 1. L'écran s'assombrit, 2. le portrait et la boîte apparaissent.
+            await _dim.FadeTo(0.72, 280, Easing.SinOut);
+            await _layer.FadeTo(1, 200);
+        };
         Render();
     }
 
-    private string FullText(DialogueNode node) => node.Speaker.Length > 0 ? $"« {node.Text} »" : node.Text;
-    private bool Typing => _shownNode is not null && _revealed < FullText(_shownNode).Length;
+    /// <summary>Texte de la réplique en cours, tel que joué (variante choisie, balises remplacées).</summary>
+    private string FullText() => _runner.Speaker.Length > 0 ? $"« {_runner.Text} »" : _runner.Text;
+    private bool Typing => _shownNode is not null && _revealed < FullText().Length;
 
     private void End()
     {
@@ -65,7 +81,7 @@ public sealed class DialogueView : ContentView
         {
             _shownNode = node;
             _revealed = 0;
-            _history.Add((node.Speaker, node.Text));
+            _history.Add((_runner.Speaker, _runner.Text));
             StartTyping();
         }
 
@@ -74,23 +90,58 @@ public sealed class DialogueView : ContentView
             RowDefinitions =
             {
                 new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Star),
+                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto),
             },
         };
         grid.Add(TopBar(), 0, 0);
-        grid.Add(GoldLine(3), 0, 1);
-        grid.Add(Stage(node), 0, 2);
+        grid.Add(Stage(), 0, 1);
+        grid.Add(PortraitView(), 0, 2);
         grid.Add(TextBox(node), 0, 3);
-        Content = grid;
+        _layer.Content = grid;
+    }
+
+    // ------------------------------------------------------------------ Portrait
+
+    /// <summary>Portrait de celui qui parle, au-dessus de la boîte ; il apparaît en glissant quand l'orateur change.</summary>
+    private View PortraitView()
+    {
+        var portrait = _runner.Portrait;
+        if (portrait is null)
+        {
+            _shownPortrait = null;
+            return new BoxView { HeightRequest = 0, Color = Colors.Transparent };
+        }
+        var frame = new Border
+        {
+            WidthRequest = 170,
+            HeightRequest = 210,
+            HorizontalOptions = LayoutOptions.Start,
+            Margin = new Thickness(22, 0, 0, -26),
+            Stroke = Theme.Gold600,
+            StrokeThickness = 2,
+            StrokeShape = new RoundRectangle { CornerRadius = 14 },
+            BackgroundColor = Theme.Stone900,
+            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 6), Radius = 18, Opacity = 0.6f },
+            Content = new FramedImage(portrait),
+        };
+        if (_shownPortrait != portrait.Id)
+        {
+            _shownPortrait = portrait.Id;
+            frame.Opacity = 0;
+            frame.TranslationY = 24;
+            frame.Loaded += async (_, _) =>
+                await Task.WhenAll(frame.FadeTo(1, 260, Easing.SinOut), frame.TranslateTo(0, 0, 260, Easing.CubicOut));
+        }
+        return frame;
     }
 
     // ------------------------------------------------------------------ Barre du haut
 
     private View TopBar()
     {
-        var chapter = _runner.Dialogue.Name.Length > 0 ? _runner.Dialogue.Name : "Récit";
+        var chapter = _runner.Dialogue.Name.Length > 0 ? _runner.Dialogue.Name : _session.Db.T("title.narration");
         var bar = new Grid
         {
             Padding = new Thickness(16, 14, 12, 12),
@@ -102,7 +153,7 @@ public sealed class DialogueView : ContentView
             Spacing = 1,
             Children =
             {
-                IconCaps(Ico.BookOpen, "Histoire", Theme.Gold500, 9),
+                IconCaps(Ico.BookOpen, _session.Db.T("title.story"), Theme.Gold500, 9),
                 new Label { Text = chapter.ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 2 },
             },
         }, 0, 0);
@@ -132,58 +183,14 @@ public sealed class DialogueView : ContentView
 
     // ------------------------------------------------------------------ La scène
 
-    private View Stage(DialogueNode? node)
+    private View Stage()
     {
         var stage = new Grid();
-        var loc = _session.CurrentLocation;
-        var style = Theme.LocationStyle(loc.Type);
-
-        // Décor : lumière douce et grande icône du lieu en filigrane.
-        stage.Add(new BoxView
-        {
-            Background = new RadialGradientBrush
-            {
-                Center = new Point(0.5, 0.45),
-                Radius = 0.7,
-                GradientStops = { new GradientStop(style.Accent.WithAlpha(0.18f), 0f), new GradientStop(Colors.Transparent, 1f) },
-            },
-        });
-        var decor = Icon(style.Icon, 260, style.Accent);
-        decor.Opacity = 0.05;
-        stage.Add(decor);
-        var place = Caps(loc.Name, 9, Theme.Stone600);
+        var place = Caps(_session.CurrentLocation.Name, 9, Theme.Stone400);
         place.HorizontalOptions = LayoutOptions.Center;
         place.VerticalOptions = LayoutOptions.Start;
-        place.Margin = new Thickness(0, 10, 0, 0);
+        place.Margin = new Thickness(0, 6, 0, 0);
         stage.Add(place);
-
-        // Portrait de celui qui parle (ou plume pour la narration).
-        if (node is not null)
-        {
-            var narration = node.Speaker.Length == 0;
-            var portrait = new VerticalStackLayout
-            {
-                Spacing = 12,
-                VerticalOptions = LayoutOptions.Center,
-                HorizontalOptions = LayoutOptions.Center,
-                Children =
-                {
-                    narration ? Emblem(Ico.Feather, 120) : Avatar(node.Speaker, Theme.AvatarColor(node.Speaker), 150),
-                    new Border
-                    {
-                        WidthRequest = 150,
-                        HeightRequest = 14,
-                        StrokeThickness = 0,
-                        StrokeShape = new Ellipse(),
-                        BackgroundColor = Colors.Black.WithAlpha(0.45f),
-                        HorizontalOptions = LayoutOptions.Center,
-                    },
-                },
-            };
-            portrait.Opacity = 0;
-            portrait.Loaded += async (_, _) => await portrait.FadeTo(1, 250);
-            stage.Add(portrait);
-        }
 
         // Messages de l'histoire (recrutement, quête, objet...).
         if (_notes.Count > 0)
@@ -218,7 +225,7 @@ public sealed class DialogueView : ContentView
                 Spacing = 1,
                 Children =
                 {
-                    Caps(speaker.Length > 0 ? speaker : "Récit", 9, speaker.Length > 0 ? Theme.Gold700 : Theme.Stone400),
+                    Caps(speaker.Length > 0 ? speaker : _session.Db.T("title.narration"), 9, speaker.Length > 0 ? Theme.Gold700 : Theme.Stone400),
                     new Label
                     {
                         Text = text, FontFamily = "serif", FontSize = 14, TextColor = Theme.Stone900,
@@ -254,7 +261,7 @@ public sealed class DialogueView : ContentView
 
         if (node is not null)
         {
-            var full = FullText(node);
+            var full = FullText();
             _textLabel = new Label
             {
                 Text = full[..Math.Min(_revealed, full.Length)],
@@ -262,21 +269,24 @@ public sealed class DialogueView : ContentView
                 FontSize = 17,
                 LineHeight = 1.25,
                 TextColor = Theme.Stone900,
-                FontAttributes = node.Speaker.Length > 0 ? FontAttributes.None : FontAttributes.Italic,
+                FontAttributes = _runner.Speaker.Length > 0 ? FontAttributes.None : FontAttributes.Italic,
                 MinimumHeightRequest = 70,
             };
             body.Add(_textLabel);
 
-            var choices = _runner.Choices;
-            if (!Typing && choices.Count > 0)
+            var options = _runner.Options;
+            if (!Typing && options.Count > 0)
             {
                 body.Add(Caps("Votre réponse", 9, Theme.Stone500));
-                for (var i = 0; i < choices.Count; i++)
+                for (var i = 0; i < options.Count; i++)
                 {
                     var index = i;
-                    var choice = Btn("›  " + choices[i].Text, () => { _runner.Choose(index); Render(); });
+                    var option = options[i];
+                    var choice = Btn((option.Enabled ? "›  " : "✕  ") + option.Text, () => { _runner.ChooseOption(index); Render(); }, enabled: option.Enabled);
                     choice.MinimumHeightRequest = 48;
                     body.Add(choice);
+                    if (!option.Enabled && option.LockedText.Length > 0)
+                        body.Add(IconRow(Icon(Ico.Lock, 11, Theme.Stone500), Txt(option.LockedText, 11, Theme.Stone500)));
                 }
             }
             else
@@ -287,7 +297,7 @@ public sealed class DialogueView : ContentView
                     HorizontalOptions = LayoutOptions.End,
                     Children =
                     {
-                        Caps(Typing ? "Toucher pour tout afficher" : node.NextId is null && choices.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Theme.Stone500),
+                        Caps(Typing ? "Toucher pour tout afficher" : node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Theme.Stone500),
                         Icon(Ico.ChevronRight, 14, Theme.Gold600),
                     },
                 };
@@ -318,7 +328,7 @@ public sealed class DialogueView : ContentView
         container.Add(box);
         if (node is not null)
         {
-            var speaker = node.Speaker.Length > 0 ? node.Speaker : "Récit";
+            var speaker = _runner.Speaker.Length > 0 ? _runner.Speaker : _session.Db.T("title.narration");
             var plate = new Border
             {
                 BackgroundColor = Theme.Stone900,
@@ -361,7 +371,7 @@ public sealed class DialogueView : ContentView
         _timer.Tick += (_, _) =>
         {
             if (_shownNode is null || _ended) { _timer?.Stop(); return; }
-            var full = FullText(_shownNode);
+            var full = FullText();
             _revealed = Math.Min(full.Length, _revealed + 2);
             if (_textLabel is not null) _textLabel.Text = full[.._revealed];
             if (_revealed >= full.Length)
@@ -379,11 +389,11 @@ public sealed class DialogueView : ContentView
         if (Typing)
         {
             _timer?.Stop();
-            _revealed = FullText(_shownNode).Length;
+            _revealed = FullText().Length;
             Render();
             return;
         }
-        if (_runner.Choices.Count > 0) return; // il faut choisir une réponse
+        if (_runner.HasOptions) return; // il faut choisir une réponse
         _notes.Clear();
         _runner.Continue();
         Render();
@@ -393,17 +403,17 @@ public sealed class DialogueView : ContentView
     private void Skip()
     {
         _timer?.Stop();
-        for (var guard = 0; guard < 200 && _runner.Current is { } node && _runner.Choices.Count == 0; guard++)
+        for (var guard = 0; guard < 200 && _runner.Current is { } node && !_runner.HasOptions; guard++)
         {
-            if (!ReferenceEquals(node, _shownNode)) _history.Add((node.Speaker, node.Text));
+            if (!ReferenceEquals(node, _shownNode)) _history.Add((_runner.Speaker, _runner.Text));
             _shownNode = node;
             _runner.Continue();
         }
         if (_runner.Current is { } next)
         {
-            if (!ReferenceEquals(next, _shownNode)) _history.Add((next.Speaker, next.Text));
+            if (!ReferenceEquals(next, _shownNode)) _history.Add((_runner.Speaker, _runner.Text));
             _shownNode = next;
-            _revealed = FullText(next).Length;
+            _revealed = FullText().Length;
         }
         Render();
     }

@@ -46,6 +46,9 @@ public sealed class DialogueRunner
     public string Speaker => Line.Speaker;
     public string Text => Line.Text;
 
+    /// <summary>Portrait de celui qui parle (null = pas d'image).</summary>
+    public PortraitDef? Portrait => Current is null ? null : _session.Db.PortraitFor(Speaker, Current.PortraitId);
+
     /// <summary>Choix affichés : disponibles, ou grisés quand la réplique le demande.</summary>
     public IReadOnlyList<ChoiceOption> Options =>
         Current?.Choices

@@ -101,4 +101,24 @@ public static class Ico
     public const string HandHelping = "\ue3b8";
     public const string Medal = "\ue36f";
     public const string Bug = "\ue20c";
+
+    public const string Scale = "\ue212";
+    public const string Sunrise = "\ue179";
+    public const string Calendar = "\ue063";
+    public const string Handshake = "\ue5c0";
+    public const string HeartHandshake = "\ue2d7";
+    public const string BowArrow = "\ue65e";
+    public const string Speech = "\ue51e";
+    public const string ListChecks = "\ue1d0";
+    public const string Fish = "\ue3a6";
+    public const string Beef = "\ue3a5";
+    public const string Wheat = "\ue39e";
+    public const string HardHat = "\ue0ee";
+    public const string Pickaxe = "\ue5c6";
+    public const string BookUser = "\ue54d";
+    public const string ClipboardList = "\ue086";
+    public const string Siren = "\ue2ef";
+    public const string BellRing = "\ue224";
+    public const string UserCog = "\ue342";
+    public const string Network = "\ue125";
 }
