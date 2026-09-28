@@ -39,6 +39,11 @@ public sealed class TitlePage : ContentPage
             },
         };
 
+        // Une partie existe déjà : « Charger » devient le bouton principal (même place, style inversé).
+        var hasSave = Enumerable.Range(0, Core.Systems.SaveService.SlotCount).Any(SkeApp.Saves.Exists);
+        void NewGame() => SkeApp.GoTo(new SlotPage(newGame: true));
+        void LoadGame() => SkeApp.GoTo(new SlotPage(newGame: false));
+
         var body = new VerticalStackLayout
         {
             Padding = new Thickness(24, 26),
@@ -47,9 +52,9 @@ public sealed class TitlePage : ContentPage
             Children =
             {
                 IconCaps(Ico.Swords, "Nouvelle aventure", Theme.Stone400),
-                Primary("Nouvelle partie  ▸", () => SkeApp.GoTo(new SlotPage(newGame: true))),
+                hasSave ? Btn("Nouvelle partie", NewGame) : Primary("Nouvelle partie  ▸", NewGame),
                 IconCaps(Ico.Save, "Reprendre", Theme.Stone400),
-                Btn("Charger une partie", () => SkeApp.GoTo(new SlotPage(newGame: false))),
+                hasSave ? Primary("Charger une partie  ▸", LoadGame) : Btn("Charger une partie", LoadGame),
             },
         };
 
