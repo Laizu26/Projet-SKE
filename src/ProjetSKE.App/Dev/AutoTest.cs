@@ -163,6 +163,8 @@ public static class AutoTest
                 world.Render();
             });
             await Step("camp : équipe, fiche", () => { world!.CampSection = CampSection.Team; world.SelectedCharacter = 0; world.Render(); });
+            foreach (var slot in new[] { Core.Models.EquipSlot.Head, Core.Models.EquipSlot.Shield, Core.Models.EquipSlot.Relic })
+                await Step("équipement : " + slot, () => { world!.SelectedSlot = slot; world.Render(); });
             await Step("camp : fiche d'un membre", () =>
             {
                 world!.SelectedCharacter = null;

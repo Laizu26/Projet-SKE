@@ -27,6 +27,12 @@ public sealed class CharacterState
     public string? WeaponId { get; set; }
     public string? ArmorId { get; set; }
     public string? RelicId { get; set; }
+    public string? HeadId { get; set; }
+    public string? HandsId { get; set; }
+    public string? LegsId { get; set; }
+    public string? FeetId { get; set; }
+    public string? AccessoryId { get; set; }
+    public string? ShieldId { get; set; }
     /// <summary>Karma propre à ce personnage (évolue avec ses choix).</summary>
     public int Karma { get; set; }
 
@@ -34,6 +40,12 @@ public sealed class CharacterState
     {
         EquipSlot.Weapon => WeaponId,
         EquipSlot.Armor => ArmorId,
+        EquipSlot.Head => HeadId,
+        EquipSlot.Hands => HandsId,
+        EquipSlot.Legs => LegsId,
+        EquipSlot.Feet => FeetId,
+        EquipSlot.Accessory => AccessoryId,
+        EquipSlot.Shield => ShieldId,
         _ => RelicId,
     };
 
@@ -43,6 +55,12 @@ public sealed class CharacterState
         {
             case EquipSlot.Weapon: WeaponId = itemId; break;
             case EquipSlot.Armor: ArmorId = itemId; break;
+            case EquipSlot.Head: HeadId = itemId; break;
+            case EquipSlot.Hands: HandsId = itemId; break;
+            case EquipSlot.Legs: LegsId = itemId; break;
+            case EquipSlot.Feet: FeetId = itemId; break;
+            case EquipSlot.Accessory: AccessoryId = itemId; break;
+            case EquipSlot.Shield: ShieldId = itemId; break;
             default: RelicId = itemId; break;
         }
     }

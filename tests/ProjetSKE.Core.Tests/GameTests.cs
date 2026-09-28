@@ -138,6 +138,33 @@ public class GameTests
     }
 
     [Fact]
+    public void Equip_ArmorPiecesGoToTheirOwnSlot()
+    {
+        var s = NewGame();
+        var hero = s.State.Party[0];
+        Assert.Equal("bouclier_bois", hero.ShieldId); // pièce de départ
+        var before = s.GetStats(hero);
+        foreach (var id in new[] { "casque_fer", "gants_cuir", "jambieres", "bottes_voyage", "amulette_cuivre" })
+        {
+            s.AddItem(id);
+            Assert.True(s.Equip(hero, id));
+        }
+        Assert.Equal("casque_fer", hero.HeadId);
+        Assert.Equal("gants_cuir", hero.HandsId);
+        Assert.Equal("jambieres", hero.LegsId);
+        Assert.Equal("bottes_voyage", hero.FeetId);
+        Assert.Equal("amulette_cuivre", hero.AccessoryId);
+        Assert.Equal("armure_cuir", hero.ArmorId); // le corps n'a pas bougé
+        var after = s.GetStats(hero);
+        Assert.Equal(before.Defense + 2 + 1 + 2, after.Defense);
+        Assert.Equal(before.Speed + 2, after.Speed);
+        Assert.True(s.OwnsItem("casque_fer"));
+        Assert.True(s.Unequip(hero, EquipSlot.Head));
+        Assert.Null(hero.HeadId);
+        Assert.Equal(1, s.CountItem("casque_fer"));
+    }
+
+    [Fact]
     public void Equip_SwapsWithBag()
     {
         var s = NewGame();

@@ -36,8 +36,8 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 | Écran | Contenu |
 |---|---|
 | **Titre** | Nouvelle partie, charger une partie, 3 emplacements de sauvegarde |
-| **Sélection** | Choix du héros ; son **départ** (origine, lieu, équipement, compagnons, monde de départ) dépend de lui et est annoncé sur sa carte |
-| **Camp** | Un cercle autour d'un feu animé, avec six parties : **Équipe** (les combattants assis autour du feu ; fiche : stats, niveau, XP, karma, compétences, équipement), **Persos** (les habitants répartis en cercles par grade, le chef au centre ; vue liste possible), **Gestion** (hiérarchie, qui fait quelle tâche, journal du camp), **Ressources** (trésor, stocks du camp consommés chaque jour, valeurs du scénario), **Sac** et **Lieux** (bâtiments à construire avec des ressources et de l'or). Re-toucher l'onglet ramène autour du feu |
+| **Sélection** | Choix du héros en cartes qu'on fait glisser de gauche à droite ; son **départ** (origine, lieu, équipement, compagnons, monde de départ) dépend de lui et est annoncé sur sa carte |
+| **Camp** | Un cercle autour d'un feu animé, avec six parties : **Équipe** (les combattants assis autour du feu ; fiche : stats, niveau, XP, karma, compétences, et l'équipement en « poupée » : tête, corps, mains, jambes, pieds, accessoire, arme, bouclier, relique), **Persos** (les habitants répartis en cercles par grade, le chef au centre ; vue liste possible), **Gestion** (hiérarchie, qui fait quelle tâche, journal du camp), **Ressources** (trésor, stocks du camp consommés chaque jour, valeurs du scénario), **Sac** et **Lieux** (bâtiments à construire avec des ressources et de l'or). Re-toucher l'onglet ramène autour du feu |
 | **Carte** | Vue du lieu actuel (ville : auberge, boutique, habitants ; nature : explorer, combat fixe), puis vue du pays avec la liste des destinations |
 | **Quêtes** | Onglet masqué par défaut (activable dans Monde et textes) : quêtes en cours et terminées. Les quêtes avancent quand même, avec des messages à l'écran |
 | **Encyclo** | Personnages (PJ et PNJ), monstres, lieux, armes et reliques rencontrés (les autres restent invisibles) |

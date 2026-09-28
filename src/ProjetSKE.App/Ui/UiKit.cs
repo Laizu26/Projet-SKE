@@ -118,8 +118,17 @@ public static class Theme
     {
         ItemType.Consumable => Ico.FlaskConical,
         ItemType.Weapon => Ico.Sword,
-        ItemType.Armor => Ico.Shield,
-        ItemType.Relic => Ico.Gem,
+        ItemType.Armor => item.Slot switch
+        {
+            EquipSlot.Head => Ico.HardHat,
+            EquipSlot.Hands => Ico.Hand,
+            EquipSlot.Legs => Ico.PersonStanding,
+            EquipSlot.Feet => Ico.Footprints,
+            EquipSlot.Accessory => Ico.Gem,
+            EquipSlot.Shield => Ico.Shield,
+            _ => Ico.Shirt,
+        },
+        ItemType.Relic => Ico.Wine,
         _ => Ico.ScrollText,
     };
 }
@@ -730,15 +739,27 @@ public static class UiKit
     public static string SlotName(EquipSlot slot) => slot switch
     {
         EquipSlot.Weapon => "Arme",
-        EquipSlot.Armor => "Armure",
+        EquipSlot.Armor => "Corps",
+        EquipSlot.Head => "Tête",
+        EquipSlot.Hands => "Mains",
+        EquipSlot.Legs => "Jambes",
+        EquipSlot.Feet => "Pieds",
+        EquipSlot.Accessory => "Accessoire",
+        EquipSlot.Shield => "Bouclier",
         _ => "Relique",
     };
 
     public static string SlotIcon(EquipSlot slot) => slot switch
     {
         EquipSlot.Weapon => Ico.Sword,
-        EquipSlot.Armor => Ico.Shield,
-        _ => Ico.Gem,
+        EquipSlot.Armor => Ico.Shirt,
+        EquipSlot.Head => Ico.HardHat,
+        EquipSlot.Hands => Ico.Hand,
+        EquipSlot.Legs => Ico.PersonStanding,
+        EquipSlot.Feet => Ico.Footprints,
+        EquipSlot.Accessory => Ico.Gem,
+        EquipSlot.Shield => Ico.Shield,
+        _ => Ico.Wine,
     };
 
     public static string Describe(TravelEncounterMode mode) => mode switch

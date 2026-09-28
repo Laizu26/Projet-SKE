@@ -16,7 +16,8 @@ public enum ItemType { Consumable, Weapon, Armor, Relic, Quest }
 /// <summary>Une relique est un objet unique : soit équipable (bonus passif), soit objet de quête.</summary>
 public enum RelicUsage { Equipable, Quest }
 
-public enum EquipSlot { Weapon, Armor, Relic }
+/// <summary>Emplacements d'équipement. Armor = le corps (torse). Les nouveaux emplacements sont ajoutés à la fin (sauvegardes).</summary>
+public enum EquipSlot { Weapon, Armor, Relic, Head, Hands, Legs, Feet, Accessory, Shield }
 
 public enum LocationType { City, Wild, Dungeon }
 

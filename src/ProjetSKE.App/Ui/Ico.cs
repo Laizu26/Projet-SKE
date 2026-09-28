@@ -6,6 +6,10 @@ public static class Ico
     public const string Font = "Lucide";
 
     public const string Shield = "\ue158";
+    public const string Hand = "\ue1d7";
+    public const string PersonStanding = "\ue21e";
+    public const string Wine = "\ue2f8";
+    public const string Glasses = "\ue20d";
     public const string Swords = "\ue2b4";
     public const string Sword = "\ue2b3";
     public const string Map = "\ue110";

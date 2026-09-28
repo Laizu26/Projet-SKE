@@ -241,6 +241,12 @@ internal static class SampleContent
         new() { Id = "armure_cuir", Name = "Armure de cuir", Description = "Protection légère.", Type = ItemType.Armor, Price = 40, Bonus = new(Defense: 3) },
         new() { Id = "cotte_mailles", Name = "Cotte de mailles", Description = "Solide mais lourde.", Type = ItemType.Armor, Price = 160, Bonus = new(Defense: 7, Speed: -1) },
         new() { Id = "robe_mage", Name = "Robe de mage", Description = "Tissée de fils enchantés.", Type = ItemType.Armor, Price = 45, Bonus = new(MaxMana: 8, Defense: 1) },
+        new() { Id = "casque_fer", Name = "Casque de fer", Description = "Bosselé mais fiable.", Type = ItemType.Armor, ArmorSlot = EquipSlot.Head, Price = 35, Bonus = new(Defense: 2) },
+        new() { Id = "gants_cuir", Name = "Gants de cuir", Description = "Une meilleure prise sur l'arme.", Type = ItemType.Armor, ArmorSlot = EquipSlot.Hands, Price = 25, Bonus = new(Attack: 1, Defense: 1) },
+        new() { Id = "jambieres", Name = "Jambières", Description = "Protègent les genoux.", Type = ItemType.Armor, ArmorSlot = EquipSlot.Legs, Price = 30, Bonus = new(Defense: 2) },
+        new() { Id = "bottes_voyage", Name = "Bottes de voyage", Description = "Légères et solides.", Type = ItemType.Armor, ArmorSlot = EquipSlot.Feet, Price = 30, Bonus = new(Speed: 2) },
+        new() { Id = "amulette_cuivre", Name = "Amulette de cuivre", Description = "Un porte-bonheur de marché.", Type = ItemType.Armor, ArmorSlot = EquipSlot.Accessory, Price = 50, Bonus = new(MaxHp: 8, Magic: 1) },
+        new() { Id = "bouclier_bois", Name = "Bouclier de bois", Description = "Arrête les coups, pas les flèches enflammées.", Type = ItemType.Armor, ArmorSlot = EquipSlot.Shield, Price = 40, Bonus = new(Defense: 3, Speed: -1) },
 
         new() { Id = "amulette_valdor", Name = "Amulette de Valdor", Description = "Relique royale. Donne vigueur et vivacité.", Type = ItemType.Relic, IsUnique = true, Bonus = new(MaxHp: 20, Speed: 3) },
         new() { Id = "anneau_sombrebois", Name = "Anneau de Sombrebois", Description = "Relique sylvestre au pouvoir étrange.", Type = ItemType.Relic, IsUnique = true, Bonus = new(Attack: 3, Magic: 3) },
@@ -258,7 +264,7 @@ internal static class SampleContent
             BaseStats = new(MaxHp: 120, MaxMana: 20, Attack: 14, Defense: 10, Magic: 4, Speed: 8),
             GrowthPerLevel = new(MaxHp: 12, MaxMana: 2, Attack: 2, Defense: 2, Magic: 0, Speed: 1),
             Skills = [new(1, "frappe"), new(1, "coup_puissant"), new(3, "cri_guerre"), new(4, "tourbillon")],
-            StartingWeaponId = "epee_courte", StartingArmorId = "armure_cuir",
+            StartingWeaponId = "epee_courte", StartingArmorId = "armure_cuir", StartingGearIds = ["bouclier_bois"],
         },
         new()
         {
@@ -343,7 +349,7 @@ internal static class SampleContent
             Id = "havrefort", Name = "Havrefort", Type = LocationType.City,
             Description = "Capitale fortifiée du royaume de Valdor.",
             ConnectedIds = ["route_roi"],
-            ShopItemIds = ["potion", "ether", "epee_courte", "epee_longue", "dague", "baton_chene", "masse", "armure_cuir", "cotte_mailles", "robe_mage"],
+            ShopItemIds = ["potion", "ether", "epee_courte", "epee_longue", "dague", "baton_chene", "masse", "armure_cuir", "cotte_mailles", "robe_mage", "casque_fer", "gants_cuir", "jambieres", "bottes_voyage", "amulette_cuivre", "bouclier_bois"],
             InnPrice = 10,
         },
         new()

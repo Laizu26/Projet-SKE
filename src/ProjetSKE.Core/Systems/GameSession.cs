@@ -780,6 +780,11 @@ public sealed partial class GameSession
         var stats = GetStats(c);
         c.CurrentHp = stats.MaxHp;
         c.CurrentMana = stats.MaxMana;
+        foreach (var gearId in def.StartingGearIds)
+            if (ValidItem(gearId) is { } g && Db.Items[g].Slot is { } gearSlot && c.GetEquipped(gearSlot) is null) c.SetEquipped(gearSlot, g);
+        stats = GetStats(c);
+        c.CurrentHp = stats.MaxHp;
+        c.CurrentMana = stats.MaxMana;
         State.Party.Add(c);
         SetFlag($"recruited:{characterId}");
         DiscoverCharacter(characterId);
@@ -864,7 +869,7 @@ public sealed partial class GameSession
 
     /// <summary>Nombre possédé, dans le sac ou équipé sur un personnage.</summary>
     public int OwnsCount(string itemId) =>
-        CountItem(itemId) + State.Party.Count(c => c.WeaponId == itemId || c.ArmorId == itemId || c.RelicId == itemId);
+        CountItem(itemId) + State.Party.Sum(c => Enum.GetValues<EquipSlot>().Count(slot => c.GetEquipped(slot) == itemId));
 
     public bool OwnsItem(string itemId) => OwnsCount(itemId) > 0;
 

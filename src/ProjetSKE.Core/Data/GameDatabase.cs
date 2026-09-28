@@ -148,6 +148,7 @@ public sealed class GameDatabase
             Ref(Items, c.StartingWeaponId, w, "arme");
             Ref(Items, c.StartingArmorId, w, "armure");
             Ref(Items, c.StartingRelicId, w, "relique");
+            foreach (var g in c.StartingGearIds) Ref(Items, g, w, "équipement");
             Check(c.Skills.Any(s => s.Level <= 1), $"{w} : aucune compétence au niveau 1");
             if (!string.IsNullOrEmpty(c.StartId)) Check(Starts.Any(s => s.Id == c.StartId), $"{w} : départ « {c.StartId} » introuvable");
             CheckLines(c.BattleLines, w);

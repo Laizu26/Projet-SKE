@@ -73,6 +73,12 @@ public sealed class ItemDef
     /// <summary>Objet unique : on ne peut en posséder qu'un seul exemplaire.</summary>
     public bool IsUnique { get; set; }
     public RelicUsage RelicUsage { get; set; } = RelicUsage.Equipable;
+    /// <summary>Pièce d'armure : où elle se porte (tête, corps, mains, jambes, pieds, accessoire, bouclier).</summary>
+    public EquipSlot ArmorSlot { get; set; } = EquipSlot.Armor;
+
+    /// <summary>Emplacements possibles pour une pièce d'armure.</summary>
+    public static readonly EquipSlot[] ArmorSlots =
+        [EquipSlot.Head, EquipSlot.Armor, EquipSlot.Hands, EquipSlot.Legs, EquipSlot.Feet, EquipSlot.Accessory, EquipSlot.Shield];
 
     [JsonIgnore] public bool IsConsumable => Type == ItemType.Consumable;
 
@@ -80,7 +86,7 @@ public sealed class ItemDef
     public EquipSlot? Slot => Type switch
     {
         ItemType.Weapon => EquipSlot.Weapon,
-        ItemType.Armor => EquipSlot.Armor,
+        ItemType.Armor => ArmorSlots.Contains(ArmorSlot) ? ArmorSlot : EquipSlot.Armor,
         ItemType.Relic when RelicUsage == RelicUsage.Equipable => EquipSlot.Relic,
         _ => null,
     };
@@ -121,6 +127,8 @@ public sealed class CharacterDef
     public string? StartingWeaponId { get; set; }
     public string? StartingArmorId { get; set; }
     public string? StartingRelicId { get; set; }
+    /// <summary>Autres pièces portées au départ (tête, mains, jambes, pieds, accessoire, bouclier).</summary>
+    public List<string> StartingGearIds { get; set; } = [];
     /// <summary>Proposé sur l'écran de sélection de départ.</summary>
     public bool IsStarter { get; set; }
     /// <summary>Départ de partie de ce héros (vide = départ principal).</summary>

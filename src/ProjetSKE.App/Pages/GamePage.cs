@@ -24,7 +24,14 @@ public sealed class GamePage : ContentPage
     /// <summary>Persos : liste classique au lieu des cercles.</summary>
     public bool CampPeopleAsList { get; set; }
     public string? SelectedCampMember { get; set; }
-    public int? SelectedCharacter { get; set; }
+    private int? _selectedCharacter;
+    public int? SelectedCharacter
+    {
+        get => _selectedCharacter;
+        set { if (value != _selectedCharacter) SelectedSlot = null; _selectedCharacter = value; }
+    }
+    /// <summary>Fiche d'un personnage : emplacement d'équipement ouvert.</summary>
+    public Core.Models.EquipSlot? SelectedSlot { get; set; }
     /// <summary>Carte : true = vue du royaume, false = vue du lieu actuel.</summary>
     public bool MapShowCountry { get; set; }
     public string? MapSelectedLocation { get; set; }

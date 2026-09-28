@@ -83,7 +83,7 @@ public sealed class CampView : ContentView
         var nodes = new List<(string Glyph, string Label, CampSection Section, string? Badge, bool Alert)>();
         if (s.CampRules.Enabled) nodes.Add((Ico.ClipboardList, s.Db.T("camp.manage"), CampSection.Management, null, false));
         nodes.Add((Ico.Package, s.Db.T("camp.resources"), CampSection.Resources, shortage ? "!" : null, shortage));
-        if (s.CampRules.Enabled) nodes.Add((Ico.Users, s.Db.T("camp.people"), CampSection.People, s.CampMembers.Count.ToString(), false));
+        if (s.CampRules.Enabled) nodes.Add((Ico.Users, s.Db.T("camp.people"), CampSection.People, (s.CampMembers.Count + s.State.Party.Count(c => c.DefId != s.State.HeroId && s.CampMember(c.DefId) is null)).ToString(), false));
         nodes.Add((Ico.Swords, s.Db.T("party"), CampSection.Team, s.State.Party.Count(c => c.IsActive).ToString(), false));
         nodes.Add((Ico.Backpack, s.Db.T("bag"), CampSection.Bag, null, false));
         if (s.CampRules.Enabled && s.CampRules.Buildings.Count > 0)
@@ -190,47 +190,79 @@ public sealed class CampView : ContentView
     {
         var s = _page.Session;
         var rules = s.CampRules;
-        // Du grade le plus haut (près du feu) au plus bas (à l'extérieur).
+        var party = s.State.Party;
+        var hero = party.FirstOrDefault(c => c.DefId == s.State.HeroId);
+        // Les compagnons de l'équipe vivent aussi au camp (au plus près du feu).
+        var companions = party.Where(c => c.DefId != s.State.HeroId && s.CampMember(c.DefId) is null).ToList();
+        // Puis les habitants, du grade le plus haut (près du feu) au plus bas (à l'extérieur).
         var rings = rules.Ranks.OrderByDescending(r => r.Level)
             .Select(r => (Rank: r, Members: s.CampMembers.Where(m => m.RankId == r.Id).ToList()))
             .Where(x => x.Members.Count > 0).ToList();
         var unranked = s.CampMembers.Where(m => !rules.Ranks.Any(r => r.Id == m.RankId)).ToList();
-        var tooMany = rings.Any(x => x.Members.Count > MaxPerRing) || rings.Count > 3 || unranked.Count > 0;
-        var asList = _page.CampPeopleAsList || tooMany;
+        var ringCount = rings.Count + (companions.Count > 0 ? 1 : 0);
+        var tooMany = rings.Any(x => x.Members.Count > MaxPerRing) || companions.Count > MaxPerRing || ringCount > 3 || unranked.Count > 0;
+        var empty = ringCount == 0;
+        var asList = !empty && (_page.CampPeopleAsList || tooMany);
 
-        if (!tooMany)
+        if (!tooMany && !empty)
             stack.Add(ButtonRow(
-                Btn("Autour du feu", () => { _page.CampPeopleAsList = false; _page.Render(); }, selected: !asList),
+                Btn("En cercle", () => { _page.CampPeopleAsList = false; _page.Render(); }, selected: !asList),
                 Btn("En liste", () => { _page.CampPeopleAsList = true; _page.Render(); }, selected: asList)));
         if (asList)
         {
+            if (companions.Count > 0)
+            {
+                stack.Add(Section(s.Db.T("party")));
+                foreach (var c in companions) stack.Add(CompanionCard(c));
+            }
             CampPeople.BuildList(stack, _page);
             return;
         }
 
-        var ring = new CampRing();
-        // Le chef au centre, devant le feu.
-        var hero = s.State.Party.FirstOrDefault(c => c.DefId == s.State.HeroId);
-        View? leader = null;
+        var ring = new CampRing(empty ? 250 : 340);
+        ring.Fire(empty ? 90 : 84);
+        // Le chef, assis juste devant le feu.
         if (hero is not null)
         {
             var heroName = s.DefOf(hero).Name;
             var crown = Icon(Ico.Crown, 12, Theme.Gold400);
             crown.HorizontalOptions = LayoutOptions.Center;
-            leader = new VerticalStackLayout
+            var leader = new VerticalStackLayout
             {
                 Spacing = 1,
-                Children = { crown, CampPeople.Face(_page, hero.DefId, heroName, 50, Theme.Gold500), Centered(Caps(heroName, 8, Theme.Gold400)) },
+                Children = { crown, CampPeople.Face(_page, hero.DefId, heroName, 44, Theme.Gold500), Centered(Caps(heroName, 8, Theme.Gold400)) },
             };
+            var index = party.IndexOf(hero);
+            OnTap(leader, () => { _page.CampSection = CampSection.Team; _page.SelectedCharacter = index; _page.Render(); });
+            ring.Place(leader, 90, empty ? 0.62 : 0.4, 74, 80);
         }
-        var radii = rings.Count switch { 1 => new[] { 0.72 }, 2 => new[] { 0.56, 0.86 }, _ => new[] { 0.5, 0.72, 0.92 } };
-        for (var i = 0; i < rings.Count; i++)
+
+        var radii = ringCount switch { 1 => new[] { 0.76 }, 2 => new[] { 0.62, 0.9 }, _ => new[] { 0.58, 0.76, 0.94 } };
+        var ringIndex = 0;
+        if (companions.Count > 0)
         {
-            var (rank, members) = rings[i];
-            var k = radii[i];
+            var k = radii[ringIndex];
+            ring.Circle(k * 0.84, Theme.Gold600);
+            for (var j = 0; j < companions.Count; j++)
+            {
+                var c = companions[j];
+                var def = s.DefOf(c);
+                var index = party.IndexOf(c);
+                var sword = Icon(c.IsActive ? Ico.Swords : Ico.Moon, 10, c.IsActive ? Theme.Gold500 : Theme.Stone500);
+                sword.HorizontalOptions = LayoutOptions.Center;
+                // Le bas du cercle est pris par le chef : les compagnons se placent autour, en commençant en haut.
+                var angle = -90 + 360.0 * (j + 0.5) / (companions.Count + 1);
+                ring.Place(CampRing.Person(CampPeople.Face(_page, c.DefId, def.Name, 40, Theme.AvatarColor(c.DefId)), def.Name, sword,
+                    () => { _page.CampSection = CampSection.Team; _page.SelectedCharacter = index; _page.Render(); }), angle, k, 62, 76);
+            }
+            ringIndex++;
+        }
+        foreach (var (rank, members) in rings)
+        {
+            var k = radii[ringIndex];
             ring.Circle(k * 0.84, Theme.Gold700);
             // Un cercle sur deux est décalé, pour que les visages ne s'alignent pas.
-            var offset = i % 2 == 1 ? 180.0 / members.Count : 0;
+            var offset = ringIndex % 2 == 1 ? 180.0 / members.Count : 0;
             for (var j = 0; j < members.Count; j++)
             {
                 var m = members[j];
@@ -243,21 +275,45 @@ public sealed class CampView : ContentView
                 ring.Place(CampRing.Person(CampPeople.Face(_page, id, name, 40, Theme.AvatarColor(id)), name, taskIcon,
                     () => { _page.SelectedCampMember = id; _page.Render(); }), angle, k, 62, 76);
             }
+            ringIndex++;
         }
-        ring.Fire(leader is null ? 90 : 100, leader);
         stack.Add(ring);
 
         // Légende : du centre vers l'extérieur.
         var legend = new VerticalStackLayout { Spacing = 4 };
-        legend.Add(Caps("Du feu vers l'extérieur", 9, Theme.Stone500));
-        if (hero is not null) legend.Add(IconRow(Icon(Ico.Crown, 12, Theme.Gold600), Txt($"{rules.LeaderTitle} : {s.DefOf(hero).Name}", 12, Theme.Stone700)));
-        foreach (var (rank, members) in rings)
-            legend.Add(IconRow(Icon(Ico.Users, 12, Theme.Stone500), Txt($"{rank.Name} · {members.Count}{(rank.Max > 0 ? $"/{rank.Max}" : "")}", 12, Theme.Stone700)));
-        if (rings.Count == 0) legend.Add(Muted("Personne n'a encore rejoint le camp."));
+        if (empty)
+        {
+            legend.Add(Txt("Personne d'autre au camp pour l'instant.", 14, Theme.Stone900, bold: true));
+            legend.Add(Muted("Les compagnons recrutés et les PNJ qui rejoignent le camp (effet « Camp : rejoindre », "
+                + "ou « Vit au campement » sur un PNJ) s'installent ici, autour du feu.", 12));
+        }
+        else
+        {
+            legend.Add(Caps("Du feu vers l'extérieur", 9, Theme.Stone500));
+            if (hero is not null) legend.Add(IconRow(Icon(Ico.Crown, 12, Theme.Gold600), Txt($"{rules.LeaderTitle} : {s.DefOf(hero).Name}", 12, Theme.Stone700)));
+            if (companions.Count > 0) legend.Add(IconRow(Icon(Ico.Swords, 12, Theme.Stone500), Txt($"{s.Db.T("party")} · {companions.Count}", 12, Theme.Stone700)));
+            foreach (var (rank, members) in rings)
+                legend.Add(IconRow(Icon(Ico.Users, 12, Theme.Stone500), Txt($"{rank.Name} · {members.Count}{(rank.Max > 0 ? $"/{rank.Max}" : "")}", 12, Theme.Stone700)));
+        }
         var card = Card(legend);
         card.Padding = new Thickness(12, 10);
         stack.Add(card);
-        stack.Add(Muted("Touchez quelqu'un pour voir sa fiche, changer son grade ou sa tâche.", 11));
+        if (!empty) stack.Add(Muted("Touchez quelqu'un pour voir sa fiche.", 11));
+    }
+
+    private View CompanionCard(CharacterState c)
+    {
+        var s = _page.Session;
+        var def = s.DefOf(c);
+        var index = s.State.Party.IndexOf(c);
+        var card = Card(IconRow(CampPeople.Face(_page, c.DefId, def.Name, 44, Theme.AvatarColor(c.DefId)),
+            new VerticalStackLayout
+            {
+                Spacing = 2,
+                Children = { Txt(def.Name, 15, Theme.Stone900, bold: true), Caps(c.IsActive ? "Titulaire" : "Réserve", 9, Theme.Stone500) },
+            }, Icon(Ico.ChevronRight, 18, Theme.Stone400)));
+        card.Padding = new Thickness(12, 10);
+        return OnTap(card, () => { _page.CampSection = CampSection.Team; _page.SelectedCharacter = index; _page.Render(); });
     }
 
     // ------------------------------------------------------------------ Ressources
@@ -423,31 +479,8 @@ public sealed class CampView : ContentView
             StatCell(Ico.Wind, "Vitesse", stats.Speed, Theme.Gold600),
         ], 3));
 
-        var equipment = new VerticalStackLayout { Spacing = 12 };
-        foreach (var slot in Enum.GetValues<EquipSlot>())
-        {
-            var equipped = c.GetEquipped(slot) is { } id && s.Db.Items.TryGetValue(id, out var it) ? it : null;
-            var slotCopy = slot;
-            var info = new VerticalStackLayout
-            {
-                Spacing = 2,
-                Children =
-                {
-                    Caps(SlotName(slot), 9, Theme.Stone400),
-                    Txt(equipped?.Name ?? "— vide —", 15, equipped is null ? Theme.Stone400 : Theme.Stone900, bold: equipped is not null),
-                },
-            };
-            if (equipped is not null && equipped.Bonus.ToBonusString() is { Length: > 0 } bonus) info.Add(Txt(bonus, 12, Theme.Green600, bold: true));
-            var remove = equipped is null ? null : Btn("Retirer", () => { s.Unequip(c, slotCopy); _page.Render(); });
-            equipment.Add(IconRow(IconBox(SlotIcon(slot), Theme.Stone700), info, remove));
-            foreach (var (item, count) in s.Bag().Where(b => b.Item.Slot == slot))
-            {
-                var itemId = item.Id;
-                equipment.Add(Row(Muted($"↳ {item.Name} x{count} · {item.Bonus.ToBonusString()}", 12),
-                    Btn("Équiper", () => { s.Equip(c, itemId); _page.Render(); })));
-            }
-        }
-        stack.Add(TitledCard(Ico.Shield, "Équipement", equipment));
+        stack.Add(Section("Équipement"));
+        stack.Add(EquipmentDoll.Build(_page, c));
 
         var skills = new VerticalStackLayout { Spacing = 10 };
         foreach (var unlock in def.Skills)

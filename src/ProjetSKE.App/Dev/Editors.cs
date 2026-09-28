@@ -116,8 +116,10 @@ public sealed class CharacterEditor : EditorPage
         f.StatsField("Gain par niveau", _x.GrowthPerLevel);
         f.Header("Équipement de départ");
         f.RefField("Arme", _x.StartingWeaponId, DevState.Items(i => i.Type == ItemType.Weapon), v => _x.StartingWeaponId = v);
-        f.RefField("Armure", _x.StartingArmorId, DevState.Items(i => i.Type == ItemType.Armor), v => _x.StartingArmorId = v);
+        f.RefField("Corps", _x.StartingArmorId, DevState.Items(i => i.Slot == EquipSlot.Armor), v => _x.StartingArmorId = v);
         f.RefField("Relique", _x.StartingRelicId, DevState.Items(i => i.Slot == EquipSlot.Relic), v => _x.StartingRelicId = v);
+        f.IdList("Autres pièces (tête, mains, jambes, pieds, accessoire, bouclier)", _x.StartingGearIds,
+            DevState.Items(i => i.Slot is { } sl && sl != EquipSlot.Weapon && sl != EquipSlot.Armor && sl != EquipSlot.Relic));
         f.ObjectList("Compétences", _x.Skills, () => new SkillUnlock(1, ""), (sf, s, _) =>
         {
             sf.RefField("Compétence", s.SkillId, DevState.Skills, v => s.SkillId = v ?? "", allowNone: false);
@@ -401,6 +403,9 @@ public sealed class ItemEditor : EditorPage
         f.EnumField("Type", _x.Type, v => _x.Type = v, DevState.Name, rerender: true);
         if (_x.Type == ItemType.Relic)
             f.EnumField("Usage de la relique", _x.RelicUsage, v => _x.RelicUsage = v, DevState.Name, rerender: true);
+        if (_x.Type == ItemType.Armor)
+            f.RefField("Se porte sur", _x.ArmorSlot.ToString(), ItemDef.ArmorSlots.Select(x => (x.ToString(), SlotName(x))),
+                v => { if (Enum.TryParse<EquipSlot>(v, out var slot)) _x.ArmorSlot = slot; }, allowNone: false);
         f.BoolField("Objet unique (un seul exemplaire)", _x.IsUnique, v => _x.IsUnique = v);
         f.IntField("Prix en boutique (0 = invendable)", _x.Price, v => _x.Price = v);
         if (_x.IsConsumable)
