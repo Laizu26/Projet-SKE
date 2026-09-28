@@ -113,6 +113,13 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
 
+    public static IEnumerable<(string Id, string Name)> CampRanks => Draft.Camp.Ranks.OrderByDescending(r => r.Level).Select(x => (x.Id, $"{x.Name} (niveau {x.Level})"));
+    public static IEnumerable<(string Id, string Name)> CampTasks => Draft.Camp.Tasks.Select(x => (x.Id, x.Name));
+
+    /// <summary>Membre du camp : celui qui fait la tâche (dans un résultat de tâche), un PNJ ou un PJ.</summary>
+    public static IEnumerable<(string Id, string Name)> CampWho =>
+        new[] { ("@membre", "Celui qui fait la tâche"), ("@parle", "Celui qui parle") }.Concat(Persons);
+
     public static IEnumerable<(string Id, string Name)> Variables => Draft.Variables.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Portraits => Draft.Portraits.Select(x => (x.Id, x.Name));
 
@@ -122,7 +129,7 @@ public static class DevState
 
     /// <summary>De qui (karma) : celui qui parle par défaut.</summary>
     public static IEnumerable<(string Id, string Name)> KarmaWho =>
-        new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (moyenne / chacun)") }
+        new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (moyenne / chacun)"), ("@membre", "Celui qui fait la tâche (camp)") }
             .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
 
     /// <summary>Envers qui (amitié) : l'équipe entière par défaut.</summary>
@@ -162,7 +169,11 @@ public static class DevState
         ActionType.LeaveParty => "Un PJ quitte l'équipe",
         ActionType.MoveNpc => "Déplacer un PNJ",
         ActionType.RevealLocation => "Révéler un lieu",
-        _ => "Cacher un lieu",
+        ActionType.HideLocation => "Cacher un lieu",
+        ActionType.JoinCamp => "Camp : rejoindre",
+        ActionType.LeaveCamp => "Camp : quitter",
+        ActionType.SetCampRank => "Camp : changer de grade",
+        _ => "Camp : affecter à une tâche",
     };
 
     public static string Name(CompareOp t) => t switch
@@ -215,7 +226,10 @@ public static class DevState
         ConditionType.MetNpc => "A déjà parlé à un PNJ",
         ConditionType.Chance => "Hasard (%)",
         ConditionType.AnyOf => "Groupe : au moins une de",
-        _ => "Groupe : toutes",
+        ConditionType.AllOf => "Groupe : toutes",
+        ConditionType.CampMember => "Camp : est membre",
+        ConditionType.CampRank => "Camp : grade (niveau)",
+        _ => "Camp : fait la tâche",
     };
 
     public static string Name(ObjectiveType t) => t switch

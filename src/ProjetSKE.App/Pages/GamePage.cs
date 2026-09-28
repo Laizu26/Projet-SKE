@@ -20,6 +20,8 @@ public sealed class GamePage : ContentPage
     // Mémoire de navigation des onglets (conservée entre deux rafraîchissements).
     public GameTab Tab { get; private set; } = GameTab.Map;
     public bool CampShowBag { get; set; }
+    public bool CampShowPeople { get; set; }
+    public string? SelectedCampMember { get; set; }
     public int? SelectedCharacter { get; set; }
     /// <summary>Carte : true = vue du royaume, false = vue du lieu actuel.</summary>
     public bool MapShowCountry { get; set; }

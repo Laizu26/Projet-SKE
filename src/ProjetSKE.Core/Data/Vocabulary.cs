@@ -55,6 +55,11 @@ public static class Vocabulary
         new("battle.victory", "Victoire", "Combat"),
         new("battle.defeat", "Défaite", "Combat"),
 
+        new("camp.people", "Le camp", "Campement"),
+        new("camp.log", "Journal du camp", "Campement"),
+        new("camp.rest", "Au repos", "Campement"),
+        new("camp.available", "Disponibles", "Campement"),
+
         new("party", "Équipe", "Divers"),
         new("bag", "Sac", "Divers"),
         new("inn", "Auberge", "Divers"),

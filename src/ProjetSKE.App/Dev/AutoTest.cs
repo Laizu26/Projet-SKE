@@ -48,6 +48,56 @@ public static class AutoTest
             await Step("dialogue", () => page!.ShowDialogue(db.Content.Dialogues[0].Id), 2500);
             await Step("combat", () => page!.StartBattle(new[] { db.Content.Monsters[0].Id }), 2500);
 
+            // Nouveautés : portrait (banque d'images), camp, choix de qui parle, temps.
+            var content = Core.Data.ContentSerializer.Clone(db.Content);
+            content.Portraits.Add(new Core.Models.PortraitDef
+            {
+                Id = "test", Name = "Test", Aspect = 1, FocusX = 0.5, FocusY = 0.4, Zoom = 1.5,
+                Url = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png",
+            });
+            foreach (var npc in content.Npcs) npc.PortraitId = "test";
+            var testDb = new Core.Data.GameDatabase(content);
+            GamePage? world = null;
+            await Step("partie avec portraits", () =>
+            {
+                var session = GameSession.NewGame(testDb, starter.Id);
+                session.Recruit(testDb.Content.Characters.First(c => c.Id != starter.Id).Id);
+                if (testDb.Content.Camp.Tasks.Count > 0 && session.CampMembers.Count > 0)
+                    session.SetCampTask(session.CampMembers[0].Id, testDb.Content.Camp.Tasks[0].Id);
+                session.AdvanceTime(24 * 60);
+                world = new GamePage(session, -1, playIntro: false);
+                SkeApp.GoTo(world);
+            }, 2500);
+            await Step("camp : les gens", () => { world!.CampShowPeople = true; world.SwitchTab(GameTab.Camp); });
+            await Step("camp : fiche d'un membre", () =>
+            {
+                world!.SelectedCampMember = world.Session.CampMembers.FirstOrDefault()?.Id;
+                world.Render();
+            });
+            await Step("parler : choix de qui parle", () =>
+            {
+                var npc = world!.Session.VisibleNpcs.FirstOrDefault() ?? testDb.Content.Npcs[0];
+                world.TalkTo(npc.Id);
+            });
+            await Step("dialogue avec portrait", () => world!.ShowDialogue(testDb.Content.Npcs.First(n => n.DefaultDialogueId is not null).DefaultDialogueId!), 2500);
+            await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
+
+            await Step("éditeur : accueil", () => SkeApp.GoTo(new DevHomePage()));
+            await Step("éditeur : monde", () => SkeApp.GoTo(new WorldEditor()));
+            await Step("éditeur : temps", () => SkeApp.GoTo(new TimeEditor()));
+            await Step("éditeur : karma", () => SkeApp.GoTo(new ScaleEditor(karma: true)));
+            await Step("éditeur : campement", () => SkeApp.GoTo(new CampEditor()));
+            await Step("éditeur : tâche", () => SkeApp.GoTo(new CampTaskEditor(DevState.Draft.Camp.Tasks[0])));
+            await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
+            await Step("éditeur : monstre", () => SkeApp.GoTo(new MonsterEditor(DevState.Draft.Monsters.Last())));
+            await Step("éditeur : dialogue", () => SkeApp.GoTo(new DialogueEditor(DevState.Draft.Dialogues.First(d => d.Nodes.Any(n => n.Variants.Count > 0)))), 2000);
+            await Step("éditeur : image", () =>
+            {
+                var image = new Core.Models.PortraitDef { Id = "img", Name = "Image", Url = content.Portraits[0].Url, Aspect = 1 };
+                SkeApp.GoTo(new ImageEditor(image));
+            }, 2000);
+            DevState.Revert();
+
             await Step("chargement d'une sauvegarde", () =>
             {
                 var state = SkeApp.Saves.Load(0) ?? throw new InvalidOperationException("sauvegarde introuvable");

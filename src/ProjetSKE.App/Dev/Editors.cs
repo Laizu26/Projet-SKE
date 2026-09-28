@@ -140,7 +140,10 @@ public sealed class NpcEditor : EditorPage
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description (encyclopédie)", _x.Description, v => _x.Description = v, multiline: true);
         f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
-        f.RefField("Lieu habituel", _x.LocationId, DevState.Locations, v => _x.LocationId = v ?? "", allowNone: false);
+        f.BoolField("Vit au campement dès le début", _x.StartsInCamp, v => _x.StartsInCamp = v, rerender: true);
+        if (_x.StartsInCamp)
+            f.RefField("Grade de départ (aucun = le plus bas)", _x.StartRankId, DevState.CampRanks, v => _x.StartRankId = v);
+        f.RefField(_x.StartsInCamp ? "Lieu habituel (aucun = seulement au camp)" : "Lieu habituel", _x.LocationId, DevState.Locations, v => _x.LocationId = v ?? "", allowNone: _x.StartsInCamp);
         f.Note("Emploi du temps : le premier placement dont les conditions passent (heure, jour, flag...) remplace le lieu habituel.");
         f.ObjectList("Placements", _x.Placements, () => new NpcPlacement { LocationId = _x.LocationId }, (pf, p, _) =>
         {

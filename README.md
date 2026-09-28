@@ -37,15 +37,16 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 |---|---|
 | **Titre** | Nouvelle partie, charger une partie, 3 emplacements de sauvegarde |
 | **Sélection** | Choix du personnage de départ (1 héros pour l'instant, on peut en ajouter d'autres) |
-| **Camp** | Titulaires et réserve, fiche de chaque personnage (stats, niveau, XP, compétences), équipement (arme, armure, relique), sac commun |
+| **Camp** | Titulaires et réserve, fiche de chaque personnage (stats, niveau, XP, karma, compétences), équipement, sac commun, et **le camp** : hiérarchie (grades), tâches (rondes, chasse…) et journal du camp |
 | **Carte** | Vue du lieu actuel (ville : auberge, boutique, habitants ; nature : explorer, combat fixe), puis vue du pays avec la liste des destinations |
 | **Quêtes** | Quêtes en cours (objectif actuel, compteur) et quêtes terminées |
 | **Encyclo** | Personnages (PJ et PNJ), monstres, lieux, armes et reliques rencontrés (les autres restent invisibles) |
 | **Shop** | Uniquement en ville : achat et revente (à moitié prix) |
 | **Journal** | Page blanche où l'on écrit librement, sauvegardée avec la partie |
 | **Menu** | Sauvegarde, paramètres, retour au titre |
-| **Combat** | Par-dessus tout : l'ennemi en haut, la narration du combat au milieu, l'équipe en bas, puis Attaque / Défense / Objet / Fuite. Tour par tour selon la vitesse ; Défense divise les dégâts reçus par deux jusqu'au tour suivant |
-| **Histoire** | Dialogues par-dessus tout, avec choix de réponse (recruter un personnage, recevoir de l'or, lancer un combat…) |
+| **Combat** | Par-dessus tout : l'ennemi en haut, la narration du combat (avec les répliques des combattants) au milieu, l'équipe en bas, puis Attaque / Défense / Objet / Fuite. Tour par tour selon la vitesse ; Défense divise les dégâts reçus par deux jusqu'au tour suivant |
+| **Histoire** | L'écran s'assombrit, le portrait de celui qui parle apparaît, puis la boîte de dialogue ; choix de réponse (certains grisés avec la raison) |
+| **Horloge** | En haut à droite : heure, moment de la journée, jour. Le temps passe en voyageant, en parlant, en combattant, à l'auberge |
 
 ### Paramètres modifiables (Menu)
 
@@ -65,19 +66,26 @@ Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
 
 | Catégorie | Ce qu'on règle |
 |---|---|
-| **PJ** | Nom, classe, description, stats de base et gain par niveau, compétences (et niveau d'apprentissage), équipement de départ, « proposé au départ » |
-| **PNJ** | Nom, lieu, dialogue par défaut, dialogues selon l'avancement (conditions), conditions d'apparition |
-| **Histoire** | Dialogues en **formulaire** ou en **texte** (voir ci-dessous) : répliques, choix, conditions, effets |
+| **PJ** | Nom, classe, description, portrait, stats de base et gain par niveau, compétences, équipement de départ, karma et amitié de départ, répliques de combat, « proposé au départ » |
+| **PNJ** | Nom, portrait, lieu habituel, emploi du temps (placements sous conditions : heure, jour, flag…), amitié de départ, vie au camp et grade, dialogue par défaut, dialogues selon la situation (y compris selon le PJ qui parle), conditions d'apparition |
+| **Histoire** | Dialogues en **formulaire** ou en **texte** : répliques, variantes selon la situation, aiguillages, sauts vers un autre dialogue (les histoires se croisent), choix (cachés ou grisés), conditions, effets |
 | **Quêtes** | Objectifs dans l'ordre (parler à un PNJ, vaincre des monstres, aller à un lieu, apporter un objet) et récompenses |
 | **Objets / Reliques** | Type, prix, soins, bonus d'équipement, objet unique, relique équipable ou de quête |
-| **Monstres** | Stats, compétences, XP, or, butin (avec probabilités), boss |
+| **Monstres** | Stats, compétences, XP, or, butin (avec probabilités), boss, portrait, répliques de combat |
 | **Compétences** | Physique / magique / soin, cible, coût en PM, puissance |
-| **Lieux et carte** | Type, liens entre lieux (créés dans les deux sens), boutique, auberge, rencontres aléatoires, combat fixe, accès sous condition, dialogue de première visite |
+| **Lieux et carte** | Type, liens entre lieux, lieu secret (visible sous condition), durée du voyage, boutique, auberge, rencontres aléatoires, combat fixe (dialogues avant / après victoire / après défaite, répliques), accès sous condition, dialogue de première visite |
 | **Départ** | Lieu, or, objets, dialogue d'introduction, héros proposés |
 | **Équilibrage** | XP par niveau, niveau max, prix de revente, formules de dégâts et de soin |
+| **Monde et textes** | Nom du pays, choix du PJ qui parle, et **tous les textes de l'interface** (onglets, monnaie, PV/PM, actions de combat, types de lieu…) |
+| **Temps et calendrier** | Heure et jour de départ, heures par jour, jours de la semaine, mois, moments de la journée, durées (voyage, exploration, combat, discussion, réveil à l'auberge) |
+| **Karma / Amitié** | Nom, valeur de départ, minimum, maximum, visible ou caché, paliers nommés (« Vertueux », « Ami »…) |
+| **Campement** | Titre du chef, grades (niveau, nombre de places), tâches (durée, grade minimum, places, conditions, résultats tirés au sort avec texte et effets) |
+| **Variables** | Valeurs libres du scénario (réputation, dette…), avec départ, minimum, maximum, affichage au joueur |
+| **Banque d'images** | Images par **lien https** (rien n'est stocké), cadrées une fois (glisser + zoom), utilisées comme portraits |
 
-- **Effets** possibles (dialogues et récompenses) : poser ou retirer un flag, recruter un PJ, donner ou prendre un objet ou de l'or, donner de l'XP, lancer un combat, démarrer ou terminer une quête, soigner l'équipe, téléporter.
-- **Conditions** possibles : flag posé ou absent, quête pas commencée / en cours / terminée, possède un objet, PJ dans l'équipe ou non, or minimum, niveau minimum.
+- **Effets** possibles : flags, recruter / renvoyer un PJ, objets, or, XP, combat, quêtes, soin, téléportation, variables (fixer / ajouter), karma et amitié (fixer / ajouter, pour celui qui parle, le héros, toute l'équipe ou un PJ), faire passer le temps ou attendre une heure, afficher un message, déplacer un PNJ, révéler / cacher un lieu, camp (rejoindre, quitter, grade, tâche).
+- **Conditions** possibles : flags, quêtes, objets, équipe, or, niveau, variables, karma, amitié (envers l'équipe ou un PJ), taille de l'équipe, qui parle, heure, jour, moment, jour de la semaine, mois, lieu actuel ou visité, PNJ rencontré, hasard, camp (membre, grade, tâche). Chaque condition peut être **inversée** (« sauf si »), et les groupes **« au moins une de »** / **« toutes »** permettent n'importe quelle logique.
+- **Balises dans les textes** : `%pj%` (qui parle), `%heros%`, `%pays%`, `%monnaie%`, `%heure%`, `%date%`, `%periode%`, `%lieu%`, `%or%`, `%karma%`, `%var:id%`, `%amitie:pnj%`, `%nom:id%`, `%membre%` (camp).
 
 Boutons de l'accueil de l'éditeur :
 
@@ -113,7 +121,9 @@ Lyra: Tant pis.
 - `Nom: texte` : une réplique ; `- texte` : de la narration.
 - `> choix -> étiquette` : un choix de réponse ; `@étiquette` : le début d'un bloc ; `-> étiquette` : un saut (`-> fin` pour terminer).
 - `[effet]` : un effet, par exemple `[flag x]`, `[recrute id]`, `[objet id 2]`, `[or 50]`, `[xp 30]`, `[combat loup,loup]`, `[quete id]`, `[soin]` ou `[teleport lieu]`.
-- `{condition}` : une condition sur un choix, par exemple `{flag x}`, `{quete_active id}`, `{objet id}`, `{or 50}` ou `{niveau 3}`.
+- `{condition}` : une condition sur un choix, par exemple `{flag x}`, `{quete_active id}`, `{karma >= 20}`, `{amitie pnj > 50}`, `{parle lyra}`, `{heure 20 6}`, `{!flag x}` (sauf si) ou `{flag a | flag b}` (l'un ou l'autre).
+- `>~ choix {condition} ((raison))` : un choix affiché grisé, avec la raison, quand la condition manque.
+- `~ {condition} Nom: texte` : une autre version de la réplique ; `? {condition} -> étiquette` : un aiguillage ; `-> dialogue:étiquette` : continuer dans un autre dialogue.
 
 L'aide complète est affichée dans l'éditeur.
 
@@ -126,7 +136,8 @@ Une fois le mode développeur déverrouillé, **Menu → Outils de test** permet
 - donner des objets, recruter un PJ ;
 - lancer un combat ou un dialogue ;
 - démarrer, terminer ou oublier une quête ;
-- poser ou retirer des flags.
+- poser ou retirer des flags ;
+- faire passer le temps (+1 h, +6 h, +1 jour), changer le karma de chaque PJ et les variables.
 
 ## Organisation du code
 

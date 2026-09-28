@@ -38,12 +38,20 @@ public sealed class CampView : ContentView
             }).ToList(), Math.Min(3, shown.Count)));
         }
 
-        stack.Add(ButtonRow(
-            Btn("Équipe", () => { page.CampShowBag = false; page.SelectedCharacter = null; page.Render(); }, selected: !page.CampShowBag),
-            Btn("Sac", () => { page.CampShowBag = true; page.Render(); }, selected: page.CampShowBag)));
+        var tabs = new List<View>
+        {
+            Btn(s.Db.T("party"), () => { page.CampShowBag = false; page.CampShowPeople = false; page.SelectedCharacter = null; page.Render(); },
+                selected: !page.CampShowBag && !page.CampShowPeople),
+            Btn(s.Db.T("bag"), () => { page.CampShowBag = true; page.CampShowPeople = false; page.Render(); }, selected: page.CampShowBag),
+        };
+        if (s.CampRules.Enabled)
+            tabs.Add(Btn(s.Db.T("camp.people"), () => { page.CampShowPeople = true; page.CampShowBag = false; page.SelectedCampMember = null; page.Render(); },
+                selected: page.CampShowPeople));
+        stack.Add(ButtonRow([.. tabs]));
 
         var party = s.State.Party;
-        if (page.CampShowBag) BuildBag(stack);
+        if (page.CampShowPeople && s.CampRules.Enabled) CampPeople.Build(stack, page);
+        else if (page.CampShowBag) BuildBag(stack);
         else if (page.SelectedCharacter is { } index && index < party.Count) BuildCharacter(stack, party[index]);
         else BuildParty(stack);
 

@@ -360,6 +360,18 @@ public sealed class Form
             case ConditionType.Chance:
                 IntField("Chance (%)", c.Amount, v => c.Amount = v);
                 break;
+            case ConditionType.CampMember:
+                RefField("Qui", c.Arg, DevState.CampWho, v => c.Arg = v ?? "", allowNone: false);
+                break;
+            case ConditionType.CampRank:
+                RefField("Qui", c.Arg, DevState.CampWho, v => c.Arg = v ?? "", allowNone: false);
+                Note("Niveaux : " + string.Join(", ", DevState.Draft.Camp.Ranks.OrderBy(r => r.Level).Select(r => $"{r.Name} = {r.Level}")));
+                Compare(c, "Niveau du grade");
+                break;
+            case ConditionType.CampTask:
+                RefField("Qui", c.Arg, DevState.CampWho, v => c.Arg = v ?? "", allowNone: false);
+                RefField("Tâche", c.Arg2, DevState.CampTasks, v => c.Arg2 = v ?? "", allowNone: false);
+                break;
             case ConditionType.AnyOf or ConditionType.AllOf:
                 c.Children ??= [];
                 Conditions(c.Type == ConditionType.AnyOf ? "Au moins une de ces conditions" : "Toutes ces conditions", c.Children);
@@ -425,6 +437,21 @@ public sealed class Form
                 break;
             case ActionType.ShowMessage:
                 TextField("Message (balises %pj%, %heure%... possibles)", a.Arg, v => a.Arg = v, multiline: true);
+                break;
+            case ActionType.JoinCamp:
+                RefField("Qui", a.Arg, DevState.Persons, v => a.Arg = v ?? "", allowNone: false);
+                RefField("Grade (aucun = le plus bas)", a.Arg2, DevState.CampRanks, v => a.Arg2 = v ?? "");
+                break;
+            case ActionType.LeaveCamp:
+                RefField("Qui", a.Arg, DevState.CampWho, v => a.Arg = v ?? "", allowNone: false);
+                break;
+            case ActionType.SetCampRank:
+                RefField("Qui", a.Arg, DevState.CampWho, v => a.Arg = v ?? "", allowNone: false);
+                RefField("Nouveau grade", a.Arg2, DevState.CampRanks, v => a.Arg2 = v ?? "", allowNone: false);
+                break;
+            case ActionType.SetCampTask:
+                RefField("Qui", a.Arg, DevState.CampWho, v => a.Arg = v ?? "", allowNone: false);
+                RefField("Tâche (aucune = repos)", a.Arg2, DevState.CampTasks, v => a.Arg2 = v ?? "");
                 break;
             case ActionType.MoveNpc:
                 RefField("PNJ", a.Arg, DevState.Npcs, v => a.Arg = v ?? "", allowNone: false);

@@ -211,6 +211,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Nav("Temps et calendrier", () => new TimeEditor()));
         stack.Add(Nav("Karma", () => new ScaleEditor(karma: true)));
         stack.Add(Nav("Amitié", () => new ScaleEditor(karma: false)));
+        stack.Add(Nav($"Campement ({c.Camp.Ranks.Count} grades, {c.Camp.Tasks.Count} tâches)", () => new CampEditor()));
         stack.Add(Nav($"Variables ({c.Variables.Count})", WorldLists.VariableList));
         stack.Add(Nav($"Banque d'images ({c.Portraits.Count})", WorldLists.ImageList));
 

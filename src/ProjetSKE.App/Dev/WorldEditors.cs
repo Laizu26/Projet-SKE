@@ -268,3 +268,80 @@ public sealed class ImageEditor : EditorPage
         Render();
     }
 }
+
+// ====================================================================== Campement
+
+public sealed class CampEditor : EditorPage
+{
+    public CampEditor() => Render();
+    protected override string PageTitle => "Campement";
+    protected override void GoBack() => SkeApp.GoTo(new DevHomePage());
+
+    protected override void Build(Form f)
+    {
+        var camp = DevState.Draft.Camp;
+        f.Note("Le camp accueille des PNJ et PJ (effet « Camp : rejoindre », ou « Vit au campement » sur un PNJ). "
+            + "Le joueur les range dans la hiérarchie et les affecte à des tâches ; chaque cycle de temps écoulé donne un résultat tiré au sort.");
+        f.BoolField("Campement activé", camp.Enabled, v => camp.Enabled = v);
+        f.TextField("Titre du héros (à la tête du camp)", camp.LeaderTitle, v => camp.LeaderTitle = v);
+
+        f.Note("Hiérarchie : niveau plus haut = plus gradé. Places : 0 = illimité.");
+        f.ObjectList("Grades", camp.Ranks, () => new CampRankDef { Id = DevState.NewId("grade", camp.Ranks.Select(r => r.Id)), Name = "Nouveau grade" }, (rf, r, _) =>
+        {
+            rf.Note("Identifiant : " + r.Id);
+            rf.TextField("Nom", r.Name, v => r.Name = v);
+            rf.IntField("Niveau", r.Level, v => r.Level = v);
+            rf.IntField("Places (0 = illimité)", r.Max, v => r.Max = v);
+        }, "+ Grade");
+
+        f.Header($"Tâches ({camp.Tasks.Count})");
+        foreach (var task in camp.Tasks)
+        {
+            var t = task;
+            f.Add(Panel(Row(
+                Stack(Txt(task.Name, 15, Theme.Text, bold: true), Muted($"{task.Id} · {task.DurationMinutes} min · {task.Outcomes.Count} résultat(s)")),
+                Form.SmallButton("Modifier", () => SkeApp.GoTo(new CampTaskEditor(t))))));
+        }
+        f.Add(Btn("+ Nouvelle tâche", async () =>
+        {
+            var name = await DisplayPromptAsync("Nouvelle tâche", "Nom :", "Créer", "Annuler");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var task = new CampTaskDef { Id = DevState.NewId(name, camp.Tasks.Select(t => t.Id)), Name = name.Trim() };
+            task.Outcomes.Add(new CampOutcome { Text = "%membre% a fait sa tâche." });
+            camp.Tasks.Add(task);
+            DevState.Touch();
+            SkeApp.GoTo(new CampTaskEditor(task));
+        }));
+    }
+}
+
+public sealed class CampTaskEditor : EditorPage
+{
+    private readonly CampTaskDef _x;
+    public CampTaskEditor(CampTaskDef x) { _x = x; Render(); }
+    protected override string PageTitle => "Tâche : " + _x.Name;
+    protected override void GoBack() => SkeApp.GoTo(new CampEditor());
+    protected override Action Delete => () => DevState.Draft.Camp.Tasks.Remove(_x);
+
+    protected override void Build(Form f)
+    {
+        f.Note("Identifiant : " + _x.Id);
+        f.TextField("Nom", _x.Name, v => _x.Name = v);
+        f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
+        f.RefField("Icône", _x.Icon, Views.CampIcons.All.Select(i => (i.Key, i.Key)), v => _x.Icon = v ?? "ronde", allowNone: false);
+        f.IntField("Durée d'un cycle (minutes de jeu)", _x.DurationMinutes, v => _x.DurationMinutes = v);
+        f.Note("Niveaux des grades : " + string.Join(", ", DevState.Draft.Camp.Ranks.OrderBy(r => r.Level).Select(r => $"{r.Name} = {r.Level}")));
+        f.IntField("Grade minimum (niveau)", _x.MinRankLevel, v => _x.MinRankLevel = v);
+        f.IntField("Membres max (0 = illimité)", _x.MaxWorkers, v => _x.MaxWorkers = v);
+        f.Conditions("Proposée seulement si", _x.Conditions);
+        f.Note("À chaque fin de cycle, un résultat est tiré au sort parmi ceux dont les conditions passent (poids : plus = plus fréquent). "
+            + "%membre% = celui qui fait la tâche ; « Celui qui fait la tâche » dans les effets (amitié, karma...).");
+        f.ObjectList("Résultats", _x.Outcomes, () => new CampOutcome { Text = "%membre% ..." }, (of, o, _) =>
+        {
+            of.TextField("Texte du journal", o.Text, v => o.Text = v, multiline: true);
+            of.IntField("Poids", o.Weight, v => o.Weight = v);
+            of.Conditions("Seulement si", o.Conditions);
+            of.Actions("Effets", o.Actions);
+        }, "+ Résultat");
+    }
+}
