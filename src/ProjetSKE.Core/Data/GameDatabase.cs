@@ -216,6 +216,8 @@ public sealed class GameDatabase
             foreach (var n in d.Nodes)
             {
                 Target(n.NextId);
+                if (n.ElseId is not "fin") Target(n.ElseId);
+                CheckConditions(n.Conditions, w);
                 CheckActions(n.Actions, w);
                 foreach (var b in n.Branches)
                 {

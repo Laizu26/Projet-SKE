@@ -19,6 +19,8 @@ public static partial class DialogueScript
         > * texte -> etiquette  → choix-narration : une action décrite, pas une parole
         ? {cond} -> etiquette   → aiguillage après la réplique (le 1er qui passe gagne)
         ~ {cond} Nom: texte     → autre version de la réplique si la condition passe
+        si {cond} Nom: texte    → réplique jouée seulement si la condition passe (sinon : sautée)
+        si {cond} Nom: texte sinon -> etiquette → sinon, aller ailleurs
         @etiquette              → commence un nouveau bloc
         -> etiquette            → aller à un bloc (-> fin : terminer)
         -> dialogue:etiquette   → continuer dans un autre dialogue (dialogue: = son début)
@@ -105,6 +107,14 @@ public static partial class DialogueScript
     ];
 
     private static bool IsOperator(string? token) => token is not null && Operators.Any(o => o.Symbol == token);
+
+    /// <summary>« si {condition}... » en début de réplique (les accolades qui suivent font partie de la condition).</summary>
+    [GeneratedRegex(@"^si\s*((?:\{[^}]*\}\s*)+)", RegexOptions.IgnoreCase)]
+    private static partial Regex OnlyIf();
+
+    /// <summary>« sinon -> etiquette » en fin de réplique conditionnelle.</summary>
+    [GeneratedRegex(@"\s+sinon\s*->\s*(\S+)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex Else();
 
     [GeneratedRegex(@"\[([^\]]*)\]")]
     private static partial Regex ActionTag();
@@ -215,9 +225,23 @@ public static partial class DialogueScript
                 continue;
             }
 
-            // Réplique (personnage ou narration).
+            // Réplique (personnage ou narration), éventuellement « si {condition} ... sinon -> etiquette ».
             var lineText = line;
             var actions = ParseActions(ref lineText, lineNumber, errors);
+            var onlyIf = new List<Condition>();
+            string? elseId = null;
+            if (OnlyIf().Match(lineText) is { Success: true } si)
+            {
+                lineText = lineText[si.Length..].TrimStart();
+                var head = si.Groups[1].Value;
+                onlyIf = ParseConditions(ref head, lineNumber, errors);
+                if (Else().Match(lineText) is { Success: true } otherwise)
+                {
+                    var target = otherwise.Groups[1].Value;
+                    elseId = IsEnd(target) ? "fin" : target;
+                    lineText = lineText[..otherwise.Index];
+                }
+            }
             var (nodeSpeaker, nodeText) = SplitSpeaker(lineText);
 
             string id;
@@ -226,7 +250,7 @@ public static partial class DialogueScript
             else { do { id = $"_{++autoId}"; } while (used.Contains(id)); }
             if (!used.Add(id)) errors.Add($"Ligne {lineNumber} : étiquette « {id} » déjà utilisée");
 
-            var node = new DialogueNode { Id = id, Speaker = nodeSpeaker, Text = nodeText.Trim(), Actions = actions };
+            var node = new DialogueNode { Id = id, Speaker = nodeSpeaker, Text = nodeText.Trim(), Actions = actions, Conditions = onlyIf, ElseId = elseId };
             if (chainOpen && last is { NextId: null, Choices.Count: 0 }) last.NextId = id;
             nodes.Add(node);
             last = node;
@@ -237,7 +261,8 @@ public static partial class DialogueScript
         if (nodes.Count == 0) errors.Add("Le dialogue est vide.");
         var ids = nodes.Select(n => n.Id).ToHashSet();
         // Les renvois vers un autre dialogue (« dialogue:etiquette ») sont vérifiés par la validation du contenu.
-        var targets = nodes.SelectMany(n => n.Branches.Select(b => b.NextId).Concat(n.Choices.Select(c => c.NextId)).Prepend(n.NextId));
+        var targets = nodes.SelectMany(n => n.Branches.Select(b => b.NextId).Concat(n.Choices.Select(c => c.NextId)).Prepend(n.NextId)
+            .Append(n.ElseId is "fin" ? null : n.ElseId));
         foreach (var target in targets)
             if (target is not null && !target.Contains(':') && !ids.Contains(target)) errors.Add($"Étiquette « {target} » introuvable");
         return nodes;
@@ -372,6 +397,7 @@ public static partial class DialogueScript
         foreach (var n in nodes)
         {
             Ref(n.NextId);
+            Ref(n.ElseId);
             foreach (var b in n.Branches) Ref(b.NextId);
             foreach (var c in n.Choices) Ref(c.NextId);
         }
@@ -396,7 +422,14 @@ public static partial class DialogueScript
                 if (i > 0) sb.AppendLine();
                 sb.AppendLine("@" + n.Id);
             }
+            if (n.Conditions.Count > 0)
+            {
+                sb.Append("si");
+                AppendConditions(sb, n.Conditions);
+                sb.Append(' ');
+            }
             sb.Append(n.Speaker.Length > 0 ? $"{n.Speaker}: {n.Text}" : $"- {n.Text}");
+            if (n.Conditions.Count > 0 && n.ElseId is not null) sb.Append(" sinon -> ").Append(n.ElseId);
             AppendActions(sb, n.Actions);
             sb.AppendLine();
 

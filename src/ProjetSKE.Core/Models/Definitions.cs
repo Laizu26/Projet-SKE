@@ -369,6 +369,10 @@ public sealed class DialogueNode
     public List<TextVariant> Variants { get; set; } = [];
     /// <summary>Portrait affiché (vide = celui du PJ/PNJ dont le nom est « Qui parle »).</summary>
     public string? PortraitId { get; set; }
+    /// <summary>La réplique n'est jouée que si ces conditions sont remplies (vide = toujours).</summary>
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Si les conditions ne sont pas remplies : aller à cette réplique (vide = passer à la suite normale).</summary>
+    public string? ElseId { get; set; }
 }
 
 public sealed class DialogueDef

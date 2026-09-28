@@ -108,6 +108,12 @@ public sealed class DialogueRunner
             if (label.Length == 0) label = other.StartId ?? "";
         }
         Current = Dialogue.Nodes.FirstOrDefault(n => n.Id == label);
+        // « Seulement si » : la réplique est sautée (vers « sinon », ou la suite normale) si ses conditions manquent.
+        if (Current is { Conditions.Count: > 0 } node && !_session.CheckAll(node.Conditions))
+        {
+            Enter(node.ElseId ?? node.NextId);
+            return;
+        }
         if (Current is not null) Apply(Current.Actions);
     }
 

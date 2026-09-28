@@ -245,6 +245,11 @@ public sealed class DialogueEditor : EditorPage
                     d.Nodes.Select((o, i) => (i == 0 ? d.Id + ":" : d.Id + ":" + o.Id, $"↪ {(d.Name.Length > 0 ? d.Name : d.Id)} › {(i == 0 ? "début" : o.Id)}"))))
                 .ToList();
             nf.TextField("Étiquette", n.Id, v => n.Id = v);
+            // Seulement si : la réplique est sautée si les conditions manquent (ou mène ailleurs).
+            nf.Conditions("Seulement si (vide = toujours)", n.Conditions);
+            if (n.Conditions.Count > 0)
+                nf.RefField("Sinon, aller à (aucun = passer à la suite)", n.ElseId,
+                    nodeIds.Where(o => o.Item1 != n.Id).Prepend(("fin", "Terminer le dialogue")), v => n.ElseId = v);
             var narration = n.Speaker.Length == 0;
             nf.BoolField("Narration (le récit : personne ne parle)", narration, v =>
             {

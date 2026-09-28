@@ -546,6 +546,50 @@ public class IsHeroTests
     }
 }
 
+public class OnlyIfTests
+{
+    private static DialogueRunner Run(string script, Action<GameSession>? setup = null)
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var nodes = DialogueScript.Parse(script, out var errors);
+        Assert.Empty(errors);
+        content.Dialogues.Add(new DialogueDef { Id = "test_si", Nodes = nodes });
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        setup?.Invoke(s);
+        return s.StartDialogue("test_si");
+    }
+
+    private static List<string> Lines(DialogueRunner d)
+    {
+        var lines = new List<string>();
+        for (var guard = 0; guard < 20 && d.Current is not null; guard++) { lines.Add(d.Text); d.Continue(); }
+        return lines;
+    }
+
+    private const string Script = "- Début.\nsi {flag roi} - Le roi t'attend.\nsi {etre tobin} - Un voleur ! sinon -> garde\n- Fin normale.\n-> fin\n@garde\n- Le garde te salue.";
+
+    [Fact]
+    public void OnlyIf_SkipsTheLineOrGoesElsewhere()
+    {
+        Assert.Equal(["Début.", "Le garde te salue."], Lines(Run(Script)));
+        Assert.Equal(["Début.", "Le roi t'attend.", "Le garde te salue."], Lines(Run(Script, s => s.SetFlag("roi"))));
+    }
+
+    [Fact]
+    public void OnlyIf_RoundTripsThroughText()
+    {
+        var nodes = DialogueScript.Parse(Script, out _);
+        Assert.Single(nodes[1].Conditions);
+        Assert.Null(nodes[1].ElseId);
+        Assert.Equal("garde", nodes[2].ElseId);
+        var again = DialogueScript.Parse(DialogueScript.Write(nodes), out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(ConditionType.IsHero, again[2].Conditions[0].Type);
+        Assert.Equal("garde", again[2].ElseId);
+        Assert.Equal("Un voleur !", again[2].Text);
+    }
+}
+
 public class CrackTests
 {
     [Fact]
