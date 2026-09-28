@@ -1,19 +1,15 @@
 # Clé de signature de l'APK
 
-`projetske.keystore` signe **toutes** les versions du jeu (alias `projetske`). C'est ce qui permet d'installer une nouvelle version par-dessus l'ancienne en gardant les sauvegardes.
+`projetske.keystore` signe **toutes** les versions du jeu (alias `projetske`). C'est ce qui permet d'installer une nouvelle version par-dessus l'ancienne (et les mises à jour dans l'application) en gardant les sauvegardes.
 
 - **Ne jamais supprimer ni régénérer ce fichier.** Avec une autre clé, Android refuse la mise à jour et il faut désinstaller le jeu, ce qui efface les sauvegardes.
-- Garde-en une copie de sécurité ailleurs (clé USB, cloud perso).
-- Empreinte SHA-256 : `74:3A:24:04:ED:35:36:55:FF:25:BE:77:AC:C5:18:D2:96:05:55:F2:2E:99:E8:0B:67:4D:E6:37:F9:21:2C:54`. Utile si Firebase la demande pour l'app Android.
-- Le mot de passe est dans `src/ProjetSKE.App/ProjetSKE.App.csproj`, ce qui passe car le dépôt est **privé**. Si le dépôt devient public :
-  1. crée un secret GitHub `SKE_KEYSTORE_PASS` ;
-  2. retire le mot de passe du `.csproj` ;
-  3. passe `-p:AndroidSigningStorePass=${{ secrets.SKE_KEYSTORE_PASS }} -p:AndroidSigningKeyPass=${{ secrets.SKE_KEYSTORE_PASS }}` à `dotnet publish` dans le workflow.
+- Garde-en une copie de sécurité ailleurs, avec son mot de passe.
+- Le **mot de passe n'est pas dans le dépôt** : il est dans le secret GitHub `SKE_KEYSTORE_PASS`
+  (Settings → Secrets and variables → Actions). Sans ce secret, la compilation GitHub s'arrête avec un message clair.
+- Compilation locale (Visual Studio) : ajouter `-p:SkeKeystorePass=<mot de passe>` pour signer avec cette clé ;
+  sans lui, l'APK est signé avec la clé de débogage (utile pour tester, mais il ne s'installe pas par-dessus la version officielle).
+- Empreinte SHA-256 : `92:D9:A3:3E:7B:01:F8:74:FB:02:CA:82:72:0C:E4:FE:D5:43:D7:FE:D2:81:51:B9:42:16:A1:54:8F:7C:39:69`.
+  Utile si Firebase la demande pour l'app Android.
 
-## Dépôt public
-
-Le mot de passe de cette clé figure dans l'historique git (il était dans le `.csproj` quand le dépôt était privé).
-Une fois le dépôt public, quelqu'un pourrait signer un faux APK avec cette clé. Pour un projet perso le risque est faible
-(il faudrait aussi réussir à te le faire installer), mais pour l'éliminer il faut une **nouvelle clé** :
-elle impose de désinstaller le jeu une dernière fois (ce qui efface les sauvegardes), puis les mises à jour
-reprennent normalement. Ce changement est à décider par le propriétaire du projet.
+Historique : une première clé a servi jusqu'à la compilation 22 ; son mot de passe figurait dans l'historique du dépôt,
+elle a donc été remplacée avant de rendre le dépôt public.

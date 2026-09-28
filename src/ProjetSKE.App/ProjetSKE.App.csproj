@@ -20,16 +20,17 @@
   </PropertyGroup>
 
   <!--
-    Signature unique de l'APK : toutes les versions sont signées avec la même clé, sinon Android
-    refuse d'installer une mise à jour par-dessus l'ancienne (et il faudrait désinstaller, ce qui efface les sauvegardes).
-    Le dépôt est privé ; pour plus de sécurité, déplacer le mot de passe dans un secret GitHub (voir signing/LISEZMOI.md).
+    Signature unique de l'APK : toutes les versions sont signées avec la même clé (signing/projetske.keystore),
+    sinon Android refuse d'installer une mise à jour par-dessus l'ancienne.
+    Le mot de passe n'est PAS dans le code : GitHub Actions le passe depuis le secret SKE_KEYSTORE_PASS
+    (-p:SkeKeystorePass=...). Sans mot de passe (compilation locale), l'APK est signé avec la clé de débogage.
   -->
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(SkeKeystorePass)' != ''">
     <AndroidKeyStore>true</AndroidKeyStore>
     <AndroidSigningKeyStore>$(MSBuildThisFileDirectory)../../signing/projetske.keystore</AndroidSigningKeyStore>
     <AndroidSigningKeyAlias>projetske</AndroidSigningKeyAlias>
-    <AndroidSigningStorePass Condition="'$(AndroidSigningStorePass)' == ''">r9CE7DKQSFnpjyi9tWZcGkCF</AndroidSigningStorePass>
-    <AndroidSigningKeyPass Condition="'$(AndroidSigningKeyPass)' == ''">r9CE7DKQSFnpjyi9tWZcGkCF</AndroidSigningKeyPass>
+    <AndroidSigningStorePass>$(SkeKeystorePass)</AndroidSigningStorePass>
+    <AndroidSigningKeyPass>$(SkeKeystorePass)</AndroidSigningKeyPass>
   </PropertyGroup>
 
   <ItemGroup>
