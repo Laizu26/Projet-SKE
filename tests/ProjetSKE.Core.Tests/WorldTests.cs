@@ -498,6 +498,38 @@ public class CampTests
     }
 }
 
+public class CrackTests
+{
+    [Fact]
+    public void Level_FollowsTheHeroHpThresholds()
+    {
+        var cracks = new CrackSettings();
+        Assert.Equal(0, cracks.Level(100));
+        Assert.Equal(0, cracks.Level(30));
+        Assert.Equal(1, cracks.Level(29));
+        Assert.Equal(2, cracks.Level(14));
+        Assert.Equal(3, cracks.Level(4));
+        Assert.Equal(3, cracks.Level(0));
+        Assert.Equal(3, cracks.MaxLevel);
+        cracks.Enabled = false;
+        Assert.Equal(0, cracks.Level(0));
+    }
+
+    [Fact]
+    public void HeroHpPercent_OnlyCountsTheHero()
+    {
+        var s = GameSession.NewGame(GameDatabase.Default, "aldric", new Random(1));
+        s.Recruit("lyra");
+        Assert.Equal(100, s.HeroHpPercent);
+        s.State.Party.First(c => c.DefId == "lyra").CurrentHp = 1; // un compagnon blessé ne compte pas
+        Assert.Equal(100, s.HeroHpPercent);
+        var hero = s.State.Party.First(c => c.DefId == "aldric");
+        hero.CurrentHp = s.GetStats(hero).MaxHp / 10;
+        Assert.InRange(s.HeroHpPercent, 9, 11);
+        Assert.Equal(2, s.Db.Content.World.Cracks.Level(s.HeroHpPercent));
+    }
+}
+
 public class DifferenceTests
 {
     [Fact]

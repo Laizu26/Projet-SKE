@@ -4,6 +4,8 @@
   <!-- Nécessaire pour la base de données en ligne (Firebase). -->
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <!-- Vibration quand l'écran se fissure ou éclate. -->
+  <uses-permission android:name="android.permission.VIBRATE" />
   <!-- Mises à jour dans l'application (APK publié sur GitHub). -->
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

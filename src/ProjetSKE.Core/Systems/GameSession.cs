@@ -733,6 +733,17 @@ public sealed partial class GameSession
 
     public CharacterDef DefOf(CharacterState c) => Db.Characters[c.DefId];
 
+    /// <summary>PV du héros (personnage principal) en % de ses PV max (100 s'il n'est pas dans l'équipe).</summary>
+    public int HeroHpPercent
+    {
+        get
+        {
+            if (State.Party.FirstOrDefault(c => c.DefId == State.HeroId) is not { } hero) return 100;
+            var max = GetStats(hero).MaxHp;
+            return max <= 0 ? 100 : (int)Math.Ceiling(Math.Clamp(hero.CurrentHp, 0, max) * 100.0 / max);
+        }
+    }
+
     public StatBlock GetStats(CharacterState c)
     {
         var def = DefOf(c);

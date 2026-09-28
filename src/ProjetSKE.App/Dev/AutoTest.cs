@@ -177,6 +177,17 @@ public static class AutoTest
             });
             await Step("dialogue avec portrait", () => world!.ShowDialogue(testDb.Content.Npcs.First(n => n.DefaultDialogueId is not null).DefaultDialogueId!), 2500);
             await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
+            foreach (var percent in new[] { 25, 10, 3 })
+                await Step($"écran fissuré ({percent} % PV)", () =>
+                {
+                    var s = world!.Session;
+                    var hero = s.State.Party.First(c => c.DefId == s.State.HeroId);
+                    hero.CurrentHp = Math.Max(1, s.GetStats(hero).MaxHp * percent / 100);
+                    world.Render();
+                    Log($"fissures : palier {s.Db.Content.World.Cracks.Level(s.HeroHpPercent)}");
+                }, 1200);
+            await Step("écran qui éclate", () =>
+                _ = world!.ShatterAsync("GAME OVER", "Test de l'éclatement.", "Continuer", () => Log("écran de fin fermé")), 4500);
 
             await Step("éditeur : accueil", () => SkeApp.GoTo(new DevHomePage()));
             await Step("éditeur : monde", () => SkeApp.GoTo(new WorldEditor()));

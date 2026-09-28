@@ -25,6 +25,9 @@ public sealed class BattleView : ContentView
     private string? _resultText;
     private bool _victory;
     private bool _gameOver;
+    /// <summary>Défaite avec écran brisé : l'écran de fin remplace le bouton « Continuer ».</summary>
+    private bool _shatter;
+    private bool _shatterStarted;
 
     // Dernières valeurs affichées, pour animer les jauges d'une valeur à l'autre.
     private readonly Dictionary<Combatant, (int Hp, int Mana)> _shown = [];
@@ -83,6 +86,40 @@ public sealed class BattleView : ContentView
         Content = grid;
 
         foreach (var c in _battle.Allies.Concat(_battle.Enemies)) _shown[c] = (c.Hp, c.Mana);
+
+        // L'écran se fissure avec les PV du héros, et éclate à la défaite.
+        _page.UpdateCracks(HeroPercent());
+        if (_shatter && !_shatterStarted)
+        {
+            _shatterStarted = true;
+            Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(900), Shatter);
+        }
+    }
+
+    /// <summary>PV du héros en combat (s'il ne combat pas : ses PV hors combat).</summary>
+    private int? HeroPercent()
+    {
+        var hero = _battle.Allies.FirstOrDefault(a => a.Character?.DefId == _page.Session.State.HeroId);
+        if (hero is null || hero.Stats.MaxHp <= 0) return null;
+        return (int)Math.Ceiling(Math.Clamp(hero.Hp, 0, hero.Stats.MaxHp) * 100.0 / hero.Stats.MaxHp);
+    }
+
+    private async void Shatter()
+    {
+        var cracks = _page.Session.Db.Content.World.Cracks;
+        try
+        {
+            if (_gameOver)
+                await _page.ShatterAsync(cracks.GameOverTitle, cracks.GameOverText + "\n\nRetour à la dernière sauvegarde.", "Retour au titre", _page.GameOver);
+            else
+                await _page.ShatterAsync(_resultTitle ?? "", _resultText ?? "", "Se relever", _onClose);
+        }
+        catch (Exception e)
+        {
+            CrashReporter.Log("SKE éclatement impossible : " + e.Message);
+            if (_gameOver) _page.GameOver();
+            else _onClose();
+        }
     }
 
     private static View Padded(View v) => new ContentView { Content = v, Padding = new Thickness(14, 0) };
@@ -276,6 +313,7 @@ public sealed class BattleView : ContentView
     {
         if (_battle.Outcome != BattleOutcome.Ongoing)
         {
+            if (_shatter) return new BoxView { HeightRequest = 44, Color = Colors.Transparent };
             return Primary("Continuer", () =>
             {
                 if (_gameOver) _page.GameOver();
@@ -417,6 +455,8 @@ public sealed class BattleView : ContentView
             {
                 var d = session.ApplyDefeat();
                 _gameOver = d.IsGameOver;
+                var cracks = session.Db.Content.World.Cracks;
+                _shatter = cracks.Enabled || _gameOver;
                 _resultTitle = _page.T("battle.defeat").ToUpperInvariant();
                 _resultText = d.IsGameOver
                     ? "Game over. Retour à la dernière sauvegarde."

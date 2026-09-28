@@ -40,6 +40,24 @@ public sealed class WorldEditor : EditorPage
         f.TextField("Nom du pays (carte, %pays%)", w.CountryName, v => w.CountryName = v);
         f.BoolField("Demander quel PJ parle aux PNJ", w.AskSpeaker, v => w.AskSpeaker = v);
         f.BoolField("Afficher l'onglet Quêtes (journal des quêtes)", w.ShowQuestTab, v => w.ShowQuestTab = v);
+
+        f.Header("Écran fissuré");
+        var cracks = w.Cracks;
+        f.Note("Quand le héros (personnage principal) passe sous un seuil de PV, l'écran se fissure un peu plus, partout dans le jeu. "
+            + "Un soin efface les fissures. À la défaite, l'écran éclate en morceaux avant l'écran de fin.");
+        f.BoolField("Fissures activées", cracks.Enabled, v => cracks.Enabled = v);
+        f.TextField("Seuils en % de PV (du plus haut au plus bas)", string.Join(", ", cracks.Thresholds), v =>
+        {
+            var values = v.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => int.TryParse(x, out var n) ? n : -1).Where(n => n is > 0 and <= 100).Distinct().OrderDescending().ToList();
+            if (values.Count > 0) cracks.Thresholds = values;
+        });
+        f.DoubleField("Force des fissures (0,5 = discrètes, 2 = très visibles)", cracks.Intensity, v => cracks.Intensity = Math.Clamp(v, 0.2, 2));
+        f.BoolField("Secousse et vibration à chaque fissure", cracks.Shake, v => cracks.Shake = v);
+        f.BoolField("L'écran éclate à la défaite", cracks.Shatter, v => cracks.Shatter = v);
+        f.TextField("Titre de l'écran de fin", cracks.GameOverTitle, v => cracks.GameOverTitle = v);
+        f.TextField("Texte de l'écran de fin", cracks.GameOverText, v => cracks.GameOverText = v, multiline: true);
+
         f.Note("Tous les textes de l'interface se renomment ici. Laisser vide = texte par défaut.");
         foreach (var group in Vocabulary.Entries.GroupBy(e => e.Group))
         {

@@ -692,6 +692,29 @@ public sealed class WorldSettings
     public bool ShowQuestTab { get; set; }
     /// <summary>Textes de l'interface remplacés (clé → texte). Voir <see cref="Data.Vocabulary"/>.</summary>
     public Dictionary<string, string> Texts { get; set; } = [];
+    /// <summary>L'écran se fissure quand le héros perd ses PV, puis éclate à la défaite.</summary>
+    public CrackSettings Cracks { get; set; } = new();
+}
+
+/// <summary>Écran qui se fissure selon les PV du héros (personnage principal), puis éclate au game over.</summary>
+public sealed class CrackSettings
+{
+    public bool Enabled { get; set; } = true;
+    /// <summary>Seuils en % de PV du héros : sous chaque seuil, l'écran se fissure un peu plus.</summary>
+    public List<int> Thresholds { get; set; } = [30, 15, 5];
+    /// <summary>Force des fissures (0,5 = discrètes, 1 = normal, 2 = très visibles).</summary>
+    public double Intensity { get; set; } = 1;
+    /// <summary>Secousse et vibration à chaque nouvelle fissure.</summary>
+    public bool Shake { get; set; } = true;
+    /// <summary>À la défaite, l'écran éclate en morceaux avant l'écran de fin.</summary>
+    public bool Shatter { get; set; } = true;
+    public string GameOverTitle { get; set; } = "GAME OVER";
+    public string GameOverText { get; set; } = "Ta route s'arrête ici.";
+
+    /// <summary>Niveau de fissure (0 = intact, jusqu'au nombre de seuils) pour un pourcentage de PV.</summary>
+    public int Level(int hpPercent) => !Enabled ? 0 : Thresholds.Count(t => hpPercent < t);
+
+    public int MaxLevel => Enabled ? Thresholds.Count(t => t > 0) : 0;
 }
 
 /// <summary>Tout le contenu d'un jeu : c'est ce fichier que l'éditeur exporte.</summary>

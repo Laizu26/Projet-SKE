@@ -45,6 +45,7 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 | **Journal** | Page blanche où l'on écrit librement, sauvegardée avec la partie |
 | **Menu** | Sauvegarde, paramètres (dont la vitesse du texte : lente, normale, rapide, instantanée), retour au titre |
 | **Combat** | Par-dessus tout : l'ennemi en haut, la narration du combat (avec les répliques des combattants) au milieu, l'équipe en bas, puis Attaque / Défense / Objet / Fuite. Tour par tour selon la vitesse ; Défense divise les dégâts reçus par deux jusqu'au tour suivant |
+| **Écran fissuré** | Partout dans le jeu : sous 30 %, 15 % puis 5 % des PV du héros, l'écran se fissure un peu plus (secousse et vibration) ; un soin efface les fissures. À la défaite, l'écran éclate en morceaux qui tombent, puis l'écran de fin (game over ou réveil à l'auberge) |
 | **Histoire** | L'écran s'assombrit, le portrait de celui qui parle apparaît, puis la boîte de dialogue ; choix de réponse (certains grisés avec la raison) |
 | **Horloge** | En haut à droite : heure, moment de la journée, jour. Le temps passe en voyageant, en parlant, en combattant, à l'auberge |
 
@@ -92,7 +93,7 @@ Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
 | **Lieux et carte** | Type, liens entre lieux, lieu secret (visible sous condition), durée du voyage, boutique, auberge, rencontres aléatoires, combat fixe (dialogues avant / après victoire / après défaite, répliques), accès sous condition, dialogue de première visite |
 | **Départs** | Plusieurs départs possibles : nom, description, lieu, or, objets, compagnons, date, dialogue d'introduction, effets au lancement (flags, variables, karma, quêtes…) |
 | **Équilibrage** | XP par niveau, niveau max, prix de revente, formules de dégâts et de soin |
-| **Monde et textes** | Nom du pays, choix du PJ qui parle, et **tous les textes de l'interface** (onglets, monnaie, PV/PM, actions de combat, types de lieu…) |
+| **Monde et textes** | Nom du pays, choix du PJ qui parle, écran fissuré (seuils, force, secousse, éclatement, texte du game over), et **tous les textes de l'interface** (onglets, monnaie, PV/PM, actions de combat, types de lieu…) |
 | **Temps et calendrier** | Heure et jour de départ, heures par jour, jours de la semaine, mois, moments de la journée, durées (voyage, exploration, combat, discussion, réveil à l'auberge) |
 | **Karma / Amitié** | Nom, valeur de départ, minimum, maximum, visible ou caché, paliers nommés (« Vertueux », « Ami »…) |
 | **Campement** | Titre du chef, grades (niveau, nombre de places), tâches (durée, grade minimum, places, conditions, résultats tirés au sort avec texte et effets), ressources (stock de départ, max, consommation par habitant et par jour, amitié perdue en cas de pénurie), lieux à construire (coût en or et en ressources, conditions, effets une fois construit, déjà construit au départ) |

@@ -38,6 +38,23 @@ public sealed class DevToolsView : ContentView
                 Btn("+500 XP", () => { s.Execute(new GameAction(ActionType.GiveXp, amount: 500)); Done(); })),
             Btn("Soigner l'équipe", () => { s.HealAll(); Done("Équipe soignée."); }))));
 
+        // PV du héros (pour voir l'écran se fissurer)
+        if (s.State.Party.FirstOrDefault(c => c.DefId == s.State.HeroId) is { } hero)
+        {
+            void SetHp(int percent)
+            {
+                hero.CurrentHp = Math.Max(1, s.GetStats(hero).MaxHp * percent / 100);
+                Done();
+            }
+            stack.Add(Panel(Stack(
+                Muted($"PV du héros : {s.HeroHpPercent} % (écran fissuré)"),
+                ButtonRow(
+                    Btn("100 %", () => SetHp(100)),
+                    Btn("25 %", () => SetHp(25)),
+                    Btn("10 %", () => SetHp(10)),
+                    Btn("3 %", () => SetHp(3))))));
+        }
+
         // Temps
         var clock = s.Clock;
         stack.Add(Panel(Stack(

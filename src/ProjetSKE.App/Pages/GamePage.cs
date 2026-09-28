@@ -50,6 +50,12 @@ public sealed class GamePage : ContentPage
     private readonly ContentView _body = new();
     private readonly Grid _tabBar = new() { ColumnSpacing = 2, Padding = new Thickness(6, 6, 6, 10), BackgroundColor = Theme.Stone950 };
     private readonly ContentView _overlay = new() { IsVisible = false, ZIndex = 10, BackgroundColor = Theme.Overlay };
+    /// <summary>Fissures (PV du héros), au-dessus de tout sauf l'écran de fin.</summary>
+    private readonly CrackOverlay _cracks = new() { ZIndex = 15 };
+    /// <summary>Éclatement de l'écran puis écran de fin (game over / défaite).</summary>
+    private readonly ContentView _endLayer = new() { ZIndex = 40, IsVisible = false, BackgroundColor = Colors.Black };
+    private readonly Grid _root;
+    private bool _cracksShown;
     private string? _pendingMessage;
     private bool _saveDisabled;
 
@@ -110,6 +116,11 @@ public sealed class GamePage : ContentPage
         root.Add(_tabBar, 0, 4);
         root.Add(_overlay, 0, 0);
         Grid.SetRowSpan(_overlay, 5);
+        root.Add(_cracks, 0, 0);
+        Grid.SetRowSpan(_cracks, 5);
+        root.Add(_endLayer, 0, 0);
+        Grid.SetRowSpan(_endLayer, 5);
+        _root = root;
         var eyes = BuildEyelids();
         root.Add(eyes, 0, 0);
         Grid.SetRowSpan(eyes, 5);
@@ -229,6 +240,7 @@ public sealed class GamePage : ContentPage
         _message.Text = _pendingMessage ?? "";
         _toast.IsVisible = _pendingMessage is not null;
         _pendingMessage = null;
+        if (!OverlayVisible || _overlay.Content is not BattleView) UpdateCracks();
 
         BuildTabBar();
 
@@ -483,6 +495,116 @@ public sealed class GamePage : ContentPage
             ShowDialogue(onlyDialogue);
         else if (result.BattleMonsterIds is { } monsters)
             StartBattle(monsters, result.FixedBattleId);
+    }
+
+    // ------------------------------------------------------------------ Écran fissuré, puis brisé
+
+    /// <summary>
+    /// Fissures selon les PV du héros (personnage principal) : sous chaque seuil, l'écran se fissure un peu plus,
+    /// avec une secousse. Un soin les efface. En combat, le combat donne les PV en cours.
+    /// </summary>
+    public void UpdateCracks(int? heroPercent = null)
+    {
+        var settings = Session.Db.Content.World.Cracks;
+        var level = settings.Level(heroPercent ?? Session.HeroHpPercent);
+        var grew = level > _cracks.Level;
+        _cracks.SetLevel(level, settings, animate: _cracksShown);
+        // Pas de secousse en ouvrant une partie déjà mal en point.
+        if (grew && _cracksShown && settings.Shake) Shake();
+        _cracksShown = true;
+    }
+
+    private async void Shake()
+    {
+        Vibrate(90);
+        try
+        {
+            foreach (var x in new[] { -9.0, 8, -6, 4, -2, 0 }) await _root.TranslateTo(x, 0, 35);
+        }
+        catch (Exception) { _root.TranslationX = 0; }
+    }
+
+    private static void Vibrate(int ms)
+    {
+        try
+        {
+            if (Vibration.Default.IsSupported) Vibration.Default.Vibrate(TimeSpan.FromMilliseconds(ms));
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>
+    /// L'écran éclate en morceaux (capture de l'écran découpée en éclats qui tombent), puis l'écran de fin s'affiche.
+    /// Sans éclatement (désactivé), l'écran de fin apparaît directement.
+    /// </summary>
+    public async Task ShatterAsync(string title, string text, string button, Action onDone)
+    {
+        var settings = Session.Db.Content.World.Cracks;
+        if (settings.Enabled && settings.Shatter)
+        {
+            Microsoft.Maui.Graphics.IImage? image = null;
+            try
+            {
+                if (await _root.CaptureAsync() is { } shot)
+                {
+                    await using var stream = await shot.OpenReadAsync();
+                    image = LoadImage(stream);
+                }
+            }
+            catch (Exception e) { CrashReporter.Log("SKE capture de l'écran impossible : " + e.Message); }
+            Vibrate(350);
+            var shatter = new ShatterView(image, Math.Max(1, settings.MaxLevel));
+            _endLayer.Content = shatter;
+            _endLayer.IsVisible = true;
+            await shatter.PlayAsync();
+        }
+        var screen = EndScreen(title, text, button, () =>
+        {
+            _endLayer.IsVisible = false;
+            _endLayer.Content = null;
+            onDone();
+        });
+        _endLayer.Content = screen;
+        _endLayer.IsVisible = true;
+        screen.Opacity = 0;
+        await screen.FadeTo(1, 900, Easing.SinOut);
+    }
+
+    private static Microsoft.Maui.Graphics.IImage? LoadImage(Stream stream)
+    {
+#if ANDROID
+        return Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(stream);
+#else
+        return null;
+#endif
+    }
+
+    private static View EndScreen(string title, string text, string button, Action onDone)
+    {
+        var titleLabel = new Label
+        {
+            Text = title, FontFamily = "serif", FontSize = 38, FontAttributes = FontAttributes.Bold, CharacterSpacing = 6,
+            TextColor = Color.FromArgb("#DC2626"), HorizontalTextAlignment = TextAlignment.Center,
+        };
+        var textLabel = new Label
+        {
+            Text = text, FontSize = 15, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400,
+            HorizontalTextAlignment = TextAlignment.Center,
+        };
+        return new Grid
+        {
+            BackgroundColor = Colors.Black,
+            Padding = new Thickness(28),
+            Children =
+            {
+                new VerticalStackLayout
+                {
+                    Spacing = 18,
+                    VerticalOptions = LayoutOptions.Center,
+                    Children = { titleLabel, GoldLine(2), textLabel, Primary(button, onDone) },
+                },
+            },
+        };
     }
 
     /// <summary>Game over : retour au titre sans sauvegarder (on reprendra à la dernière sauvegarde).</summary>
