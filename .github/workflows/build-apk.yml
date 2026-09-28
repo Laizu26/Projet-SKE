@@ -59,6 +59,8 @@ jobs:
           name: ProjetSKE-apk
           path: out/*-Signed.apk
           if-no-files-found: error
+          # L'APK durable est dans les Releases : l'artefact ne sert qu'aux jobs suivants.
+          retention-days: 1
 
   # Lance l'APK sur un émulateur Android et parcourt le jeu automatiquement (Dev/AutoTest.cs)
   # pour détecter les plantages sans téléphone. Le journal Android est publié en artefact.
@@ -106,6 +108,7 @@ jobs:
             logcat.txt
             ecran.png
           if-no-files-found: ignore
+          retention-days: 3
 
   # Publie l'APK testé en « Release » GitHub : l'application la détecte et se met à jour toute seule (Updates.cs).
   # Le numéro de compilation sert d'étiquette (v123) et de versionCode Android.

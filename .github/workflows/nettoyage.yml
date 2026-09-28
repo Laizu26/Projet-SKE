@@ -1,0 +1,25 @@
+# Supprime tous les artefacts des builds (APK, journaux d'émulateur) pour libérer le stockage GitHub.
+# À lancer à la main : onglet Actions › Nettoyage des artefacts › Run workflow.
+# Les APK publiés dans les Releases ne sont pas touchés (les mises à jour de l'appli continuent de marcher).
+name: Nettoyage des artefacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  nettoyage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supprimer les artefacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ids=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" --jq '.artifacts[].id')
+          count=0
+          for id in $ids; do
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" && count=$((count + 1))
+          done
+          echo "$count artefact(s) supprimé(s). Le compteur de stockage GitHub se met à jour sous 6 à 12 h."
