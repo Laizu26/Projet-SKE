@@ -416,7 +416,7 @@ public sealed partial class GameSession
 
     /// <summary>
     /// Remplace les balises d'un texte : %pj% (qui parle), %heros%, %pays%, %monnaie%, %heure%, %date%, %jour%,
-    /// %periode%, %lieu%, %or%, %karma%, %karma:id%, %var:id%, %amitie:id%, %nom:id%.
+    /// %periode%, %lieu%, %or%, %karma%, %karma:id%, %var:id%, %amitie:id%, %nom:id%, %classe%, %titre% (:id possible).
     /// </summary>
     public string FormatText(string text)
     {
@@ -442,6 +442,8 @@ public sealed partial class GameSession
                 "amitie" => GetFriendship(arg).ToString(),
                 "nom" => CharacterName(arg),
                 "membre" => CharacterName("@membre"),
+                "classe" => Db.Characters.TryGetValue(ResolveWho(arg), out var pc) ? pc.Class : "",
+                "titre" => Db.Characters.TryGetValue(ResolveWho(arg), out var pt) ? pt.Title : "",
                 _ => m.Value,
             };
         });
@@ -675,7 +677,7 @@ public sealed partial class GameSession
         IEnumerable<(string, string, string)> entries = category switch
         {
             EncyclopediaCategory.Characters => State.SeenCharacters.Select(id => Db.Characters[id])
-                .Select(c => (c.Name, c.Title, c.Description))
+                .Select(c => (c.Name, c.ClassAndTitle, c.Description))
                 .Concat(State.SeenNpcs.Select(id => Db.Npcs[id])
                     .Select(n => (n.Name, "PNJ · " + NameOrId(Db.Locations, NpcLocation(n), l => l.Name), n.Description))),
             EncyclopediaCategory.Monsters => State.SeenMonsters.Select(id => Db.Monsters[id])

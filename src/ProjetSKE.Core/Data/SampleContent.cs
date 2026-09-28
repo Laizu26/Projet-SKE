@@ -180,7 +180,7 @@ internal static class SampleContent
     [
         new()
         {
-            Id = "aldric", Name = "Aldric", Title = "Chevalier errant", IsStarter = true,
+            Id = "aldric", Name = "Aldric", Class = "Chevalier", Title = "Chevalier errant", IsStarter = true,
             Description = "Chevalier sans seigneur, parti sur les routes pour sauver Valdor.",
             BaseStats = new(MaxHp: 120, MaxMana: 20, Attack: 14, Defense: 10, Magic: 4, Speed: 8),
             GrowthPerLevel = new(MaxHp: 12, MaxMana: 2, Attack: 2, Defense: 2, Magic: 0, Speed: 1),
@@ -189,7 +189,7 @@ internal static class SampleContent
         },
         new()
         {
-            Id = "lyra", Name = "Lyra", Title = "Mage de Brume",
+            Id = "lyra", Name = "Lyra", Class = "Mage", Title = "Mage de Brume",
             Description = "Jeune mage qui s'ennuie à mourir à Bourg-de-Brume.",
             BaseStats = new(MaxHp: 70, MaxMana: 50, Attack: 5, Defense: 5, Magic: 16, Speed: 10),
             GrowthPerLevel = new(MaxHp: 7, MaxMana: 5, Attack: 1, Defense: 1, Magic: 3, Speed: 1),
@@ -198,7 +198,7 @@ internal static class SampleContent
         },
         new()
         {
-            Id = "tobin", Name = "Tobin", Title = "Voleur des bois",
+            Id = "tobin", Name = "Tobin", Class = "Voleur", Title = "Voleur des bois",
             Description = "Détrousseur de la forêt de Sombrebois, plus bavard que dangereux.",
             BaseStats = new(MaxHp: 85, MaxMana: 20, Attack: 12, Defense: 6, Magic: 3, Speed: 16),
             GrowthPerLevel = new(MaxHp: 9, MaxMana: 2, Attack: 2, Defense: 1, Magic: 0, Speed: 2),
@@ -207,7 +207,7 @@ internal static class SampleContent
         },
         new()
         {
-            Id = "maelle", Name = "Sœur Maëlle", Title = "Clerc",
+            Id = "maelle", Name = "Sœur Maëlle", Class = "Clerc", Title = "Sœur de l'Aube",
             Description = "Prêtresse de la chapelle de Havrefort. Les morts la craignent.",
             BaseStats = new(MaxHp: 90, MaxMana: 40, Attack: 8, Defense: 8, Magic: 12, Speed: 7),
             GrowthPerLevel = new(MaxHp: 10, MaxMana: 4, Attack: 1, Defense: 2, Magic: 2, Speed: 1),

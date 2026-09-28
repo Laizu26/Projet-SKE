@@ -405,7 +405,7 @@ public sealed class GamePage : ContentPage
             var info = new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center };
             info.Add(Txt(def.Name, 15, Theme.Stone100, bold: true));
             var details = new List<string>();
-            if (def.Title.Length > 0) details.Add(def.Title);
+            if (def.ClassAndTitle.Length > 0) details.Add(def.ClassAndTitle);
             var karma = Session.Db.Content.Karma;
             if (karma.Enabled && karma.Visible) details.Add($"{karma.Name} {c.Karma} {karma.TierName(c.Karma)}".Trim());
             var friendship = Session.Db.Content.Friendship;

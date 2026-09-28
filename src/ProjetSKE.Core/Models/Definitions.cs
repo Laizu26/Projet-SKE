@@ -62,8 +62,14 @@ public sealed class CharacterDef
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
-    /// <summary>Classe / titre affiché, ex : "Chevalier errant".</summary>
+    /// <summary>Classe (rôle en jeu), ex : « Chevalier ».</summary>
+    public string Class { get; set; } = "";
+    /// <summary>Titre (surnom, rang), ex : « le Chevalier errant ».</summary>
     public string Title { get; set; } = "";
+
+    /// <summary>Classe et titre réunis pour l'affichage (« Chevalier · Chevalier errant »).</summary>
+    [JsonIgnore]
+    public string ClassAndTitle => string.Join(" · ", new[] { Class, Title }.Where(x => x.Length > 0));
     public string Description { get; set; } = "";
     public StatBlock BaseStats { get; set; } = new();
     public StatBlock GrowthPerLevel { get; set; } = new();

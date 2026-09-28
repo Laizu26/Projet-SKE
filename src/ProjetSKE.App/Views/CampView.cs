@@ -82,7 +82,7 @@ public sealed class CampView : ContentView
                             Spacing = 8,
                             Children = { Txt(def.Name, 16, Theme.Stone900, bold: true), Badge($"Nv {c.Level}", Theme.Gold700) },
                         },
-                        Caps(def.Title, 9, Theme.Stone500),
+                        Caps(def.ClassAndTitle, 9, Theme.Stone500),
                         Bar(_page.T("hp"), c.CurrentHp, stats.MaxHp, Theme.Hp),
                         Bar(_page.T("mp"), c.CurrentMana, stats.MaxMana, Theme.Mana),
                     },
@@ -115,7 +115,7 @@ public sealed class CampView : ContentView
                 },
                 new Label
                 {
-                    Text = $"{def.Title} · Niveau {c.Level}".ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold,
+                    Text = string.Join(" · ", new[] { def.Class, def.Title, $"Niveau {c.Level}" }.Where(x => x.Length > 0)).ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold,
                     TextColor = Theme.Gold500, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
                 },
                 new Label

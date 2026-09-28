@@ -34,7 +34,7 @@ public sealed class CharacterSelectPage : ContentPage
                 {
                     Avatar(def.Name, color, 96),
                     new Label { Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
-                    new Label { Text = def.Title.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
+                    new Label { Text = def.ClassAndTitle.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
                     new Label { Text = def.Description, FontSize = 14, TextColor = Theme.Stone400, FontAttributes = FontAttributes.Italic, HorizontalTextAlignment = TextAlignment.Center },
                     TileGrid(
                     [
@@ -99,7 +99,7 @@ public sealed class StartSelectPage : ContentPage
         var hero = db.Characters[heroId];
         var stack = new VerticalStackLayout { Padding = new Thickness(18, 28), Spacing = 16 };
         stack.Add(Pill("◂  Héros", () => SkeApp.GoTo(new CharacterSelectPage(slot, db))));
-        stack.Add(PageHeader(Ico.Compass, "Choisis ton départ", hero.Name + " · " + hero.Title));
+        stack.Add(PageHeader(Ico.Compass, "Choisis ton départ", string.Join(" · ", new[] { hero.Name, hero.ClassAndTitle }.Where(x => x.Length > 0))));
 
         foreach (var start in db.StartsFor(heroId))
         {

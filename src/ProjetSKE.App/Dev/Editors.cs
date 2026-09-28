@@ -21,7 +21,7 @@ public static class Editors
             Skills = C.Skills.Any(s => s.Id == "frappe") ? [new(1, "frappe")] : [],
         },
         x => new CharacterEditor(x),
-        subtitle: x => (x.IsStarter ? "départ · " : "") + x.Title,
+        subtitle: x => (x.IsStarter ? "départ · " : "") + x.ClassAndTitle,
         help: "Personnages jouables. « Proposé au départ » = choisissable en début de partie ; les autres se recrutent par un dialogue (effet « Recruter un PJ »).");
 
     public static Page NpcList() => new EntityListPage<NpcDef>(
@@ -103,7 +103,8 @@ public sealed class CharacterEditor : EditorPage
     {
         f.Note("Identifiant : " + _x.Id);
         f.TextField("Nom", _x.Name, v => _x.Name = v);
-        f.TextField("Classe / titre", _x.Title, v => _x.Title = v);
+        f.TextField("Classe (ex : Chevalier, Mage)", _x.Class, v => _x.Class = v);
+        f.TextField("Titre (ex : le Chevalier errant)", _x.Title, v => _x.Title = v);
         f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
         f.BoolField("Proposé au départ", _x.IsStarter, v => _x.IsStarter = v);
         f.StatsField("Stats de base (niveau 1)", _x.BaseStats);

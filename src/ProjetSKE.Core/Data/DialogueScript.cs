@@ -27,7 +27,7 @@ public static partial class DialogueScript
         Les répliques d'un même bloc s'enchaînent toutes seules.
 
         Balises dans les textes : %pj% (qui parle) %heros% %pays% %monnaie%
-        %heure% %date% %periode% %lieu% %or% %karma% %var:id% %amitie:pnj% %nom:id%
+        %heure% %date% %periode% %lieu% %or% %karma% %var:id% %amitie:pnj% %nom:id% %classe% %titre%
 
         Actions : [flag x] [sans_flag x] [recrute perso] [depart perso]
         [objet id 2] [prendre id 1] [or 50] [payer 50] [xp 30]

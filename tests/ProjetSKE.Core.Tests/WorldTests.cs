@@ -543,3 +543,18 @@ public class StoryTests
         Assert.Contains("{passe rancon enquete}", written);
     }
 }
+
+public class ClassTitleTests
+{
+    [Fact]
+    public void ClassAndTitleAreSeparate()
+    {
+        var aldric = GameDatabase.Default.Characters["aldric"];
+        Assert.Equal("Chevalier", aldric.Class);
+        Assert.Equal("Chevalier errant", aldric.Title);
+        Assert.Equal("Chevalier · Chevalier errant", aldric.ClassAndTitle);
+        var s = GameSession.NewGame(GameDatabase.Default, "aldric");
+        Assert.Equal("Chevalier / Chevalier errant", s.FormatText("%classe% / %titre%"));
+        Assert.Equal("Mage", s.FormatText("%classe:lyra%"));
+    }
+}
