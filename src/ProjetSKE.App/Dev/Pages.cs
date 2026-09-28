@@ -190,7 +190,9 @@ public sealed class DevHomePage : ContentPage
         var c = DevState.Draft;
         var stack = new VerticalStackLayout { Padding = new Thickness(12), Spacing = 6 };
         stack.Add(Heading("Mode développeur"));
-        stack.Add(Muted(DevState.Dirty ? "● Modifications non enregistrées" : "Tout est enregistré."));
+        if (DevState.Restored)
+            stack.Add(Txt("Brouillon retrouvé : tes modifications non enregistrées ont été récupérées.", 13, Theme.Gold700, bold: true));
+        stack.Add(Muted(DevState.Dirty ? "● Modifications en cours (enregistrées automatiquement en revenant ici)" : "Tout est enregistré sur ce téléphone."));
         if (_message is not null) stack.Add(Txt(_message, 13, Theme.Good));
 
         stack.Add(Section("Contenu"));
@@ -242,13 +244,16 @@ public sealed class DevHomePage : ContentPage
                 Children =
                 {
                     Txt(CloudSync.IsReady ? "Synchronisation automatique active" : "Synchronisation désactivée", 14, Theme.Stone900, bold: true),
-                    Muted(CloudSync.Busy ? "Synchronisation en cours…" : CloudSync.LastStatus, 12),
+                    CloudSync.Busy ? Muted("Synchronisation en cours…", 12)
+                        : Txt(CloudSync.LastStatus, 12, CloudSync.LastFailed ? Theme.Danger : Theme.Stone600, bold: CloudSync.LastFailed),
+                    PendingLine(),
                     Muted($"{last} · toutes les {CloudSync.AutoInterval.TotalSeconds:0} s · {CloudSync.BackupCount} copie(s) locale(s)", 11),
                 },
             }),
             ButtonRow(
                 Btn("Synchroniser", SyncNow, enabled: CloudSync.IsReady && !CloudSync.Busy, selected: true),
                 Btn("Configurer", () => SkeApp.GoTo(new CloudSettingsPage()))),
+            Btn("Historique, récupération et journal", () => SkeApp.GoTo(new RecoveryPage())),
             Muted("Les modifications de chacun sont fusionnées élément par élément : rien n'est écrasé. " +
                   "Si un même élément a été modifié des deux côtés, la version en ligne est gardée et la tienne est mise de côté ci-dessous.", 11))));
 
@@ -305,6 +310,14 @@ public sealed class DevHomePage : ContentPage
         return b;
     }
 
+    private static View PendingLine()
+    {
+        var pending = CloudSync.PendingChanges;
+        return pending == 0
+            ? Txt($"✓ Tout est en ligne (révision {CloudSync.BaseRevision})", 12, Theme.Good, bold: true)
+            : Txt($"● {pending} élément(s) de ce téléphone pas encore en ligne", 12, Theme.Gold700, bold: true);
+    }
+
     private void Save()
     {
         _errors = DevState.Validate();
@@ -332,6 +345,8 @@ public sealed class DevHomePage : ContentPage
     {
         base.OnAppearing();
         CloudSync.Changed += OnCloudChanged;
+        // Retour à l'accueil après des modifications : enregistrement (et publication) automatique.
+        if (DevState.Dirty) Save();
     }
 
     protected override void OnDisappearing()

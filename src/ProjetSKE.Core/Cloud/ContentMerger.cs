@@ -185,6 +185,34 @@ public static class ContentMerger
         }
     }
 
+    /// <summary>Nombre d'éléments différents entre deux contenus (ajoutés, supprimés ou modifiés, réglages compris).</summary>
+    public static int CountDifferences(GameContent a, GameContent b)
+    {
+        var ctx = ContentJsonContext.Default;
+        int Lists<T>(List<T> x, List<T> y, Func<T, string> id, JsonTypeInfo<T> info)
+        {
+            var dx = new Dictionary<string, string>();
+            foreach (var item in x) dx[id(item)] = JsonSerializer.Serialize(item, info);
+            var dy = new Dictionary<string, string>();
+            foreach (var item in y) dy[id(item)] = JsonSerializer.Serialize(item, info);
+            return dx.Keys.Union(dy.Keys).Count(k => !dx.TryGetValue(k, out var vx) || !dy.TryGetValue(k, out var vy) || vx != vy);
+        }
+        int Value<T>(T x, T y, JsonTypeInfo<T> info) => JsonSerializer.Serialize(x, info) == JsonSerializer.Serialize(y, info) ? 0 : 1;
+        return Lists(a.Skills, b.Skills, x => x.Id, ctx.SkillDef) + Lists(a.Items, b.Items, x => x.Id, ctx.ItemDef)
+            + Lists(a.Characters, b.Characters, x => x.Id, ctx.CharacterDef) + Lists(a.Monsters, b.Monsters, x => x.Id, ctx.MonsterDef)
+            + Lists(a.Locations, b.Locations, x => x.Id, ctx.LocationDef) + Lists(a.Npcs, b.Npcs, x => x.Id, ctx.NpcDef)
+            + Lists(a.Dialogues, b.Dialogues, x => x.Id, ctx.DialogueDef) + Lists(a.Quests, b.Quests, x => x.Id, ctx.QuestDef)
+            + Lists(a.Variables, b.Variables, x => x.Id, ctx.VariableDef) + Lists(a.Portraits, b.Portraits, x => x.Id, ctx.PortraitDef)
+            + Value(a.Start, b.Start, ctx.StartSettings) + Value(a.Balance, b.Balance, ctx.BalanceSettings)
+            + Value(a.Title, b.Title, ctx.String) + Value(a.World, b.World, ctx.WorldSettings) + Value(a.Time, b.Time, ctx.TimeSettings)
+            + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings)
+            + Value(a.Camp, b.Camp, ctx.CampSettings);
+    }
+
+    /// <summary>Résumé lisible d'un contenu (pour l'historique).</summary>
+    public static string Summary(GameContent c) =>
+        $"{c.Characters.Count} PJ · {c.Npcs.Count} PNJ · {c.Dialogues.Count} dialogues · {c.Quests.Count} quêtes · {c.Items.Count} objets · {c.Monsters.Count} monstres · {c.Locations.Count} lieux";
+
     public static string ConflictsToJson(List<MergeConflict> conflicts) =>
         JsonSerializer.Serialize(conflicts, ContentJsonContext.Default.ListMergeConflict);
 

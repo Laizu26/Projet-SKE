@@ -38,6 +38,9 @@ public interface IContentRepository
     /// </summary>
     Task<PushResult> PushAsync(GameContent content, string? expectedUpdateTime, int baseRevision, string author,
         bool firstPublish = false, CancellationToken ct = default);
+
+    /// <summary>Toutes les révisions publiées (historique), de la plus récente à la plus ancienne.</summary>
+    Task<IReadOnlyList<CloudSnapshot>> HistoryAsync(CancellationToken ct = default);
 }
 
 /// <summary>Conversion entre le contenu du jeu et un document Firestore (API REST).</summary>
@@ -204,6 +207,33 @@ public sealed class FirestoreContentRepository : IContentRepository
         {
             // L'historique est un bonus : on n'échoue pas la publication pour lui.
         }
+    }
+
+    public async Task<IReadOnlyList<CloudSnapshot>> HistoryAsync(CancellationToken ct = default)
+    {
+        var list = new List<CloudSnapshot>();
+        string? pageToken = null;
+        do
+        {
+            var url =
+                $"https://firestore.googleapis.com/v1/projects/{Uri.EscapeDataString(_settings.ProjectId)}/databases/(default)/documents/" +
+                $"{Uri.EscapeDataString(_settings.Collection)}/{Uri.EscapeDataString(_settings.Document)}/historique" +
+                $"?key={Uri.EscapeDataString(_settings.ApiKey)}&pageSize=100" + (pageToken is null ? "" : "&pageToken=" + Uri.EscapeDataString(pageToken));
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            await AuthorizeAsync(request, ct);
+            using var response = await _http.SendAsync(request, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode) throw new HttpRequestException(Explain(response.StatusCode, body));
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("documents", out var documents))
+                foreach (var d in documents.EnumerateArray())
+                {
+                    try { list.Add(FirestoreFormat.ParseDocument(d.GetRawText())); }
+                    catch (Exception) { /* révision illisible : ignorée */ }
+                }
+            pageToken = doc.RootElement.TryGetProperty("nextPageToken", out var next) ? next.GetString() : null;
+        } while (pageToken is not null && list.Count < 1000);
+        return list.OrderByDescending(r => r.Revision).ToList();
     }
 
     private static string Short(string text) => text.Length > 200 ? text[..200] + "…" : text;

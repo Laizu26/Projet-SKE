@@ -421,3 +421,19 @@ public class CampTests
         Assert.Contains("Merci, Aldric", d.Text);
     }
 }
+
+public class DifferenceTests
+{
+    [Fact]
+    public void CountDifferences_CountsChangedAddedAndRemovedElements()
+    {
+        var a = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var b = ContentSerializer.Clone(a);
+        Assert.Equal(0, Cloud.ContentMerger.CountDifferences(a, b));
+        b.Npcs[0].Name = "Autre";
+        b.Items.RemoveAt(0);
+        b.Variables.Add(new VariableDef { Id = "x" });
+        b.World.CountryName = "Ailleurs";
+        Assert.Equal(4, Cloud.ContentMerger.CountDifferences(a, b));
+    }
+}

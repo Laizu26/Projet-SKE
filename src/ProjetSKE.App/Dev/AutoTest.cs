@@ -21,6 +21,68 @@ public static class AutoTest
         Log("ok : " + name);
     }
 
+    private static void Sync(string message) => CrashReporter.Log("SKE_SYNC_TEST " + message);
+
+    /// <summary>
+    /// Synchronisation de bout en bout sur un document de test séparé (le vrai contenu n'est pas touché) :
+    /// premier envoi, modification enregistrée puis publiée, relecture en ligne, puis un « autre téléphone »
+    /// (état oublié, contenu d'origine) qui doit récupérer la modification.
+    /// </summary>
+    private static async Task SyncScenario()
+    {
+        var original = CloudSync.Settings;
+        var test = original with { Document = "autotest-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") };
+        try
+        {
+            CloudSync.Settings = test;
+            CloudSync.ForgetSyncState();
+            await MainThread.InvokeOnMainThreadAsync(() => { SkeApp.ResetContent(); DevState.Revert(); });
+            Sync("1 premier envoi : " + await CloudSync.SyncAsync());
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                DevState.Draft.Npcs[0].Name = "AUTOTEST-EDIT";
+                DevState.Touch();
+                DevState.Save();
+            });
+            Sync("2 après enregistrement : " + await CloudSync.SyncAsync() + $" · en attente : {CloudSync.PendingChanges}");
+
+            var online = await new Core.Cloud.FirestoreContentRepository(test).PullAsync();
+            var ok = online?.Content.Npcs[0].Name == "AUTOTEST-EDIT";
+            CrashReporter.Log(ok ? $"SKE_SYNC_OK publié (révision {online!.Revision})" : $"SKE_SYNC_FAIL la modification n'est pas en ligne (lu : {online?.Content.Npcs[0].Name ?? "rien"})");
+
+            // Autre téléphone : état oublié, contenu d'origine.
+            CloudSync.ForgetSyncState();
+            await MainThread.InvokeOnMainThreadAsync(() => { SkeApp.ResetContent(); DevState.Revert(); });
+            Sync("3 autre téléphone : " + await CloudSync.SyncAsync());
+            var received = SkeApp.Db.Content.Npcs[0].Name == "AUTOTEST-EDIT";
+            CrashReporter.Log(received ? "SKE_SYNC_OK récupéré sur un autre téléphone" : $"SKE_SYNC_FAIL non récupéré (local : {SkeApp.Db.Content.Npcs[0].Name})");
+
+            // Mise à jour de l'application avec un contenu local déjà modifié : rien ne doit repartir en arrière.
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                DevState.Draft.Npcs[1].Name = "AUTOTEST-EDIT-2";
+                DevState.Touch();
+                DevState.Save();
+            });
+            Sync("4 deuxième modification : " + await CloudSync.SyncAsync());
+            var again = await new Core.Cloud.FirestoreContentRepository(test).PullAsync();
+            var both = again?.Content.Npcs[0].Name == "AUTOTEST-EDIT" && again.Content.Npcs[1].Name == "AUTOTEST-EDIT-2";
+            CrashReporter.Log(both ? $"SKE_SYNC_OK deux modifications en ligne (révision {again!.Revision})" : "SKE_SYNC_FAIL deuxième modification absente");
+            foreach (var line in CloudSync.Journal.Take(8)) Sync("journal : " + line);
+        }
+        catch (Exception e)
+        {
+            CrashReporter.Log("SKE_SYNC_FAIL exception " + e.Message);
+        }
+        finally
+        {
+            CloudSync.Settings = original;
+            CloudSync.ForgetSyncState();
+            await MainThread.InvokeOnMainThreadAsync(() => { SkeApp.ResetContent(); DevState.Revert(); });
+        }
+    }
+
     public static async Task RunAsync()
     {
         try
@@ -105,6 +167,7 @@ public static class AutoTest
             }, 2500);
 
             Log("base en ligne : " + await CloudSync.TestAsync(CloudSync.Settings));
+            await SyncScenario();
             Log("SKE_AUTOTEST_DONE");
         }
         catch (Exception e)

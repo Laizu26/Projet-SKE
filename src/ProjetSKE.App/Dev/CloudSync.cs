@@ -90,6 +90,41 @@ public static class CloudSync
     private static string BasePath => Path.Combine(FileSystem.AppDataDirectory, "cloud-base.json");
     private static string ConflictsPath => Path.Combine(FileSystem.AppDataDirectory, "cloud-conflits.json");
     private static string BackupDir => Path.Combine(FileSystem.AppDataDirectory, "copies-contenu");
+    private static string JournalPath => Path.Combine(FileSystem.AppDataDirectory, "cloud-journal.txt");
+
+    // ------------------------------------------------------------------ Journal de synchronisation
+
+    /// <summary>Derniers événements de synchronisation (le plus récent en premier), gardés sur le téléphone.</summary>
+    public static IReadOnlyList<string> Journal
+    {
+        get
+        {
+            try { return File.Exists(JournalPath) ? File.ReadAllLines(JournalPath).Reverse().ToList() : []; }
+            catch (Exception) { return []; }
+        }
+    }
+
+    private static void Note(string message)
+    {
+        try
+        {
+            var lines = File.Exists(JournalPath) ? File.ReadAllLines(JournalPath).ToList() : [];
+            lines.Add($"{DateTime.Now:dd/MM HH:mm:ss}  {message}");
+            File.WriteAllLines(JournalPath, lines.TakeLast(60));
+        }
+        catch (Exception) { }
+        CrashReporter.Log("SKE_SYNC " + message);
+    }
+
+    /// <summary>Nombre d'éléments modifiés sur ce téléphone et pas encore publiés.</summary>
+    public static int PendingChanges
+    {
+        get
+        {
+            try { return ContentMerger.CountDifferences(SkeApp.Db.Content, LoadBase()); }
+            catch (Exception) { return 0; }
+        }
+    }
 
     /// <summary>Dernière version commune (point de départ de la fusion). Par défaut : le contenu officiel.</summary>
     private static GameContent LoadBase()
@@ -104,19 +139,95 @@ public static class CloudSync
 
     private static void SaveBase(GameContent content) => File.WriteAllText(BasePath, ContentSerializer.ToJson(content));
 
-    /// <summary>Copie locale avant tout changement (les 20 dernières sont gardées).</summary>
-    private static void Backup(GameContent content, string label)
+    /// <summary>Copie locale avant tout changement (les 30 dernières sont gardées).</summary>
+    public static void Backup(GameContent content, string label)
     {
         try
         {
             Directory.CreateDirectory(BackupDir);
             File.WriteAllText(Path.Combine(BackupDir, $"{DateTime.Now:yyyyMMdd-HHmmss}-{label}.json"), ContentSerializer.ToJson(content));
-            foreach (var old in Directory.GetFiles(BackupDir).OrderByDescending(f => f).Skip(20)) File.Delete(old);
+            foreach (var old in Directory.GetFiles(BackupDir).OrderByDescending(f => f).Skip(30)) File.Delete(old);
         }
         catch (Exception) { }
     }
 
     public static int BackupCount => Directory.Exists(BackupDir) ? Directory.GetFiles(BackupDir).Length : 0;
+
+    /// <summary>Copies locales (chemin, date, raison), de la plus récente à la plus ancienne.</summary>
+    public static IReadOnlyList<(string Path, DateTime When, string Label)> Backups
+    {
+        get
+        {
+            if (!Directory.Exists(BackupDir)) return [];
+            return Directory.GetFiles(BackupDir).OrderByDescending(f => f).Select(f =>
+            {
+                var name = Path.GetFileNameWithoutExtension(f);
+                var when = DateTime.TryParseExact(name.Length >= 15 ? name[..15] : "", "yyyyMMdd-HHmmss",
+                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d : File.GetLastWriteTime(f);
+                var label = name.Length > 16 ? name[16..].Replace('-', ' ') : "";
+                return (f, when, label);
+            }).ToList();
+        }
+    }
+
+    public static GameContent? ReadBackup(string path)
+    {
+        try { return ContentSerializer.FromJson(File.ReadAllText(path)); }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// Remet un contenu (copie locale ou ancienne révision) comme contenu actif. La version actuelle est d'abord
+    /// copiée ; la synchronisation suivante publie le contenu remis comme nouvelle révision (rien n'est effacé en ligne).
+    /// </summary>
+    public static async Task<string> RestoreAsync(GameContent content, string what)
+    {
+        Backup(SkeApp.Db.Content, "avant-restauration");
+        SkeApp.ApplyContent(content);
+        DevState.Revert();
+        Note($"Restauration : {what}");
+        return await SyncAsync();
+    }
+
+    /// <summary>Récupère la dernière version en ligne telle quelle (la version du téléphone est copiée avant).</summary>
+    public static async Task<string> TakeOnlineAsync()
+    {
+        if (!Settings.IsComplete) return "Base non configurée.";
+        try
+        {
+            var remote = await Repository.PullAsync();
+            if (remote is null) return LastStatus = "La base en ligne est vide.";
+            Backup(SkeApp.Db.Content, "avant-recuperation");
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                SkeApp.ApplyContent(remote.Content);
+                DevState.Revert();
+            });
+            SaveBase(remote.Content);
+            Remember(remote.UpdateTime, remote.Revision);
+            Note($"Version en ligne récupérée : révision {remote.Revision} ({remote.UpdatedBy})");
+            return Done($"Version en ligne récupérée (révision {remote.Revision}).");
+        }
+        catch (Exception e)
+        {
+            return LastStatus = "Récupération impossible : " + e.Message;
+        }
+        finally
+        {
+            MainThread.BeginInvokeOnMainThread(() => Changed?.Invoke());
+        }
+    }
+
+    public static async Task<IReadOnlyList<CloudSnapshot>> HistoryAsync() => await Repository.HistoryAsync();
+
+    /// <summary>Oublie l'état de synchronisation de ce téléphone (comme une installation neuve). Sert au test automatique.</summary>
+    public static void ForgetSyncState()
+    {
+        try { if (File.Exists(BasePath)) File.Delete(BasePath); }
+        catch (Exception) { }
+        BaseUpdateTime = null;
+        BaseRevision = 0;
+    }
 
     public static List<MergeConflict> Conflicts
     {
@@ -192,9 +303,10 @@ public static class CloudSync
                     // Première publication.
                     var first = await Repository.PushAsync(local, null, 0, Author, firstPublish: true);
                     if (first.Status == PushStatus.Conflict) continue;
-                    if (first.Status == PushStatus.Error) return LastStatus = "Publication impossible : " + first.Error;
+                    if (first.Status == PushStatus.Error) return Fail("Publication impossible : " + first.Error);
                     SaveBase(local);
                     Remember(first.UpdateTime, first.Revision);
+                    Note($"Première publication : révision {first.Revision} ({ContentMerger.Summary(local)})");
                     return Done($"Contenu publié en ligne (révision {first.Revision}).");
                 }
 
@@ -205,6 +317,8 @@ public static class CloudSync
 
                 var merge = ContentMerger.Merge(@base, local, remote.Content);
                 AddConflicts(merge.Conflicts);
+                var mine = ContentMerger.CountDifferences(local, @base);
+                var theirs = ContentMerger.CountDifferences(remote.Content, @base);
 
                 string? updateTime = remote.UpdateTime;
                 var revision = remote.Revision;
@@ -212,7 +326,7 @@ public static class CloudSync
                 {
                     var push = await Repository.PushAsync(merge.Merged, remote.UpdateTime, remote.Revision, Author);
                     if (push.Status == PushStatus.Conflict) continue; // quelqu'un vient de publier : on refusionne
-                    if (push.Status == PushStatus.Error) return LastStatus = "Publication impossible : " + push.Error;
+                    if (push.Status == PushStatus.Error) return Fail($"Publication impossible ({mine} modification(s) en attente) : " + push.Error);
                     updateTime = push.UpdateTime;
                     revision = push.Revision;
                 }
@@ -228,16 +342,19 @@ public static class CloudSync
                 }
                 SaveBase(merge.Merged);
                 Remember(updateTime, revision);
+                Note(merge.HasLocalChanges
+                    ? $"Publié : révision {revision} ({mine} élément(s) de ce téléphone{(theirs > 0 ? $", {theirs} reçu(s)" : "")})"
+                    : $"Reçu : révision {revision} de {remote.UpdatedBy} ({theirs} élément(s))");
 
                 var what = merge.HasLocalChanges ? "Vos modifications sont publiées" : $"Révision {revision} de {remote.UpdatedBy} récupérée";
                 var warn = merge.Conflicts.Count > 0 ? $" · {merge.Conflicts.Count} conflit(s) à vérifier" : "";
                 return Done($"{what}{warn}.");
             }
-            return LastStatus = "Beaucoup de modifications en même temps : nouvel essai dans un instant.";
+            return Fail("Beaucoup de modifications en même temps : nouvel essai dans un instant.");
         }
         catch (Exception e)
         {
-            return LastStatus = "Hors ligne : " + e.Message;
+            return Fail("Hors ligne : " + e.Message);
         }
         finally
         {
@@ -253,8 +370,20 @@ public static class CloudSync
         BaseRevision = revision;
     }
 
+    /// <summary>Échec : noté dans le journal (une seule fois tant que le message ne change pas).</summary>
+    private static string Fail(string status)
+    {
+        if (status != LastStatus) Note("⚠ " + status);
+        LastFailed = true;
+        return LastStatus = status;
+    }
+
+    /// <summary>La dernière synchronisation a échoué (affiché en rouge).</summary>
+    public static bool LastFailed { get; private set; }
+
     private static string Done(string status)
     {
+        LastFailed = false;
         LastSync = DateTime.Now;
         return LastStatus = status;
     }

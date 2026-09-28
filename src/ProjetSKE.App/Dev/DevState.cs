@@ -23,10 +23,82 @@ public static class DevState
 
     public static bool Dirty { get; private set; }
 
-    public static void Touch() => Dirty = true;
+    // Le brouillon est gardé sur le téléphone à chaque modification : une fermeture de l'application
+    // ou une mise à jour ne fait rien perdre, même sans avoir appuyé sur « Enregistrer ».
+    private static string DraftPath => Path.Combine(FileSystem.AppDataDirectory, "brouillon.json");
+    private static string DraftBasePath => Path.Combine(FileSystem.AppDataDirectory, "brouillon-base.json");
+    private static CancellationTokenSource? _pendingWrite;
+    private static bool _restoreChecked;
+
+    public static void Touch()
+    {
+        Dirty = true;
+        _pendingWrite?.Cancel();
+        var cts = _pendingWrite = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(700, cts.Token);
+                MainThread.BeginInvokeOnMainThread(WriteDraft);
+            }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+    private static readonly object WriteLock = new();
+
+    private static void WriteDraft()
+    {
+        lock (WriteLock)
+        {
+            try
+            {
+                if (_draft is null || !Dirty) return;
+                File.WriteAllText(DraftPath, ContentSerializer.ToJson(_draft));
+                if (_draftBase is not null) File.WriteAllText(DraftBasePath, ContentSerializer.ToJson(_draftBase));
+            }
+            catch (Exception) { }
+        }
+    }
+
+    private static void DeleteDraftFiles()
+    {
+        _pendingWrite?.Cancel();
+        lock (WriteLock)
+        {
+            try
+            {
+                if (File.Exists(DraftPath)) File.Delete(DraftPath);
+                if (File.Exists(DraftBasePath)) File.Delete(DraftBasePath);
+            }
+            catch (Exception) { }
+        }
+    }
+
+    /// <summary>Un brouillon non enregistré a été retrouvé au démarrage.</summary>
+    public static bool Restored { get; private set; }
 
     private static void Reset()
     {
+        if (!_restoreChecked)
+        {
+            _restoreChecked = true;
+            try
+            {
+                if (File.Exists(DraftPath))
+                {
+                    _draft = ContentSerializer.FromJson(File.ReadAllText(DraftPath));
+                    _draftBase = File.Exists(DraftBasePath)
+                        ? ContentSerializer.FromJson(File.ReadAllText(DraftBasePath))
+                        : ContentSerializer.Clone(SkeApp.Db.Content);
+                    Dirty = true;
+                    Restored = true;
+                    return;
+                }
+            }
+            catch (Exception) { }
+        }
         _draft = ContentSerializer.Clone(SkeApp.Db.Content);
         _draftBase = ContentSerializer.Clone(SkeApp.Db.Content);
     }
@@ -35,14 +107,17 @@ public static class DevState
     {
         if (_draft is null) Reset();
         _draft = content;
-        Dirty = true;
+        Touch();
     }
 
     /// <summary>Abandonne les modifications non enregistrées.</summary>
     public static void Revert()
     {
-        Reset();
+        _restoreChecked = true;
+        DeleteDraftFiles();
         Dirty = false;
+        Restored = false;
+        Reset();
     }
 
     /// <summary>
@@ -67,18 +142,22 @@ public static class DevState
     public static IReadOnlyList<Core.Cloud.MergeConflict> Save()
     {
         var result = Core.Cloud.ContentMerger.Merge(_draftBase ?? SkeApp.Db.Content, Draft, SkeApp.Db.Content);
+        CloudSync.Backup(SkeApp.Db.Content, "avant-enregistrement");
         SkeApp.ApplyContent(result.Merged);
         CloudSync.AddConflicts(result.Conflicts);
-        Reset();
+        DeleteDraftFiles();
         Dirty = false;
+        Restored = false;
+        _restoreChecked = true;
+        Reset();
         return result.Conflicts;
     }
 
     public static void ResetToOfficial()
     {
+        CloudSync.Backup(SkeApp.Db.Content, "avant-contenu-origine");
         SkeApp.ResetContent();
-        Reset();
-        Dirty = false;
+        Revert();
     }
 
     public static IReadOnlyList<string> Validate() => new GameDatabase(Draft).Validate();

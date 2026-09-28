@@ -76,11 +76,12 @@ jobs:
             adb install -r apk/*.apk
             adb logcat -c
             adb shell am start -n com.laizu.projetske/com.laizu.projetske.MainActivity --ez autotest true
-            sleep 75
+            for i in $(seq 1 48); do adb logcat -d | grep -q -E "SKE_AUTOTEST_DONE|SKE_AUTOTEST_FAIL" && break; sleep 5; done
             adb logcat -d > logcat.txt || true
             adb exec-out screencap -p > ecran.png || true
             grep -E "SKE_|AndroidRuntime|FATAL EXCEPTION" logcat.txt | tail -150 || true
             grep -q "SKE_AUTOTEST_DONE" logcat.txt
+            ! grep -q "SKE_SYNC_FAIL" logcat.txt
 
       - name: Publier le journal
         if: always()
