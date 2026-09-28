@@ -31,26 +31,45 @@ public sealed class DialogueRunner
         Enter(dialogue.StartId);
     }
 
-    /// <summary>Version de la réplique jouée (première variante dont les conditions passent).</summary>
+    /// <summary>Bulle en cours dans la réplique (une réplique peut mêler narration et paroles, affichées à part).</summary>
+    private int _segment;
+
+    /// <summary>Change à chaque nouvelle bulle affichée (nouvelle réplique, ou bulle suivante de la même réplique).</summary>
+    public int Step { get; private set; }
+
+    /// <summary>Bulles de la réplique jouée (première variante dont les conditions passent), balises remplacées.</summary>
+    private List<(string Speaker, string Text)> Segments
+    {
+        get
+        {
+            if (Current is null) return [("", "")];
+            var variant = Current.Variants.FirstOrDefault(v => _session.CheckAll(v.Conditions));
+            var speaker = variant is { Speaker.Length: > 0 } ? variant.Speaker : Current.Speaker;
+            return DialogueScript.Segments(speaker, variant?.Text ?? Current.Text)
+                .Select(s => (_session.FormatText(s.Speaker), _session.FormatText(s.Text))).ToList();
+        }
+    }
+
     private (string Speaker, string Text) Line
     {
         get
         {
-            if (Current is null) return ("", "");
-            var variant = Current.Variants.FirstOrDefault(v => _session.CheckAll(v.Conditions));
-            var speaker = variant is { Speaker.Length: > 0 } ? variant.Speaker : Current.Speaker;
-            return (_session.FormatText(speaker), _session.FormatText(variant?.Text ?? Current.Text));
+            var segments = Segments;
+            return segments[Math.Clamp(_segment, 0, segments.Count - 1)];
         }
     }
+
+    /// <summary>Encore des bulles dans cette réplique avant ses choix ou sa suite.</summary>
+    public bool HasMoreSegments => Current is not null && _segment < Segments.Count - 1;
 
     public string Speaker => Line.Speaker;
     public string Text => Line.Text;
 
-    /// <summary>Portrait de celui qui parle (null = pas d'image).</summary>
-    public PortraitDef? Portrait => Current is null ? null : _session.Db.PortraitFor(Speaker, Current.PortraitId);
+    /// <summary>Portrait de celui qui parle (null = pas d'image). L'image choisie sur la réplique vaut pour sa première bulle.</summary>
+    public PortraitDef? Portrait => Current is null ? null : _session.Db.PortraitFor(Speaker, _segment == 0 ? Current.PortraitId : null);
 
     /// <summary>Choix affichés : disponibles, ou grisés quand la réplique le demande.</summary>
-    public IReadOnlyList<ChoiceOption> Options =>
+    public IReadOnlyList<ChoiceOption> Options => HasMoreSegments ? [] :
         Current?.Choices
             .Select(c => new ChoiceOption(c, _session.FormatText(c.Text), _session.CheckAll(c.Conditions), _session.FormatText(c.LockedText)))
             .Where(o => o.Enabled || o.Choice.ShowLocked)
@@ -65,7 +84,14 @@ public sealed class DialogueRunner
     /// <summary>Passe à la réplique suivante (réplique sans choix) : aiguillages d'abord, puis la suite normale.</summary>
     public void Continue()
     {
-        if (Current is null || HasOptions) return;
+        if (Current is null) return;
+        if (HasMoreSegments)
+        {
+            _segment++;
+            Step++;
+            return;
+        }
+        if (HasOptions) return;
         var branch = Current.Branches.FirstOrDefault(b => _session.CheckAll(b.Conditions));
         Enter(branch is not null ? branch.NextId : Current.NextId);
     }
@@ -100,6 +126,8 @@ public sealed class DialogueRunner
         // Garde-fou contre une boucle infinie dans un dialogue mal construit.
         if (++_steps > 500) target = null;
         Current = null;
+        _segment = 0;
+        Step++;
         if (string.IsNullOrEmpty(target)) return;
 
         var (dialogueId, label) = GameDatabase.SplitTarget(target);

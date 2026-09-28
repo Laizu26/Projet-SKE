@@ -21,6 +21,8 @@ public sealed class DialogueView : ContentView
     private readonly List<(string Speaker, string Text)> _history = [];
     private readonly List<string> _notes = [];
     private DialogueNode? _shownNode;
+    /// <summary>Bulle affichée (une réplique peut en avoir plusieurs : narration puis paroles...).</summary>
+    private int _shownStep = -1;
     private int _revealed;
     private IDispatcherTimer? _timer;
     private Label? _textLabel;
@@ -79,9 +81,10 @@ public sealed class DialogueView : ContentView
         }
 
         // Nouvelle réplique : on l'ajoute à l'historique et on relance la machine à écrire.
-        if (node is not null && !ReferenceEquals(node, _shownNode))
+        if (node is not null && _runner.Step != _shownStep)
         {
             _shownNode = node;
+            _shownStep = _runner.Step;
             _revealed = 0;
             _history.Add((_runner.Speaker, _runner.Text));
             StartTyping();
@@ -332,7 +335,7 @@ public sealed class DialogueView : ContentView
                     HorizontalOptions = LayoutOptions.End,
                     Children =
                     {
-                        Caps(Typing ? "Toucher pour tout afficher" : node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Theme.Stone400 : Theme.Stone500),
+                        Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Theme.Stone400 : Theme.Stone500),
                         Icon(Ico.ChevronRight, 14, Theme.Gold600),
                     },
                 };
@@ -450,16 +453,18 @@ public sealed class DialogueView : ContentView
     private void Skip()
     {
         _timer?.Stop();
-        for (var guard = 0; guard < 200 && _runner.Current is { } node && !_runner.HasOptions; guard++)
+        for (var guard = 0; guard < 400 && _runner.Current is { } node && !_runner.HasOptions; guard++)
         {
-            if (!ReferenceEquals(node, _shownNode)) _history.Add((_runner.Speaker, _runner.Text));
+            if (_runner.Step != _shownStep) _history.Add((_runner.Speaker, _runner.Text));
             _shownNode = node;
+            _shownStep = _runner.Step;
             _runner.Continue();
         }
         if (_runner.Current is { } next)
         {
-            if (!ReferenceEquals(next, _shownNode)) _history.Add((_runner.Speaker, _runner.Text));
+            if (_runner.Step != _shownStep) _history.Add((_runner.Speaker, _runner.Text));
             _shownNode = next;
+            _shownStep = _runner.Step;
             _revealed = FullText().Length;
         }
         Render();

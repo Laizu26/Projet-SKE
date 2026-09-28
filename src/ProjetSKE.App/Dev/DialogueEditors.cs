@@ -172,6 +172,8 @@ public sealed class DialogueEditor : EditorPage
         head.Add(Caps(narration ? "Narration" : n.Speaker, 10, narration ? Theme.Stone500 : Theme.Gold700));
         if (n.Conditions.Count > 0) head.Add(Badge("🔒 si", Theme.Stone500));
         if (n.Variants.Count > 0) head.Add(Badge($"✦ {n.Variants.Count}", Theme.Stone500));
+        var bubbleCount = DialogueScript.Segments(n.Speaker, n.Text).Count;
+        if (bubbleCount > 1) head.Add(Badge($"💬 {bubbleCount} bulles", Theme.Stone500));
         var effects = n.Actions.Count + n.Choices.Sum(c => c.Actions.Count);
         if (effects > 0) head.Add(Badge($"⚙ {effects}", Theme.Stone500));
         if (isolated) head.Add(Badge("isolée", Theme.Red600));
@@ -364,6 +366,20 @@ public sealed class DialogueNodeEditor : EditorPage
 
         Speaker(f);
         f.TextField(_x.Speaker.Length == 0 ? "Texte du récit" : "Ce qu'il dit", _x.Text, v => _x.Text = v, multiline: true);
+        // Mêler narration et paroles dans la même réplique : chaque morceau devient une bulle à part en jeu.
+        var bubbles = DialogueScript.Segments(_x.Speaker, _x.Text);
+        f.Note(bubbles.Count > 1
+            ? $"En jeu : {bubbles.Count} bulles à la suite ({string.Join(" › ", bubbles.Select(b => b.Speaker.Length > 0 ? b.Speaker : "narration"))})."
+            : "Pour mêler narration et paroles : une ligne « - texte » = narration, « Nom: texte » = quelqu'un parle, ligne vide = nouvelle bulle. En jeu, chaque morceau s'affiche à part.");
+        f.Add(ButtonRow(
+            Form.SmallButton("+ Bulle de narration", () => { _x.Text = (_x.Text.TrimEnd() + "\n- ").TrimStart('\n'); DevState.Touch(); Render(); }),
+            Form.SmallButton("+ Bulle d'un personnage", () =>
+            {
+                var who = DevState.Draft.Npcs.FirstOrDefault()?.Name ?? DevState.Draft.Characters.FirstOrDefault()?.Name ?? "Nom";
+                _x.Text = (_x.Text.TrimEnd() + $"\n{who}: ").TrimStart('\n');
+                DevState.Touch();
+                Render();
+            })));
 
         // Choix du joueur.
         f.Header($"Choix du joueur ({_x.Choices.Count})");

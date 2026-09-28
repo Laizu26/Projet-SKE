@@ -203,3 +203,41 @@ public class DialogueGraphTests
         Assert.NotSame(d.Nodes[0].Choices, copy.Choices);
     }
 }
+
+/// <summary>Une réplique peut mêler narration et paroles : en jeu, une bulle par morceau.</summary>
+public class SegmentTests
+{
+    [Fact]
+    public void Segments_SplitNarrationAndSpeech()
+    {
+        var parts = DialogueScript.Segments("", "- La porte grince.\nBran: Qui va là ?\nPersonne ne répond.\n\n- Il lève sa lanterne.");
+        Assert.Equal([("", "La porte grince."), ("Bran", "Qui va là ?\nPersonne ne répond."), ("", "Il lève sa lanterne.")], parts);
+        Assert.Equal([("Bran", "Bonjour. Note : rien.")], DialogueScript.Segments("Bran", "Bonjour. Note : rien."));
+        Assert.Equal([("Bran", "Il dit alors ceci: rien.")], DialogueScript.Segments("Bran", "Il dit alors ceci: rien."));
+    }
+
+    [Fact]
+    public void Runner_ShowsEachBubbleThenTheChoices()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var nodes = DialogueScript.Parse("- La porte grince.\n+ Bran: Qui va là ?\n+ - Il lève sa lanterne.\n> Moi. -> fin\n> Personne. -> fin", out var errors);
+        Assert.Empty(errors);
+        Assert.Single(nodes);
+        content.Dialogues.Add(new DialogueDef { Id = "bulles", Nodes = nodes });
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        var d = s.StartDialogue("bulles");
+
+        Assert.Equal(("", "La porte grince."), (d.Speaker, d.Text));
+        Assert.False(d.HasOptions); // les choix attendent la dernière bulle
+        d.Continue();
+        Assert.Equal(("Bran", "Qui va là ?"), (d.Speaker, d.Text));
+        d.Continue();
+        Assert.Equal("Il lève sa lanterne.", d.Text);
+        Assert.True(d.HasOptions);
+        Assert.Equal(2, d.Choices.Count);
+
+        var again = DialogueScript.Parse(DialogueScript.Write(nodes), out var errors2);
+        Assert.Empty(errors2);
+        Assert.Equal(nodes[0].Text, again[0].Text);
+    }
+}

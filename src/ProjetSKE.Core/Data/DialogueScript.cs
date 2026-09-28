@@ -12,6 +12,7 @@ public static partial class DialogueScript
     public const string Help =
         """
         Nom: texte              → réplique d'un personnage
+        + texte / + - texte / + Nom: texte → suite de la même réplique (bulles séparées en jeu)
         - texte                 → narration (le récit, personne ne parle)
         * texte  ou  Narration: texte → narration aussi
         > texte -> etiquette    → choix (sans "->" : termine le dialogue)
@@ -202,6 +203,14 @@ public static partial class DialogueScript
                 continue;
             }
 
+            // « + ... » : la ligne continue la réplique précédente (bulles mêlant narration et paroles).
+            if (line.StartsWith("+ ") || line == "+")
+            {
+                if (last is null) { errors.Add($"Ligne {lineNumber} : « + » sans réplique avant"); continue; }
+                last.Text = (last.Text + "\n" + (line.Length > 1 ? line[2..] : "")).TrimEnd();
+                continue;
+            }
+
             if (line.StartsWith('>'))
             {
                 if (last is null) { errors.Add($"Ligne {lineNumber} : choix sans réplique avant"); continue; }
@@ -285,6 +294,59 @@ public static partial class DialogueScript
         foreach (var target in targets)
             if (target is not null && !target.Contains(':') && !ids.Contains(target)) errors.Add($"Étiquette « {target} » introuvable");
         return nodes;
+    }
+
+    /// <summary>
+    /// Découpe le texte d'une réplique en bulles : on peut mélanger narration et paroles dans une même réplique.
+    /// Une ligne « - texte » (ou « * texte », « Narration: texte ») est de la narration ; « Nom: texte » fait parler
+    /// quelqu'un ; une ligne vide coupe en deux bulles ; une ligne sans préfixe continue la bulle en cours.
+    /// En jeu, chaque bulle s'affiche à part, l'une après l'autre.
+    /// </summary>
+    public static List<(string Speaker, string Text)> Segments(string speaker, string text)
+    {
+        var result = new List<(string Speaker, string Text)>();
+        var currentSpeaker = speaker;
+        var buffer = new List<string>();
+        void Flush()
+        {
+            var joined = string.Join("\n", buffer).Trim();
+            if (joined.Length > 0) result.Add((currentSpeaker, joined));
+            buffer.Clear();
+        }
+        foreach (var raw in text.Replace("\r", "").Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0)
+            {
+                Flush();
+                continue;
+            }
+            if (StartsBubble(line))
+            {
+                // Nouvelle bulle : quelqu'un d'autre parle (ou la narration reprend).
+                Flush();
+                var (who, rest) = SplitSpeaker(line);
+                currentSpeaker = who;
+                buffer.Add(rest.Trim());
+            }
+            else buffer.Add(line);
+        }
+        Flush();
+        if (result.Count == 0) result.Add((speaker, ""));
+        return result;
+    }
+
+    /// <summary>Ligne qui ouvre une nouvelle bulle : narration (« - », « * ») ou « Nom: » (un à trois mots, avec une majuscule).</summary>
+    private static bool StartsBubble(string line)
+    {
+        if (line.StartsWith("- ") || line == "-" || line.StartsWith("* ") || line == "*") return true;
+        var colon = line.IndexOf(':');
+        if (colon <= 0 || colon > 40 || (colon + 1 < line.Length && line[colon + 1] != ' ')) return false;
+        // « Nom: » collé (le français met une espace avant « : » dans une phrase : « Note : ... » reste du texte).
+        if (line[colon - 1] == ' ') return false;
+        var name = line[..colon].Trim();
+        return name.Length > 0 && char.IsUpper(name[0]) && name.IndexOfAny(['%', '.', '!', '?', ',', ';', '«', '»', '"']) < 0
+            && name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 3;
     }
 
     private static (string Speaker, string Text) SplitSpeaker(string text)
@@ -447,9 +509,12 @@ public static partial class DialogueScript
                 AppendConditions(sb, n.Conditions);
                 sb.Append(' ');
             }
-            sb.Append(n.Speaker.Length > 0 ? $"{n.Speaker}: {n.Text}" : $"- {n.Text}");
+            // Texte sur plusieurs lignes (plusieurs bulles) : les lignes suivantes commencent par « + ».
+            var lines = n.Text.Replace("\r", "").Split('\n');
+            sb.Append(n.Speaker.Length > 0 ? $"{n.Speaker}: {lines[0]}" : $"- {lines[0]}");
             if (n.Conditions.Count > 0 && n.ElseId is not null) sb.Append(" sinon -> ").Append(n.ElseId);
             AppendActions(sb, n.Actions);
+            foreach (var extra in lines.Skip(1)) sb.AppendLine().Append("+ ").Append(extra);
             sb.AppendLine();
 
             foreach (var v in n.Variants)

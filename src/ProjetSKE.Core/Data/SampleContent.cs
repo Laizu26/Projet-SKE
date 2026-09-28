@@ -617,7 +617,7 @@ internal static class SampleContent
             Nodes =
             [
                 Line("1", "", "Le royaume de Valdor vacille. Depuis la disparition de la couronne, les morts ne dorment plus.", "2"),
-                Line("2", "", "Tu arrives à Havrefort, la capitale, avec ton épée et quelques pièces en poche.", "3"),
+                Line("2", "", "Tu arrives à Havrefort, la capitale, avec ton épée et quelques pièces en poche.\nGarde: Halte ! Encore un aventurier ?\n- Il te dévisage, puis s'écarte pour te laisser passer.", "3"),
                 Line("3", "", "Le Capitaine Hardin cherche des volontaires. C'est peut-être le début de ton aventure."),
             ],
         },
