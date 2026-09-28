@@ -9,7 +9,8 @@ public sealed record ReleaseInfo(int Build, string Name, string Notes, string Ap
     /// Lit la réponse de l'API GitHub « releases/latest ». Le numéro de version vient de l'étiquette
     /// « v123 » (numéro de compilation, qui est aussi le versionCode Android). Null si pas d'APK.
     /// </summary>
-    public static ReleaseInfo? Parse(string json)
+    /// <param name="extension">Fichier cherché dans la Release : « .apk » (téléphone) ou « .zip » (PC).</param>
+    public static ReleaseInfo? Parse(string json, string extension = ".apk")
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -19,7 +20,7 @@ public sealed record ReleaseInfo(int Build, string Name, string Notes, string Ap
         foreach (var asset in assets.EnumerateArray())
         {
             var name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-            if (!name.EndsWith(".apk", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!name.EndsWith(extension, StringComparison.OrdinalIgnoreCase)) continue;
             var url = asset.GetProperty("browser_download_url").GetString() ?? "";
             var size = asset.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0;
             var published = root.TryGetProperty("published_at", out var p) && p.ValueKind == JsonValueKind.String

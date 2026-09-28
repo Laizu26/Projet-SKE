@@ -1,14 +1,15 @@
 # Projet SKE — Chroniques de Valdor
 
-RPG mobile Android en C# (.NET MAUI). L'interface est volontairement minimaliste, dans le style des vieux FC Manager : du texte, des listes, des barres et des boutons, sans graphismes.
+RPG en C# (.NET MAUI), **sur téléphone Android et sur PC Windows** : une seule appli, le même code, les mêmes fonctionnalités, le même contenu en ligne et le même numéro de version (voir `CLAUDE.md`). L'interface est volontairement minimaliste, dans le style des vieux FC Manager : du texte, des listes, des barres et des boutons, sans graphismes.
 
-## Récupérer l'APK (sans rien installer)
+## Récupérer le jeu (sans rien installer)
 
-À chaque modification poussée sur GitHub, l'APK est compilé automatiquement.
+Chaque version publiée se trouve dans les **Releases** du dépôt GitHub (colonne de droite, « Releases »), avec deux fichiers :
 
-1. Sur GitHub, ouvre l'onglet **Actions**, puis clique sur la dernière exécution de **Compiler l'APK** (coche verte).
-2. En bas de la page, dans **Artifacts**, télécharge **ProjetSKE-apk** (un .zip qui contient l'APK).
-3. Copie l'APK sur ton téléphone, ouvre-le et autorise l'installation d'applications de sources inconnues.
+- **ProjetSKE.apk** : pour le téléphone. Ouvre-le et autorise l'installation d'applications de sources inconnues.
+- **ProjetSKE-Windows.zip** : pour le PC. Décompresse-le dans un dossier (par exemple `Documents\Projet SKE`) et lance **ProjetSKE.App.exe**. Si Windows affiche « Windows a protégé votre ordinateur », clique sur **Informations complémentaires** puis **Exécuter quand même** (l'appli n'est pas signée par un éditeur connu).
+
+Ensuite, les deux se mettent à jour tout seuls depuis l'écran titre. Sur PC, le jeu se ferme, remplace ses fichiers et se relance. Les parties et le contenu sont gardés (ils sont dans le dossier de l'utilisateur, pas dans celui du jeu).
 
 ## Compiler soi-même (Visual Studio)
 
@@ -16,7 +17,7 @@ Visual Studio remplace Android Studio pour le C#.
 
 1. Installe **Visual Studio 2026 Community** (gratuit) avec la charge de travail **Développement d'applications multiplateformes .NET (.NET MAUI)**.
 2. Ouvre `ProjetSKE.sln`.
-3. Choisis le projet **ProjetSKE.App**, puis un émulateur Android ou ton téléphone branché en USB (avec le mode développeur activé).
+3. Choisis le projet **ProjetSKE.App**, puis **Windows Machine** (PC), un émulateur Android ou ton téléphone branché en USB (avec le mode développeur activé).
 4. Clique sur ▶ pour lancer le jeu. Pour obtenir un APK : clic droit sur ProjetSKE.App, puis **Publier**.
 
 En ligne de commande, avec le SDK .NET 10 installé :
@@ -24,6 +25,9 @@ En ligne de commande, avec le SDK .NET 10 installé :
 ```
 dotnet workload install maui-android
 dotnet publish src/ProjetSKE.App/ProjetSKE.App.csproj -f net10.0-android -c Release -o out
+# sur Windows, pour le PC :
+dotnet workload install maui-windows
+dotnet publish src/ProjetSKE.App/ProjetSKE.App.csproj -f net10.0-windows10.0.19041.0 -c Release -o outwin
 dotnet test tests/ProjetSKE.Core.Tests
 ```
 

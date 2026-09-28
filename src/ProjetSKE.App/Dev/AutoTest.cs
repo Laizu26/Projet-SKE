@@ -45,7 +45,7 @@ public static class AutoTest
     private static async Task SyncScenario()
     {
         var original = CloudSync.Settings;
-        var test = original with { Document = "autotest-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") };
+        var test = original with { Document = $"autotest-{Updates.PlatformName.Replace("é", "e")}-{DateTime.UtcNow:yyyyMMddHHmmss}" };
         try
         {
             CloudSync.Settings = test;

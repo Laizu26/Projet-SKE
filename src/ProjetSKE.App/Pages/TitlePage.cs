@@ -168,7 +168,9 @@ public sealed class TitlePage : ContentPage
             _progress = null;
             RenderUpdate();
         }));
-        box.Add(Muted("Tes parties et ton contenu sont gardés. La première fois, Android demande d'autoriser l'installation.", 11));
+        box.Add(Muted(Updates.PlatformName == "PC"
+            ? "Tes parties et ton contenu sont gardés. Le jeu se ferme, se met à jour et se relance."
+            : "Tes parties et ton contenu sont gardés. La première fois, Android demande d'autoriser l'installation.", 11));
         _updateHost.Content = Card(box, Color.FromArgb("#FEF9C3"), Theme.Gold500);
     }
 }

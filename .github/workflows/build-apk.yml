@@ -1,4 +1,4 @@
-name: Compiler l'APK
+name: Compiler l'appli (téléphone + PC)
 
 on:
   push:
@@ -110,12 +110,73 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  # Appli PC (Windows) : le MÊME projet, compilé pour Windows, puis testé avec le même test automatique
+  # (Dev/AutoTest.cs). Une version n'est publiée que si le téléphone ET le PC passent : les deux restent identiques.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Installer .NET MAUI (Windows)
+        run: dotnet workload install maui-windows
+
+      - name: Compiler l'appli PC
+        run: >
+          dotnet publish src/ProjetSKE.App/ProjetSKE.App.csproj
+          -f net10.0-windows10.0.19041.0 -c Release
+          -p:ApplicationVersion=${{ github.run_number }}
+          -p:ApplicationDisplayVersion=1.0.${{ github.run_number }}
+          -o outwin
+
+      - name: Test automatique sur PC
+        shell: pwsh
+        run: |
+          $log = Join-Path $PWD "ske-log.txt"
+          $env:SKE_LOG_FILE = $log
+          $app = Start-Process -FilePath "outwin\ProjetSKE.App.exe" -ArgumentList "--autotest" -PassThru
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 5
+            if ((Test-Path $log) -and (Select-String -Path $log -Pattern "SKE_AUTOTEST_DONE|SKE_AUTOTEST_FAIL" -Quiet)) { break }
+            if ($app.HasExited) { "L'appli s'est fermée (code $($app.ExitCode))."; break }
+          }
+          if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+          if (-not (Test-Path $log)) { "Aucun journal : l'appli n'a pas démarré."; exit 1 }
+          Get-Content $log -Tail 400
+          if (-not (Select-String -Path $log -Pattern "SKE_AUTOTEST_DONE" -Quiet)) { exit 1 }
+          if (Select-String -Path $log -Pattern "SKE_SYNC_FAIL" -Quiet) { exit 1 }
+
+      - name: Préparer le .zip
+        shell: pwsh
+        run: Compress-Archive -Path outwin\* -DestinationPath ProjetSKE-Windows.zip
+
+      - name: Publier l'appli PC
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjetSKE-windows
+          path: ProjetSKE-Windows.zip
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Publier le journal PC
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-journal
+          path: ske-log.txt
+          if-no-files-found: ignore
+          retention-days: 3
+
   # Publie l'APK testé en « Release » GitHub : l'application la détecte et se met à jour toute seule (Updates.cs).
   # Le numéro de compilation sert d'étiquette (v123) et de versionCode Android.
   # Pas une version par push : seulement quand le message du commit contient « [maj] » (fin d'un lot de
   # changements), ou en lançant le workflow à la main (Actions › Compiler l'APK › Run workflow).
   release:
-    needs: [build, emulator-test]
+    needs: [build, emulator-test, windows]
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[maj]'))
     runs-on: ubuntu-latest
     permissions:
@@ -125,6 +186,11 @@ jobs:
         with:
           name: ProjetSKE-apk
           path: apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ProjetSKE-windows
+          path: pc
 
       - name: Nommer l'APK
         run: mv apk/*.apk apk/ProjetSKE.apk
@@ -136,5 +202,7 @@ jobs:
           name: Version 1.0.${{ github.run_number }}
           body: ${{ github.event.head_commit.message || 'Publication manuelle.' }}
           target_commitish: ${{ github.sha }}
-          files: apk/ProjetSKE.apk
+          files: |
+            apk/ProjetSKE.apk
+            pc/ProjetSKE-Windows.zip
           make_latest: true

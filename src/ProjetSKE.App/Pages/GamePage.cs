@@ -606,7 +606,7 @@ public sealed class GamePage : ContentPage
 
     private static Microsoft.Maui.Graphics.IImage? LoadImage(Stream stream)
     {
-#if ANDROID
+#if ANDROID || WINDOWS
         return Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(stream);
 #else
         return null;

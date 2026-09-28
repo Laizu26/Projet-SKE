@@ -1,7 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!--
+      Une seule appli, deux cibles : Android (téléphone) et Windows (PC). Tout le code est commun :
+      une fonctionnalité ajoutée l'est forcément sur les deux (voir CLAUDE.md). La cible Windows ne se
+      compile que sur Windows (GitHub Actions, windows-latest).
+    -->
     <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <RootNamespace>ProjetSKE.App</RootNamespace>
     <UseMaui>true</UseMaui>
@@ -14,10 +20,28 @@
     <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
-    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
     <!-- Produire un .apk installable directement (et non un .aab pour le Play Store). -->
     <AndroidPackageFormat>apk</AndroidPackageFormat>
   </PropertyGroup>
+
+  <!-- PC (Windows) : appli autonome, sans installateur (un dossier avec ProjetSKE.App.exe, dans un .zip). -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Numéro de compilation lisible par l'appli (mises à jour), identique sur téléphone et sur PC. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SkeBuild</_Parameter1>
+      <_Parameter2>$(ApplicationVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <!--
     Signature unique de l'APK : toutes les versions sont signées avec la même clé (signing/projetske.keystore),
