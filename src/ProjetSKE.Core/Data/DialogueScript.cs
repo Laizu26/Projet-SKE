@@ -12,7 +12,8 @@ public static partial class DialogueScript
     public const string Help =
         """
         Nom: texte              → réplique d'un personnage
-        - texte                 → narration
+        - texte                 → narration (le récit, personne ne parle)
+        * texte  ou  Narration: texte → narration aussi
         > texte -> etiquette    → choix (sans "->" : termine le dialogue)
         >~ texte {cond} ((raison)) → choix affiché grisé si la condition manque
         ? {cond} -> etiquette   → aiguillage après la réplique (le 1er qui passe gagne)
@@ -238,10 +239,17 @@ public static partial class DialogueScript
     private static (string Speaker, string Text) SplitSpeaker(string text)
     {
         if (text.StartsWith("- ") || text == "-") return ("", text.Length > 1 ? text[2..] : "");
+        if (text.StartsWith("* ") || text == "*") return ("", text.Length > 1 ? text[2..] : "");
         var colon = text.IndexOf(':');
         // « Nom: » : les deux-points suivis d'un espace (pour ne pas couper « 10:30 » ou « %var:x% »).
         if (colon > 0 && colon <= 40 && (colon + 1 >= text.Length || text[colon + 1] == ' ') && !text[..colon].Contains('%'))
-            return (text[..colon].Trim(), text[(colon + 1)..]);
+        {
+            var name = text[..colon].Trim();
+            // « Narration: » ou « Narrateur: » : c'est le récit, pas un personnage.
+            if (name.Equals("Narration", StringComparison.OrdinalIgnoreCase) || name.Equals("Narrateur", StringComparison.OrdinalIgnoreCase))
+                return ("", text[(colon + 1)..].TrimStart());
+            return (name, text[(colon + 1)..]);
+        }
         return ("", text);
     }
 

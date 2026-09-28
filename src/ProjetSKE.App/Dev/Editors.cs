@@ -245,9 +245,16 @@ public sealed class DialogueEditor : EditorPage
                     d.Nodes.Select((o, i) => (i == 0 ? d.Id + ":" : d.Id + ":" + o.Id, $"↪ {(d.Name.Length > 0 ? d.Name : d.Id)} › {(i == 0 ? "début" : o.Id)}"))))
                 .ToList();
             nf.TextField("Étiquette", n.Id, v => n.Id = v);
-            nf.TextField("Qui parle (vide = narration, %pj% = le PJ qui parle)", n.Speaker, v => n.Speaker = v);
-            nf.TextField("Texte", n.Text, v => n.Text = v, multiline: true);
-            nf.RefField("Portrait (aucun = celui de « Qui parle »)", n.PortraitId, DevState.Portraits, v => n.PortraitId = v);
+            var narration = n.Speaker.Length == 0;
+            nf.BoolField("Narration (le récit : personne ne parle)", narration, v =>
+            {
+                n.Speaker = v ? "" : (n.Speaker.Length > 0 ? n.Speaker : "Personnage");
+            }, rerender: true);
+            if (!narration)
+                nf.TextField("Qui parle (%pj% = le PJ qui parle)", n.Speaker, v => n.Speaker = v);
+            nf.TextField(narration ? "Texte du récit" : "Texte", n.Text, v => n.Text = v, multiline: true);
+            nf.RefField(narration ? "Illustration (image affichée au-dessus du récit)" : "Portrait (aucun = celui de « Qui parle »)",
+                n.PortraitId, DevState.Portraits, v => n.PortraitId = v);
             nf.ObjectList("Variantes du texte", n.Variants, () => new TextVariant { Text = n.Text }, (vf, v, _) =>
             {
                 vf.Conditions("Si", v.Conditions);

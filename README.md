@@ -46,7 +46,7 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 | **Menu** | Sauvegarde, paramètres (dont la vitesse du texte : lente, normale, rapide, instantanée), retour au titre |
 | **Combat** | Par-dessus tout : l'ennemi en haut, la narration du combat (avec les répliques des combattants) au milieu, l'équipe en bas, puis Attaque / Défense / Objet / Fuite. Tour par tour selon la vitesse ; Défense divise les dégâts reçus par deux jusqu'au tour suivant |
 | **Écran fissuré** | Partout dans le jeu : sous 30 %, 15 % puis 5 % des PV du héros, l'écran se fissure un peu plus (secousse et vibration) ; un soin efface les fissures. À la défaite, l'écran éclate en morceaux qui tombent, puis l'écran de fin (game over ou réveil à l'auberge) |
-| **Histoire** | L'écran s'assombrit, le portrait de celui qui parle apparaît, puis la boîte de dialogue ; choix de réponse (certains grisés avec la raison) |
+| **Histoire** | L'écran s'assombrit, le portrait de celui qui parle apparaît, puis la boîte de dialogue ; la **narration** (le récit, sans personnage) s'affiche à part : texte centré en italique sur un bandeau sombre, sans nom, avec une illustration possible ; choix de réponse (certains grisés avec la raison) |
 | **Horloge** | En haut à droite : heure, moment de la journée, jour. Le temps passe en voyageant, en parlant, en combattant, à l'auberge |
 
 ### Paramètres modifiables (Menu)
@@ -85,7 +85,7 @@ Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
 |---|---|
 | **PJ** | Nom, classe, description, portrait, stats de base et gain par niveau, compétences, équipement de départ, karma et amitié de départ, répliques de combat, « proposé au départ » et son départ de partie |
 | **PNJ** | Nom, portrait, lieu habituel, emploi du temps (placements sous conditions : heure, jour, flag…), amitié de départ, vie au camp et grade, dialogue par défaut, dialogues selon la situation (y compris selon le PJ qui parle), conditions d'apparition |
-| **Histoire** | Dialogues en **formulaire** ou en **texte** : répliques, variantes selon la situation, aiguillages, sauts vers un autre dialogue (les histoires se croisent), choix (cachés ou grisés), conditions, effets |
+| **Histoire** | Dialogues en **formulaire** ou en **texte** : répliques ou **narration** (case « Narration », ou `- texte`, `* texte`, `Narration: texte` en mode texte), variantes selon la situation, aiguillages, sauts vers un autre dialogue (les histoires se croisent), choix (cachés ou grisés), conditions, effets |
 | **Quêtes** | Quête simple (objectifs dans l'ordre, récompenses) ou **quête à étapes** : chaque étape a son récit, ses objectifs, des effets sur le monde en y entrant, et des **chemins sous conditions** vers d'autres étapes, jusqu'à plusieurs **fins** (réussies ou échouées). Démarrage par un effet ou automatique sous condition |
 | **Objets / Reliques** | Type, prix, soins, bonus d'équipement, objet unique, relique équipable ou de quête |
 | **Monstres** | Stats, compétences, XP, or, butin (avec probabilités), boss, portrait, répliques de combat |

@@ -53,6 +53,8 @@ public sealed class DialogueView : ContentView
 
     /// <summary>Texte de la réplique en cours, tel que joué (variante choisie, balises remplacées).</summary>
     private string FullText() => _runner.Speaker.Length > 0 ? $"« {_runner.Text} »" : _runner.Text;
+    /// <summary>Narration : le récit, sans personnage (texte centré sur un bandeau sombre, sans nom ni portrait).</summary>
+    private bool Narration => _runner.Current is not null && _runner.Speaker.Length == 0;
     private bool Typing => _shownNode is not null && _revealed < FullText().Length;
 
     private void End()
@@ -113,12 +115,14 @@ public sealed class DialogueView : ContentView
             _shownPortrait = null;
             return new BoxView { HeightRequest = 0, Color = Colors.Transparent };
         }
+        var narration = Narration;
         var frame = new Border
         {
-            WidthRequest = 170,
-            HeightRequest = 210,
-            HorizontalOptions = LayoutOptions.Start,
-            Margin = new Thickness(22, 0, 0, -26),
+            // Narration : une illustration centrée (paysage) ; réplique : le portrait de celui qui parle, à gauche.
+            WidthRequest = narration ? 290 : 170,
+            HeightRequest = narration ? 180 : 210,
+            HorizontalOptions = narration ? LayoutOptions.Center : LayoutOptions.Start,
+            Margin = narration ? new Thickness(0, 0, 0, -8) : new Thickness(22, 0, 0, -26),
             Stroke = Theme.Gold600,
             StrokeThickness = 2,
             StrokeShape = new RoundRectangle { CornerRadius = 14 },
@@ -262,16 +266,31 @@ public sealed class DialogueView : ContentView
         if (node is not null)
         {
             var full = FullText();
+            var narration = Narration;
             _textLabel = new Label
             {
                 Text = full[..Math.Min(_revealed, full.Length)],
                 FontFamily = "serif",
-                FontSize = 17,
-                LineHeight = 1.25,
-                TextColor = Theme.Stone900,
-                FontAttributes = _runner.Speaker.Length > 0 ? FontAttributes.None : FontAttributes.Italic,
+                FontSize = narration ? 18 : 17,
+                LineHeight = narration ? 1.35 : 1.25,
+                TextColor = narration ? Theme.Stone100 : Theme.Stone900,
+                FontAttributes = narration ? FontAttributes.Italic : FontAttributes.None,
+                HorizontalTextAlignment = narration ? TextAlignment.Center : TextAlignment.Start,
                 MinimumHeightRequest = 70,
             };
+            if (narration)
+            {
+                // Ornement : un filet doré de part et d'autre d'une petite plume.
+                var ornament = new Grid
+                {
+                    ColumnSpacing = 10,
+                    ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
+                };
+                ornament.Add(new BoxView { HeightRequest = 1, Color = Theme.Gold700, VerticalOptions = LayoutOptions.Center }, 0, 0);
+                ornament.Add(Icon(Ico.Feather, 12, Theme.Gold500), 1, 0);
+                ornament.Add(new BoxView { HeightRequest = 1, Color = Theme.Gold700, VerticalOptions = LayoutOptions.Center }, 2, 0);
+                body.Add(ornament);
+            }
             body.Add(_textLabel);
 
             var options = _runner.Options;
@@ -297,7 +316,7 @@ public sealed class DialogueView : ContentView
                     HorizontalOptions = LayoutOptions.End,
                     Children =
                     {
-                        Caps(Typing ? "Toucher pour tout afficher" : node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Theme.Stone500),
+                        Caps(Typing ? "Toucher pour tout afficher" : node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Theme.Stone400 : Theme.Stone500),
                         Icon(Ico.ChevronRight, 14, Theme.Gold600),
                     },
                 };
@@ -310,11 +329,12 @@ public sealed class DialogueView : ContentView
             body.Add(Primary("Fermer", End));
         }
 
+        var narrationBox = node is not null && Narration;
         var box = new Border
         {
-            BackgroundColor = Theme.Parchment,
-            Stroke = Theme.Stone800,
-            StrokeThickness = 3,
+            BackgroundColor = narrationBox ? Color.FromArgb("#F20C0A09") : Theme.Parchment,
+            Stroke = narrationBox ? Theme.Gold700 : Theme.Stone800,
+            StrokeThickness = narrationBox ? 1.5 : 3,
             StrokeShape = new RoundRectangle { CornerRadius = 16 },
             Padding = 0,
             Margin = new Thickness(12, 18, 12, 16),
@@ -323,12 +343,12 @@ public sealed class DialogueView : ContentView
         };
         OnTap(box, OnBoxTapped);
 
-        // Plaque du nom, qui déborde sur le haut de la boîte.
+        // Plaque du nom, qui déborde sur le haut de la boîte (pas pour la narration : personne ne parle).
         var container = new Grid();
         container.Add(box);
-        if (node is not null)
+        if (node is not null && !narrationBox)
         {
-            var speaker = _runner.Speaker.Length > 0 ? _runner.Speaker : _session.Db.T("title.narration");
+            var speaker = _runner.Speaker;
             var plate = new Border
             {
                 BackgroundColor = Theme.Stone900,

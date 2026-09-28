@@ -498,6 +498,24 @@ public class CampTests
     }
 }
 
+public class NarrationTests
+{
+    [Fact]
+    public void Script_AcceptsSeveralNarrationForms()
+    {
+        var script = "- La porte grince.\n* Un silence pesant.\nNarration: La nuit tombe.\nNarrateur: Au loin, un loup.\nBran: Qui va là ?\nLe vent souffle.";
+        var nodes = DialogueScript.Parse(script, out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(6, nodes.Count);
+        Assert.All(nodes.Where(n => n.Speaker.Length == 0), n => Assert.DoesNotContain(":", n.Text));
+        Assert.Equal(["", "", "", "", "Bran", ""], nodes.Select(n => n.Speaker).ToArray());
+        Assert.Equal("La nuit tombe.", nodes[2].Text);
+        var again = DialogueScript.Parse(DialogueScript.Write(nodes), out var errors2);
+        Assert.Empty(errors2);
+        Assert.Equal(nodes.Select(n => (n.Speaker, n.Text)), again.Select(n => (n.Speaker, n.Text)));
+    }
+}
+
 public class CrackTests
 {
     [Fact]
