@@ -133,6 +133,10 @@ public sealed class CharacterDef
     public bool IsStarter { get; set; }
     /// <summary>Départ de partie de ce héros (vide = départ principal).</summary>
     public string? StartId { get; set; }
+    /// <summary>Quand on joue ce héros : PJ qui l'accompagnent dès le début (en plus de ceux du départ).</summary>
+    public List<string> StartCompanions { get; set; } = [];
+    /// <summary>Quand on joue ce héros : effets au lancement de la partie (or, objets, flags, karma, amitiés, quêtes...).</summary>
+    public List<GameAction> StartActions { get; set; } = [];
     /// <summary>Karma de départ (vide = valeur par défaut des réglages de karma).</summary>
     public int? BaseKarma { get; set; }
     /// <summary>Amitié de départ envers les autres (vide = valeur par défaut des réglages d'amitié).</summary>
@@ -431,7 +435,29 @@ public sealed class QuestStage
 }
 
 /// <summary>
-/// Quête. Deux façons de la construire : une simple liste d'objectifs (dans l'ordre, puis récompenses),
+/// Partie d'une quête : les parties se font en parallèle, dans n'importe quel ordre, chacune avec son état
+/// (pas commencée, en cours, terminée, échouée). La quête est réussie quand toutes ses parties obligatoires le sont.
+/// </summary>
+public sealed class QuestPart
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    /// <summary>Texte du journal pour cette partie.</summary>
+    public string Journal { get; set; } = "";
+    /// <summary>Objectifs, dans l'ordre (vide = la partie se termine par un effet « Quête : terminer une partie »).</summary>
+    public List<QuestObjective> Objectives { get; set; } = [];
+    /// <summary>La partie commence quand ces conditions sont remplies (vide = dès le début de la quête).</summary>
+    public List<Condition> StartConditions { get; set; } = [];
+    /// <summary>La partie échoue si ces conditions deviennent vraies pendant qu'elle est en cours.</summary>
+    public List<Condition> FailConditions { get; set; } = [];
+    /// <summary>Facultative : pas nécessaire pour réussir la quête (et son échec ne fait pas échouer la quête).</summary>
+    public bool Optional { get; set; }
+    /// <summary>Effets quand la partie est terminée.</summary>
+    public List<GameAction> Rewards { get; set; } = [];
+}
+
+/// <summary>
+/// Quête. Trois façons de la construire : une simple liste d'objectifs (dans l'ordre, puis récompenses),
 /// ou des étapes avec embranchements et plusieurs fins (<see cref="Stages"/>).
 /// </summary>
 public sealed class QuestDef
@@ -444,10 +470,13 @@ public sealed class QuestDef
     public List<GameAction> Rewards { get; set; } = [];
     /// <summary>Étapes de la quête narrative (vide = quête simple). La première est le point de départ.</summary>
     public List<QuestStage> Stages { get; set; } = [];
+    /// <summary>Parties en parallèle (quête en plusieurs parties). Ignoré si la quête a des étapes.</summary>
+    public List<QuestPart> Parts { get; set; } = [];
     /// <summary>La quête démarre toute seule dès que ces conditions sont remplies (vide = seulement par un effet).</summary>
     public List<Condition> AutoStart { get; set; } = [];
 
     [JsonIgnore] public bool IsStaged => Stages.Count > 0;
+    [JsonIgnore] public bool HasParts => Parts.Count > 0 && !IsStaged;
     /// <summary>Quête secrète : n'apparaît pas dans le journal des quêtes.</summary>
     public bool Hidden { get; set; }
 }

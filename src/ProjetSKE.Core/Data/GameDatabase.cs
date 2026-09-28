@@ -149,6 +149,8 @@ public sealed class GameDatabase
             Ref(Items, c.StartingArmorId, w, "armure");
             Ref(Items, c.StartingRelicId, w, "relique");
             foreach (var g in c.StartingGearIds) Ref(Items, g, w, "équipement");
+            foreach (var id in c.StartCompanions) Ref(Characters, id, w, "compagnon de départ");
+            CheckActions(c.StartActions, w);
             Check(c.Skills.Any(s => s.Level <= 1), $"{w} : aucune compétence au niveau 1");
             if (!string.IsNullOrEmpty(c.StartId)) Check(Starts.Any(s => s.Id == c.StartId), $"{w} : départ « {c.StartId} » introuvable");
             CheckLines(c.BattleLines, w);
@@ -237,6 +239,22 @@ public sealed class GameDatabase
         {
             var w = $"Quête {q.Id}";
             CheckConditions(q.AutoStart, w);
+            if (q.HasParts)
+            {
+                var partIds = new HashSet<string>();
+                foreach (var part in q.Parts)
+                {
+                    var wp = $"{w}, partie {part.Id}";
+                    Check(!string.IsNullOrWhiteSpace(part.Id), $"{w} : partie sans identifiant");
+                    Check(partIds.Add(part.Id), $"{w} : partie « {part.Id} » en double");
+                    CheckObjectives(part.Objectives, wp);
+                    CheckConditions(part.StartConditions, wp);
+                    CheckConditions(part.FailConditions, wp);
+                    CheckActions(part.Rewards, wp);
+                }
+                CheckActions(q.Rewards, w);
+                continue;
+            }
             if (q.IsStaged)
             {
                 var stageIds = new HashSet<string>();
@@ -329,6 +347,11 @@ public sealed class GameDatabase
                         Check(Content.Camp.Resources.Any(r => r.Id == c.Arg), $"{w} : ressource « {c.Arg} » introuvable"); break;
                     case ConditionType.CampBuilt:
                         Check(Content.Camp.Buildings.Any(b => b.Id == c.Arg), $"{w} : lieu du camp « {c.Arg} » introuvable"); break;
+                    case ConditionType.QuestPartNotStarted or ConditionType.QuestPartActive or ConditionType.QuestPartCompleted or ConditionType.QuestPartFailed:
+                        Ref(Quests, c.Arg, w, "quête");
+                        if (Quests.TryGetValue(c.Arg, out var pq))
+                            Check(pq.Parts.Any(p => p.Id == c.Arg2), $"{w} : partie « {c.Arg2} » introuvable dans la quête {c.Arg}");
+                        break;
                     case ConditionType.AnyOf or ConditionType.AllOf:
                         if (c.Children is { } children) CheckConditions(children, w);
                         break;
@@ -367,6 +390,11 @@ public sealed class GameDatabase
                             Check(aq.Stages.Any(st => st.Id == a.Arg2), $"{w} : étape « {a.Arg2} » introuvable dans la quête {a.Arg}");
                         break;
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
+                    case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
+                        Ref(Quests, a.Arg, w, "quête");
+                        if (Quests.TryGetValue(a.Arg, out var apq))
+                            Check(apq.Parts.Any(p => p.Id == a.Arg2), $"{w} : partie « {a.Arg2} » introuvable dans la quête {a.Arg}");
+                        break;
                     case ActionType.AddCampResource:
                         Check(Content.Camp.Resources.Any(r => r.Id == a.Arg), $"{w} : ressource « {a.Arg} » introuvable"); break;
                     case ActionType.BuildCampBuilding:

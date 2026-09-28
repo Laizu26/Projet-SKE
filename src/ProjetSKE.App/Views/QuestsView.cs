@@ -66,7 +66,33 @@ public sealed class QuestsView : ContentView
                 }
             }
 
-            var objectives = s.ActiveObjectives(quest, progress);
+            // Quête en parties : chaque partie commencée, avec son état.
+            if (quest.HasParts)
+            {
+                foreach (var part in quest.Parts)
+                {
+                    if (!progress.Parts.TryGetValue(part.Id, out var pp)) continue; // pas encore découverte
+                    var name = s.FormatText(part.Name.Length > 0 ? part.Name : part.Id);
+                    var (glyph, color) = pp.Status switch
+                    {
+                        QuestStatus.Completed => (Ico.CircleCheck, Theme.Green600),
+                        QuestStatus.Failed => (Ico.X, Theme.Red600),
+                        _ => (Ico.Target, Theme.Gold600),
+                    };
+                    var box = Stack(IconRow(Icon(glyph, 15, color), Txt(name + (part.Optional ? "  (facultative)" : ""), 14,
+                        pp.Status == QuestStatus.Active ? Theme.Stone900 : Theme.Stone500, bold: pp.Status == QuestStatus.Active)));
+                    if (pp.Status == QuestStatus.Active)
+                    {
+                        if (part.Journal.Length > 0)
+                            box.Add(new Label { Text = s.FormatText(part.Journal), FontFamily = "serif", FontAttributes = FontAttributes.Italic, FontSize = 13, TextColor = Theme.Stone700 });
+                        if (pp.Step < part.Objectives.Count)
+                            box.Add(IconRow(Icon(Ico.ChevronRight, 12, Theme.Gold600), Txt(s.ObjectiveText(part.Objectives[pp.Step]), 12, Theme.Stone700)));
+                    }
+                    body.Add(box);
+                }
+            }
+
+            var objectives = quest.HasParts ? [] : s.ActiveObjectives(quest, progress);
             for (var i = 0; i < objectives.Count; i++)
             {
                 var o = objectives[i];
@@ -90,6 +116,7 @@ public sealed class QuestsView : ContentView
             var status = failed ? Badge("Échouée", Theme.Red600)
                 : completed ? Badge("Accomplie", Theme.Green600)
                 : quest.IsStaged ? Badge("En cours", Theme.Gold700)
+                : quest.HasParts ? Badge($"{quest.Parts.Count(p => progress.Parts.GetValueOrDefault(p.Id)?.Status == QuestStatus.Completed)}/{quest.Parts.Count(p => !p.Optional)} parties", Theme.Gold700)
                 : Badge($"Étape {Math.Min(progress.Step + 1, objectives.Count)}/{objectives.Count}", Theme.Gold700);
             stack.Add(TitledCard(failed ? Ico.X : completed ? Ico.Trophy : Ico.Scroll, failed ? "Quête échouée" : completed ? "Quête accomplie" : "Quête", body, status));
         }

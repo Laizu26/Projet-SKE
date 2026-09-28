@@ -143,6 +143,7 @@ public sealed class DevToolsView : ContentView
             var status = s.GetQuestStatus(q.Id) switch
             {
                 QuestStatus.Active when q.IsStaged => $"en cours : {stageName}",
+                QuestStatus.Active when q.HasParts => $"en cours ({q.Parts.Count(p => s.GetPartStatus(q.Id, p.Id) == QuestStatus.Completed)}/{q.Parts.Count} parties terminées)",
                 QuestStatus.Active => $"en cours (objectif {progress!.Step + 1}/{q.Objectives.Count})",
                 QuestStatus.Completed => "terminée" + (stageName is not null ? $" ({stageName})" : ""),
                 QuestStatus.Failed => "échouée" + (stageName is not null ? $" ({stageName})" : ""),
@@ -153,6 +154,27 @@ public sealed class DevToolsView : ContentView
                 Form.SmallButton("Démarrer", () => { s.StartQuest(quest.Id); Done(); }),
                 Form.SmallButton("Terminer", () => { s.CompleteQuest(quest.Id); Done(); }),
                 Form.SmallButton("Oublier", () => { s.ResetQuest(quest.Id); Done(); })));
+            if (q.HasParts)
+            {
+                // Chaque partie : son état, et de quoi le forcer (pour tester ce qui en dépend).
+                foreach (var part in q.Parts)
+                {
+                    var p = part;
+                    var partStatus = s.GetPartStatus(q.Id, p.Id);
+                    var (glyph, color, label) = partStatus switch
+                    {
+                        QuestStatus.Active => (Ico.Target, Theme.Gold600, "en cours"),
+                        QuestStatus.Completed => (Ico.CircleCheck, Theme.Good, "terminée"),
+                        QuestStatus.Failed => (Ico.X, Theme.Danger, "échouée"),
+                        _ => (Ico.Lock, Theme.Muted, "pas commencée"),
+                    };
+                    questBox.Add(IconRow(Icon(glyph, 13, color), Txt($"{(p.Name.Length > 0 ? p.Name : p.Id)} ({p.Id}) — {label}{(p.Optional ? " · facultative" : "")}", 12)));
+                    questBox.Add(ButtonRow(
+                        Form.SmallButton("Démarrer", () => { s.StartPart(quest.Id, p.Id); Done(); }),
+                        Form.SmallButton("Terminer", () => { s.CompletePart(quest.Id, p.Id); Done(); }),
+                        Form.SmallButton("Échouer", () => { s.FailPart(quest.Id, p.Id); Done(); })));
+                }
+            }
             if (q.IsStaged)
             {
                 var stagePicker = MakePicker(q.Stages.Select(st => st.Name.Length > 0 ? st.Name : st.Id).ToList());

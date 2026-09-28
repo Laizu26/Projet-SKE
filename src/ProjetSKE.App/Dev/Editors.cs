@@ -110,8 +110,13 @@ public sealed class CharacterEditor : EditorPage
         f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
         f.BoolField("Proposé au départ", _x.IsStarter, v => _x.IsStarter = v, rerender: true);
         if (_x.IsStarter)
+        {
             f.RefField("Départ de partie (aucun = départ principal)", _x.StartId,
                 new[] { DevState.Draft.Start }.Concat(DevState.Draft.ExtraStarts).Select(s => (s.Id, s.Name)), v => _x.StartId = v);
+            f.Note("Quand on joue ce héros : ceux qui l'accompagnent dès le début, et sa situation de départ (en plus de ce que donne le départ).");
+            f.IdList("Compagnons au départ", _x.StartCompanions, DevState.Characters.Where(c => c.Id != _x.Id));
+            f.Actions("Effets au lancement (quand on joue ce héros)", _x.StartActions);
+        }
         f.StatsField("Stats de base (niveau 1)", _x.BaseStats);
         f.StatsField("Gain par niveau", _x.GrowthPerLevel);
         f.Header("Équipement de départ");
@@ -313,24 +318,63 @@ public sealed class QuestEditor : EditorPage
         f.BoolField("Quête secrète (cachée du journal)", _x.Hidden, v => _x.Hidden = v);
         f.Conditions("Démarre toute seule quand", _x.AutoStart);
 
-        f.BoolField("Quête à étapes (embranchements, plusieurs fins)", _x.IsStaged, v =>
-        {
-            if (v && _x.Stages.Count == 0)
-            {
-                _x.Stages.Add(new QuestStage { Id = "debut", Name = "Début", Objectives = [.. _x.Objectives] });
-                _x.Objectives.Clear();
-            }
-            else if (!v && _x.Stages.Count > 0)
-            {
-                _x.Objectives.AddRange(_x.Stages[0].Objectives);
-                _x.Stages.Clear();
-            }
-        }, rerender: true);
+        // Forme de la quête : objectifs à la suite, étapes à embranchements, ou parties en parallèle.
+        var mode = _x.IsStaged ? "etapes" : _x.HasParts ? "parties" : "simple";
+        f.RefField("Forme de la quête", mode,
+        [
+            ("simple", "Simple : des objectifs à la suite"),
+            ("etapes", "À étapes : embranchements, plusieurs fins"),
+            ("parties", "En parties : plusieurs parties en parallèle, chacune son état"),
+        ], v => SetMode(v ?? "simple"), allowNone: false, rerender: true);
 
         if (_x.IsStaged) BuildStages(f);
+        else if (_x.HasParts) BuildParts(f);
         else f.Objectives("Objectifs (dans l'ordre)", _x.Objectives);
 
-        f.Actions(_x.IsStaged ? "Récompenses (toute fin réussie)" : "Récompenses", _x.Rewards);
+        f.Actions(_x.IsStaged ? "Récompenses (toute fin réussie)" : _x.HasParts ? "Récompenses (quand la quête est réussie)" : "Récompenses", _x.Rewards);
+    }
+
+    /// <summary>Change la forme de la quête en gardant les objectifs déjà écrits.</summary>
+    private void SetMode(string mode)
+    {
+        var objectives = _x.IsStaged ? _x.Stages[0].Objectives : _x.HasParts ? _x.Parts[0].Objectives : _x.Objectives;
+        objectives = [.. objectives];
+        _x.Objectives.Clear();
+        _x.Stages.Clear();
+        _x.Parts.Clear();
+        switch (mode)
+        {
+            case "etapes": _x.Stages.Add(new QuestStage { Id = "debut", Name = "Début", Objectives = objectives }); break;
+            case "parties": _x.Parts.Add(new QuestPart { Id = "partie1", Name = "Première partie", Objectives = objectives }); break;
+            default: _x.Objectives.AddRange(objectives); break;
+        }
+    }
+
+    private void BuildParts(Form f)
+    {
+        f.Note("Les parties se font en parallèle, dans n'importe quel ordre. Chacune a son état : pas commencée, en cours, terminée ou échouée. "
+            + "Une partie commence avec la quête, ou quand ses conditions sont remplies (ou par l'effet « Quête : démarrer une partie »). "
+            + "La quête est réussie quand toutes les parties obligatoires sont terminées, et échoue si l'une d'elles échoue. "
+            + "Les conditions « Partie de quête : ... » permettent de lancer d'autres quêtes, dialogues, choix... selon l'état de chaque partie.");
+        f.Header($"Parties ({_x.Parts.Count})");
+        foreach (var part in _x.Parts)
+        {
+            var p = part;
+            var details = new List<string> { p.Id, $"{p.Objectives.Count} objectif(s)" };
+            details.Add(p.StartConditions.Count == 0 ? "dès le début" : "commence si " + string.Join(" et ", p.StartConditions.Select(DevState.Describe)));
+            if (p.FailConditions.Count > 0) details.Add("échoue si " + string.Join(" et ", p.FailConditions.Select(DevState.Describe)));
+            if (p.Optional) details.Add("facultative");
+            f.Add(Panel(Row(
+                Stack(Txt(p.Name.Length > 0 ? p.Name : p.Id, 15, Theme.Text, bold: true), Muted(string.Join(" · ", details), 11)),
+                Form.SmallButton("Modifier", () => SkeApp.GoTo(new QuestPartEditor(_x, p))))));
+        }
+        f.Add(Btn("+ Partie", () =>
+        {
+            var part = new QuestPart { Id = DevState.NewId("partie", _x.Parts.Select(o => o.Id)), Name = "Nouvelle partie" };
+            _x.Parts.Add(part);
+            DevState.Touch();
+            SkeApp.GoTo(new QuestPartEditor(_x, part));
+        }));
     }
 
     private void BuildStages(Form f)
@@ -364,6 +408,28 @@ public sealed class QuestEditor : EditorPage
             DevState.Touch();
             SkeApp.GoTo(new QuestStageEditor(_x, stage));
         }));
+    }
+}
+
+public sealed class QuestPartEditor : EditorPage
+{
+    private readonly QuestDef _quest;
+    private readonly QuestPart _x;
+    public QuestPartEditor(QuestDef quest, QuestPart x) { _quest = quest; _x = x; Render(); }
+    protected override string PageTitle => $"{_quest.Name} › {_x.Name}";
+    protected override void GoBack() => SkeApp.GoTo(new QuestEditor(_quest));
+    protected override Action Delete => () => _quest.Parts.Remove(_x);
+
+    protected override void Build(Form f)
+    {
+        f.TextField("Identifiant (pour les conditions et effets)", _x.Id, v => _x.Id = v);
+        f.TextField("Nom", _x.Name, v => _x.Name = v);
+        f.TextField("Journal (texte de la partie)", _x.Journal, v => _x.Journal = v, multiline: true);
+        f.BoolField("Facultative (pas nécessaire pour réussir la quête)", _x.Optional, v => _x.Optional = v);
+        f.Conditions("Commence quand (vide = dès le début de la quête)", _x.StartConditions);
+        f.Objectives("Objectifs (dans l'ordre ; vide = terminée par un effet)", _x.Objectives);
+        f.Conditions("Échoue si (pendant qu'elle est en cours)", _x.FailConditions);
+        f.Actions("Effets quand la partie est terminée", _x.Rewards);
     }
 }
 

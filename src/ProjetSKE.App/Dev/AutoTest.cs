@@ -149,6 +149,17 @@ public static class AutoTest
                 world = new GamePage(session, -1, playIntro: false);
                 SkeApp.GoTo(world);
             }, 2500);
+            await Step("quête en parties (journal et outils)", () =>
+            {
+                var s = world!.Session;
+                if (s.Db.Content.Quests.FirstOrDefault(q => q.HasParts) is { } quest)
+                {
+                    s.StartQuest(quest.Id);
+                    s.CompletePart(quest.Id, quest.Parts[0].Id);
+                }
+                world.MenuShowDevTools = true;
+                world.SwitchTab(GameTab.Menu);
+            });
             await Step("camp : autour du feu", () => { world!.CampSection = CampSection.Hub; world.SwitchTab(GameTab.Camp); }, 1500);
             foreach (var section in Enum.GetValues<CampSection>())
                 await Step("camp : " + section, () => { world!.CampSection = section; world.Render(); });
@@ -216,6 +227,14 @@ public static class AutoTest
             await Step("éditeur : étape de quête", () =>
             {
                 if (DevState.Draft.Quests.FirstOrDefault(q => q.IsStaged) is { } quest) SkeApp.GoTo(new QuestStageEditor(quest, quest.Stages[1]));
+            });
+            await Step("éditeur : quête en parties", () =>
+            {
+                if (DevState.Draft.Quests.FirstOrDefault(q => q.HasParts) is { } quest) SkeApp.GoTo(new QuestEditor(quest));
+            });
+            await Step("éditeur : partie de quête", () =>
+            {
+                if (DevState.Draft.Quests.FirstOrDefault(q => q.HasParts) is { } quest) SkeApp.GoTo(new QuestPartEditor(quest, quest.Parts[0]));
             });
             await Step("partie avec un autre départ", () =>
             {

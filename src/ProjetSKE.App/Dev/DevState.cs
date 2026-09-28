@@ -193,6 +193,9 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
 
+    public static IEnumerable<(string Id, string Name)> PartQuests => Draft.Quests.Where(q => q.HasParts).Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> PartsOf(string questId) =>
+        Draft.Quests.FirstOrDefault(q => q.Id == questId)?.Parts.Select(p => (p.Id, p.Name.Length > 0 ? p.Name : p.Id)) ?? [];
     public static IEnumerable<(string Id, string Name)> StagedQuests => Draft.Quests.Where(q => q.IsStaged).Select(x => (x.Id, x.Name));
 
     public static IEnumerable<(string Id, string Name)> StagesOf(string questId, bool endingsOnly = false) =>
@@ -279,6 +282,9 @@ public static class DevState
         ActionType.AddCampResource => "Camp : ressource (ajouter / retirer)",
         ActionType.BuildCampBuilding => "Camp : construire un lieu (gratuit)",
         ActionType.SetQuestStage => "Quête : aller à l'étape",
+        ActionType.StartQuestPart => "Quête : démarrer une partie",
+        ActionType.CompleteQuestPart => "Quête : terminer une partie",
+        ActionType.FailQuestPart => "Quête : échouer une partie",
         _ => "Quête : échouer",
     };
 
@@ -342,6 +348,10 @@ public static class DevState
         ConditionType.QuestAtStage => "Quête à l'étape",
         ConditionType.QuestStageReached => "Quête : étape déjà passée",
         ConditionType.QuestEnding => "Quête finie par",
+        ConditionType.QuestPartNotStarted => "Partie de quête : pas commencée",
+        ConditionType.QuestPartActive => "Partie de quête : en cours",
+        ConditionType.QuestPartCompleted => "Partie de quête : terminée",
+        ConditionType.QuestPartFailed => "Partie de quête : échouée",
         _ => "Quête échouée",
     };
 

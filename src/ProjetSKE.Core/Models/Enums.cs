@@ -38,6 +38,8 @@ public enum ActionType
     JoinCamp, LeaveCamp, SetCampRank, SetCampTask, AddCampResource, BuildCampBuilding,
     // Quêtes à étapes
     SetQuestStage, FailQuest,
+    // Quêtes en plusieurs parties
+    StartQuestPart, CompleteQuestPart, FailQuestPart,
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
@@ -57,6 +59,8 @@ public enum ConditionType
     CampMember, CampRank, CampTask, CampResource, CampBuilt,
     // Quêtes à étapes
     QuestAtStage, QuestStageReached, QuestEnding, QuestFailed,
+    // Quêtes en plusieurs parties
+    QuestPartNotStarted, QuestPartActive, QuestPartCompleted, QuestPartFailed,
     // Groupes de conditions
     AnyOf, AllOf,
 }

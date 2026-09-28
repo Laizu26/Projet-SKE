@@ -62,12 +62,16 @@ public sealed partial class GameSession
         foreach (var stack in start.Inventory) session.AddItem(stack.ItemId, stack.Count);
         session.Recruit(heroId);
         foreach (var companion in start.Companions) session.Recruit(companion);
+        // Propre au héros joué : ses compagnons de route et sa situation de départ.
+        var heroDef = db.Characters.GetValueOrDefault(heroId);
+        foreach (var companion in heroDef?.StartCompanions ?? []) session.Recruit(companion);
         foreach (var npc in db.Content.Npcs.Where(n => n.StartsInCamp)) session.JoinCamp(npc.Id, npc.StartRankId);
         foreach (var r in db.Content.Camp.Resources) state.CampResources[r.Id] = r.Initial;
         foreach (var b in db.Content.Camp.Buildings.Where(b => b.BuiltAtStart)) state.CampBuildings.Add(b.Id);
         state.CampLastDay = session.Clock.Day;
         session.DiscoverLocation(state.CurrentLocationId);
         foreach (var action in start.Actions.Where(a => a.Type != ActionType.StartBattle)) session.Execute(action);
+        foreach (var action in (heroDef?.StartActions ?? []).Where(a => a.Type != ActionType.StartBattle)) session.Execute(action);
         session.UpdateQuests();
         session.Notifications.Clear();
         return session;
@@ -171,6 +175,10 @@ public sealed partial class GameSession
         ConditionType.QuestStageReached => QuestProgressOf(c.Arg)?.Path.Contains(c.Arg2) == true,
         ConditionType.QuestEnding => QuestProgressOf(c.Arg)?.EndingId is { } ending && (c.Arg2.Length == 0 || ending == c.Arg2),
         ConditionType.QuestFailed => GetQuestStatus(c.Arg) == QuestStatus.Failed,
+        ConditionType.QuestPartNotStarted => GetPartStatus(c.Arg, c.Arg2) == QuestStatus.NotStarted,
+        ConditionType.QuestPartActive => GetPartStatus(c.Arg, c.Arg2) == QuestStatus.Active,
+        ConditionType.QuestPartCompleted => GetPartStatus(c.Arg, c.Arg2) == QuestStatus.Completed,
+        ConditionType.QuestPartFailed => GetPartStatus(c.Arg, c.Arg2) == QuestStatus.Failed,
         ConditionType.AnyOf => c.Children is not { Count: > 0 } children || children.Any(Check),
         ConditionType.AllOf => c.Children is not { Count: > 0 } all || all.All(Check),
         _ => true,
@@ -338,6 +346,15 @@ public sealed partial class GameSession
             case ActionType.FailQuest:
                 FailQuest(a.Arg);
                 break;
+            case ActionType.StartQuestPart:
+                StartPart(a.Arg, a.Arg2);
+                break;
+            case ActionType.CompleteQuestPart:
+                CompletePart(a.Arg, a.Arg2);
+                break;
+            case ActionType.FailQuestPart:
+                FailPart(a.Arg, a.Arg2);
+                break;
         }
         return null;
     }
@@ -499,8 +516,100 @@ public sealed partial class GameSession
         State.Quests[questId] = progress;
         Notifications.Add($"Nouvelle quête : {quest.Name}");
         if (quest.IsStaged) EnterStage(quest, progress, quest.Stages[0]);
+        else if (quest.HasParts)
+            foreach (var part in quest.Parts.Where(p => p.StartConditions.Count == 0)) BeginPart(quest, progress, part);
         UpdateQuests();
         return true;
+    }
+
+    // ------------------------------------------------------------------ Quêtes en plusieurs parties
+
+    /// <summary>État d'une partie de quête (pas commencée si la quête ou la partie n'a pas démarré).</summary>
+    public QuestStatus GetPartStatus(string questId, string partId) =>
+        State.Quests.TryGetValue(questId, out var p) && p.Parts.TryGetValue(partId, out var part) ? part.Status : QuestStatus.NotStarted;
+
+    private void BeginPart(QuestDef quest, QuestProgress progress, QuestPart part)
+    {
+        if (progress.Parts.ContainsKey(part.Id)) return;
+        progress.Parts[part.Id] = new QuestProgress();
+        if (part.Name.Length > 0) Notifications.Add($"{quest.Name} : {FormatText(part.Name)}");
+    }
+
+    /// <summary>Démarre une partie (et la quête si besoin) : effet « Quête : démarrer une partie ».</summary>
+    public bool StartPart(string questId, string partId)
+    {
+        if (!Db.Quests.TryGetValue(questId, out var quest) || quest.Parts.FirstOrDefault(p => p.Id == partId) is not { } part) return false;
+        if (GetQuestStatus(questId) == QuestStatus.NotStarted) StartQuest(questId);
+        if (State.Quests.GetValueOrDefault(questId) is not { Status: QuestStatus.Active } progress || progress.Parts.ContainsKey(partId)) return false;
+        BeginPart(quest, progress, part);
+        UpdateQuests();
+        return true;
+    }
+
+    public bool CompletePart(string questId, string partId) => EndPart(questId, partId, QuestStatus.Completed);
+
+    public bool FailPart(string questId, string partId) => EndPart(questId, partId, QuestStatus.Failed);
+
+    private bool EndPart(string questId, string partId, QuestStatus status)
+    {
+        if (!Db.Quests.TryGetValue(questId, out var quest) || quest.Parts.FirstOrDefault(p => p.Id == partId) is not { } part) return false;
+        if (GetQuestStatus(questId) == QuestStatus.NotStarted) StartQuest(questId);
+        if (State.Quests.GetValueOrDefault(questId) is not { Status: QuestStatus.Active } progress) return false;
+        if (!progress.Parts.TryGetValue(partId, out var pp)) progress.Parts[partId] = pp = new QuestProgress();
+        if (pp.Status is QuestStatus.Completed or QuestStatus.Failed) return false;
+        FinishPart(quest, part, pp, status);
+        CheckPartsDone(quest, progress);
+        UpdateQuests();
+        return true;
+    }
+
+    private void FinishPart(QuestDef quest, QuestPart part, QuestProgress pp, QuestStatus status)
+    {
+        pp.Status = status;
+        var name = part.Name.Length > 0 ? FormatText(part.Name) : part.Id;
+        if (status == QuestStatus.Completed)
+        {
+            pp.Step = part.Objectives.Count;
+            Notifications.Add($"Partie terminée : {name}");
+            foreach (var reward in part.Rewards.Where(a => a.Type != ActionType.StartBattle)) Execute(reward);
+        }
+        else Notifications.Add($"Partie échouée : {name}");
+    }
+
+    /// <summary>La quête réussit quand toutes les parties obligatoires sont terminées ; elle échoue si l'une d'elles échoue.</summary>
+    private void CheckPartsDone(QuestDef quest, QuestProgress progress)
+    {
+        if (progress.Status != QuestStatus.Active) return;
+        var required = quest.Parts.Where(p => !p.Optional).ToList();
+        if (required.Any(p => progress.Parts.GetValueOrDefault(p.Id)?.Status == QuestStatus.Failed)) FailQuest(quest.Id);
+        else if (required.Count > 0 && required.All(p => progress.Parts.GetValueOrDefault(p.Id)?.Status == QuestStatus.Completed)) CompleteQuest(quest.Id);
+        else if (required.Count == 0 && quest.Parts.All(p => progress.Parts.GetValueOrDefault(p.Id)?.Status is QuestStatus.Completed or QuestStatus.Failed))
+            CompleteQuest(quest.Id);
+    }
+
+    /// <summary>Fait avancer les parties d'une quête : démarrages, échecs, objectifs.</summary>
+    private void UpdateParts(QuestDef quest, QuestProgress progress, ObjectiveType? eventType, string? eventTarget)
+    {
+        foreach (var part in quest.Parts)
+        {
+            if (progress.Status != QuestStatus.Active) return;
+            if (!progress.Parts.TryGetValue(part.Id, out var pp))
+            {
+                if (part.StartConditions.Count == 0 || !CheckAll(part.StartConditions)) continue;
+                BeginPart(quest, progress, part);
+                pp = progress.Parts[part.Id];
+            }
+            if (pp.Status != QuestStatus.Active) continue;
+            if (part.FailConditions.Count > 0 && CheckAll(part.FailConditions))
+            {
+                FinishPart(quest, part, pp, QuestStatus.Failed);
+                continue;
+            }
+            var consumed = false; // chaque partie peut réagir au même événement
+            if (part.Objectives.Count > 0 && AdvanceObjectives(part.Objectives, pp, eventType, eventTarget, ref consumed))
+                FinishPart(quest, part, pp, QuestStatus.Completed);
+        }
+        CheckPartsDone(quest, progress);
     }
 
     /// <summary>Termine une quête avec succès et donne ses récompenses.</summary>
@@ -611,6 +720,11 @@ public sealed partial class GameSession
             {
                 if (!Db.Quests.TryGetValue(questId, out var quest)) continue;
                 var progress = State.Quests[questId];
+                if (quest.HasParts)
+                {
+                    UpdateParts(quest, progress, eventType, eventTarget);
+                    continue;
+                }
                 var consumed = false; // un même événement ne valide qu'un objectif par quête
                 for (var guard = 0; guard < 30 && progress.Status == QuestStatus.Active; guard++)
                 {

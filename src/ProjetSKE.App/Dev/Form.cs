@@ -438,6 +438,10 @@ public sealed class Form
             case ConditionType.QuestFailed:
                 RefField("Quête", c.Arg, DevState.Quests, v => c.Arg = v ?? "", allowNone: false);
                 break;
+            case ConditionType.QuestPartNotStarted or ConditionType.QuestPartActive or ConditionType.QuestPartCompleted or ConditionType.QuestPartFailed:
+                RefField("Quête", c.Arg, DevState.PartQuests, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField("Partie", c.Arg2, DevState.PartsOf(c.Arg), v => c.Arg2 = v ?? "", allowNone: false);
+                break;
             case ConditionType.AnyOf or ConditionType.AllOf:
                 c.Children ??= [];
                 Conditions(c.Type == ConditionType.AnyOf ? "OU : au moins une de ces conditions" : "ET : toutes ces conditions", c.Children, anyOf: c.Type == ConditionType.AnyOf);
@@ -476,6 +480,10 @@ public sealed class Form
                 break;
             case ActionType.StartQuest or ActionType.CompleteQuest or ActionType.FailQuest:
                 RefField("Quête", a.Arg, DevState.Quests, v => a.Arg = v ?? "", allowNone: false);
+                break;
+            case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
+                RefField("Quête", a.Arg, DevState.PartQuests, v => { a.Arg = v ?? ""; a.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField("Partie", a.Arg2, DevState.PartsOf(a.Arg), v => a.Arg2 = v ?? "", allowNone: false);
                 break;
             case ActionType.Teleport or ActionType.RevealLocation or ActionType.HideLocation:
                 RefField("Lieu", a.Arg, DevState.Locations, v => a.Arg = v ?? "", allowNone: false);

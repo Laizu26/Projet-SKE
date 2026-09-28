@@ -505,6 +505,24 @@ internal static class SampleContent
     [
         new()
         {
+            Id = "rumeurs", Name = "Les rumeurs de Havrefort",
+            Description = "Trois pistes à suivre, dans l'ordre que tu veux.",
+            Parts =
+            [
+                new() { Id = "marchand", Name = "Écouter le marchand", Objectives = [new() { Type = ObjectiveType.TalkTo, TargetId = "olric" }] },
+                new() { Id = "fermier", Name = "Écouter le fermier", Objectives = [new() { Type = ObjectiveType.TalkTo, TargetId = "fermier_joss" }] },
+                new()
+                {
+                    Id = "route", Name = "Vérifier la route", Journal = "On parle de silhouettes sur la Route du Roi.",
+                    StartConditions = [new(ConditionType.QuestPartCompleted, "rumeurs") { Arg2 = "marchand" }],
+                    Objectives = [new() { Type = ObjectiveType.Reach, TargetId = "route_roi" }],
+                },
+                new() { Id = "secret", Name = "Le secret de la chapelle", Optional = true, Objectives = [new() { Type = ObjectiveType.TalkTo, TargetId = "soeur_maelle" }] },
+            ],
+            Rewards = [new(ActionType.GiveXp, amount: 40), new(ActionType.GiveGold, amount: 30)],
+        },
+        new()
+        {
             Id = "rancon", Name = "La rançon du marchand",
             Description = "Olric, un marchand de Havrefort, a été enlevé sur la route.",
             AutoStart = [new(ConditionType.Visited, "bourg_brume")],

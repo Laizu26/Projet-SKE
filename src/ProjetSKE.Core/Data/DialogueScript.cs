@@ -43,6 +43,7 @@ public static partial class DialogueScript
         [camp pnj] [camp pnj grade] [quitte_camp pnj] [grade pnj grade] [tache pnj tache]
         [ressource nourriture 5] [construit palissade]
         [etape quete etape] [echouer quete]
+        [partie quete partie] [finir_partie quete partie] [echouer_partie quete partie]
 
         Conditions : {flag x} {sans_flag x} {quete_dispo id} {quete_active id}
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
@@ -53,6 +54,7 @@ public static partial class DialogueScript
         {au_camp pnj} {grade pnj >= 2} {tache pnj rondes}
         {ressource bois >= 10} {construit palissade}
         {etape quete etape} {passe quete etape} {fin quete etape} {fin quete} {quete_echouee quete}
+        {partie_dispo quete partie} {partie_active quete partie} {partie_finie quete partie} {partie_echouee quete partie}
         {!flag x} = sauf si · {flag a | flag b} = l'un ou l'autre · {flag a & karma > 0 | flag b}
         Qui : @parle (par défaut), @heros, @equipe, ou l'identifiant d'un PJ.
         """;
@@ -76,7 +78,9 @@ public static partial class DialogueScript
         ("camp", ActionType.JoinCamp, "ab"), ("quitte_camp", ActionType.LeaveCamp, "a"),
         ("grade", ActionType.SetCampRank, "ab"), ("tache", ActionType.SetCampTask, "ab"),
         ("ressource", ActionType.AddCampResource, "an"), ("construit", ActionType.BuildCampBuilding, "a"),
-        ("etape", ActionType.SetQuestStage, "ab"), ("echouer", ActionType.FailQuest, "a"),
+        ("etape", ActionType.SetQuestStage, "ab"),
+        ("partie", ActionType.StartQuestPart, "ab"), ("finir_partie", ActionType.CompleteQuestPart, "ab"),
+        ("echouer_partie", ActionType.FailQuestPart, "ab"), ("echouer", ActionType.FailQuest, "a"),
     ];
 
     private static readonly (string Word, ConditionType Type, string Sig)[] ConditionWords =
@@ -96,6 +100,8 @@ public static partial class DialogueScript
         ("connu", ConditionType.MetNpc, "a"), ("chance", ConditionType.Chance, "n"),
         ("au_camp", ConditionType.CampMember, "a"), ("grade", ConditionType.CampRank, "ao"), ("tache", ConditionType.CampTask, "ab"),
         ("ressource", ConditionType.CampResource, "ao"), ("construit", ConditionType.CampBuilt, "a"),
+        ("partie_dispo", ConditionType.QuestPartNotStarted, "ab"), ("partie_active", ConditionType.QuestPartActive, "ab"),
+        ("partie_finie", ConditionType.QuestPartCompleted, "ab"), ("partie_echouee", ConditionType.QuestPartFailed, "ab"),
         ("etape", ConditionType.QuestAtStage, "ab"), ("passe", ConditionType.QuestStageReached, "ab"),
         ("fin", ConditionType.QuestEnding, "ab"), ("quete_echouee", ConditionType.QuestFailed, "a"),
     ];

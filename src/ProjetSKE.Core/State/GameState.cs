@@ -77,6 +77,8 @@ public sealed class QuestProgress
     public string? StageId { get; set; }
     public List<string> Path { get; set; } = [];
     public string? EndingId { get; set; }
+    /// <summary>Quête en plusieurs parties : état de chaque partie (id de partie → progression).</summary>
+    public Dictionary<string, QuestProgress> Parts { get; set; } = [];
 }
 
 /// <summary>Un membre du campement (PNJ ou PJ).</summary>
