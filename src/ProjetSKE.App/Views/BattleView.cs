@@ -7,8 +7,9 @@ using static ProjetSKE.App.Ui.UiKit;
 namespace ProjetSKE.App.Views;
 
 /// <summary>
-/// Écran de combat, par-dessus tout le reste :
-/// en haut les barres de vie (ennemis puis équipe), au milieu le journal du combat, en bas Attaque / Objet / Fuite.
+/// Écran de combat, par-dessus tout le reste, organisé comme un duel sur mobile :
+/// en haut l'ennemi, au milieu la narration du combat, en bas l'équipe, tout en bas les actions
+/// (Attaque / Défense / Objet / Fuite).
 /// </summary>
 public sealed class BattleView : ContentView
 {
@@ -50,8 +51,8 @@ public sealed class BattleView : ContentView
                 new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Star),
+                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto),
             },
             RowSpacing = 10,
@@ -59,7 +60,7 @@ public sealed class BattleView : ContentView
 
         var header = new Grid
         {
-            Padding = new Thickness(16, 14, 16, 4),
+            Padding = new Thickness(16, 12, 16, 0),
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
         };
         header.Add(new HorizontalStackLayout
@@ -67,8 +68,8 @@ public sealed class BattleView : ContentView
             Spacing = 8,
             Children =
             {
-                Icon(Ico.Swords, 18, Theme.Gold500),
-                new Label { Text = "COMBAT", FontFamily = "serif", FontSize = 18, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4 },
+                Icon(Ico.Swords, 16, Theme.Gold500),
+                new Label { Text = "COMBAT", FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4 },
             },
         }, 0, 0);
         header.Add(Caps($"Tour {_battle.Round}", 10, Theme.Stone500), 1, 0);
@@ -76,8 +77,8 @@ public sealed class BattleView : ContentView
         grid.Add(GoldLine(3), 0, 0);
         grid.Add(header, 0, 1);
         grid.Add(Padded(BuildEnemies()), 0, 2);
-        grid.Add(Padded(BuildAllies()), 0, 3);
-        grid.Add(Padded(BuildLog()), 0, 4);
+        grid.Add(Padded(BuildLog()), 0, 3);
+        grid.Add(Padded(BuildAllies()), 0, 4);
         grid.Add(new ContentView { Content = BuildActions(), Padding = new Thickness(14, 0, 14, 16) }, 0, 5);
         Content = grid;
 
@@ -86,26 +87,74 @@ public sealed class BattleView : ContentView
 
     private static View Padded(View v) => new ContentView { Content = v, Padding = new Thickness(14, 0) };
 
-    // ------------------------------------------------------------------ Haut : barres de vie
+    /// <summary>Case « portrait » : icône ou initiale dans un cadre.</summary>
+    private static View Portrait(string? glyph, string name, Color accent, double size)
+    {
+        View inner = glyph is not null
+            ? Icon(glyph, size * 0.5, accent)
+            : new Label
+            {
+                Text = string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant(),
+                FontFamily = "serif", FontSize = size * 0.5, FontAttributes = FontAttributes.Bold, TextColor = accent,
+                HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center,
+            };
+        return new Border
+        {
+            WidthRequest = size,
+            HeightRequest = size * 1.2,
+            VerticalOptions = LayoutOptions.Start,
+            BackgroundColor = Theme.Stone950,
+            Stroke = accent,
+            StrokeThickness = 1.5,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
+            Content = inner,
+        };
+    }
+
+    /// <summary>Fiche d'un combattant : portrait à gauche, nom et jauges à droite.</summary>
+    private View Fighter(Combatant c, string? glyph, Color accent, Color background, Color stroke, double portrait, bool compact)
+    {
+        var before = Previous(c);
+        var name = Txt(c.Name + (c.IsAlive ? "" : " (K.O.)"), compact ? 12 : 15, c.IsAlive ? Theme.Stone100 : Theme.Stone600, bold: true);
+        name.LineBreakMode = LineBreakMode.TailTruncation;
+        name.MaxLines = 1;
+        var bars = new VerticalStackLayout { Spacing = compact ? 3 : 5, VerticalOptions = LayoutOptions.Center };
+        bars.Add(name);
+        bars.Add(AnimatedBar("PV", before.Hp, c.Hp, c.Stats.MaxHp, c.IsAlly ? Theme.Green500 : Theme.Red500, compact ? 6 : 9, dark: true));
+        if (c.Stats.MaxMana > 0)
+            bars.Add(AnimatedBar("PM", before.Mana, c.Mana, c.Stats.MaxMana, Theme.Blue500, compact ? 4 : 6, dark: true));
+        if (c.Defending) bars.Add(IconRow(Icon(Ico.Shield, 11, Theme.Gold500), Txt("En garde", 10, Theme.Gold500, bold: true)));
+
+        var row = new Grid
+        {
+            ColumnSpacing = compact ? 8 : 12,
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
+        };
+        row.Add(Portrait(glyph, c.Name, accent, portrait), 0, 0);
+        row.Add(bars, 1, 0);
+
+        var card = Card(row, background, stroke, 12);
+        card.Padding = compact ? new Thickness(8) : new Thickness(12, 10);
+        card.Opacity = c.IsAlive ? 1 : 0.4;
+        if (c.Hp < before.Hp) Shake(card);
+        return card;
+    }
+
+    // ------------------------------------------------------------------ Haut : l'ennemi
 
     private View BuildEnemies()
     {
+        var single = _battle.Enemies.Count == 1;
         var cards = _battle.Enemies.Select(e =>
         {
-            var title = new HorizontalStackLayout { Spacing = 6 };
-            title.Add(Icon(e.IsAlive ? (e.IsBoss ? Ico.Crown : Ico.Skull) : Ico.X, 13, e.IsAlive ? Theme.Red500 : Theme.Stone600));
-            title.Add(Txt(e.Name, 13, e.IsAlive ? Theme.Stone100 : Theme.Stone600, bold: true));
-            if (e.IsBoss) title.Add(Badge("Boss", Theme.Red500));
-            var before = Previous(e);
-            var card = Card(Stack(title, AnimatedBar("PV", before.Hp, e.Hp, e.Stats.MaxHp, Theme.Red500, 8, dark: true)),
-                Theme.Stone900, Color.FromArgb("#7F1D1D"), 12);
-            card.Padding = new Thickness(12, 10);
-            card.Opacity = e.IsAlive ? 1 : 0.4;
-            if (e.Hp < before.Hp) Shake(card);
-            return (View)card;
+            var glyph = e.IsAlive ? (e.IsBoss ? Ico.Crown : Ico.Skull) : Ico.X;
+            var accent = e.IsAlive ? Theme.Red500 : Theme.Stone600;
+            return Fighter(e, glyph, accent, Theme.Stone900, Color.FromArgb("#7F1D1D"), single ? 64 : 38, compact: !single);
         }).ToList();
-        return TileGrid(cards, cards.Count == 1 ? 1 : 2);
+        return TileGrid(cards, single ? 1 : 2);
     }
+
+    // ------------------------------------------------------------------ Bas : l'équipe
 
     private View BuildAllies()
     {
@@ -113,24 +162,11 @@ public sealed class BattleView : ContentView
         {
             var current = a == _battle.CurrentActor;
             var def = a.Character is { } c ? _page.Session.DefOf(c) : null;
-            var info = new VerticalStackLayout
-            {
-                Spacing = 3,
-                Children =
-                {
-                    Txt(a.Name + (a.IsAlive ? "" : " (K.O.)"), 13, current ? Theme.Gold500 : Theme.Stone100, bold: true),
-                    AnimatedBar("PV", Previous(a).Hp, a.Hp, a.Stats.MaxHp, Theme.Green500, 7, dark: true),
-                    AnimatedBar("PM", Previous(a).Mana, a.Mana, a.Stats.MaxMana, Theme.Blue500, 5, dark: true),
-                },
-            };
-            var card = Card(IconRow(Avatar(a.Name, current ? Theme.Gold500 : Theme.AvatarColor(def?.Id ?? a.Name), 34), info),
-                Theme.Stone800, current ? Theme.Gold500 : Theme.Stone700, 12);
-            card.Padding = new Thickness(10, 8);
-            card.Opacity = a.IsAlive ? 1 : 0.4;
-            if (a.Hp < Previous(a).Hp) Shake(card);
-            return (View)card;
+            var accent = current ? Theme.Gold500 : Theme.AvatarColor(def?.Id ?? a.Name);
+            return Fighter(a, null, accent, Theme.Stone800, current ? Theme.Gold500 : Theme.Stone700,
+                _battle.Allies.Count == 1 ? 48 : 30, compact: _battle.Allies.Count > 1);
         }).ToList();
-        return TileGrid(cards, cards.Count == 1 ? 1 : 2);
+        return TileGrid(cards, Math.Clamp(cards.Count, 1, 3));
     }
 
     // ------------------------------------------------------------------ Milieu : journal du combat (parchemin)
@@ -179,20 +215,21 @@ public sealed class BattleView : ContentView
 
     private static View ActionTile(string glyph, string label, Action onTap, bool enabled = true)
     {
-        var tile = Card(new VerticalStackLayout
+        var tile = Card(new HorizontalStackLayout
         {
-            Spacing = 4,
+            Spacing = 8,
+            HorizontalOptions = LayoutOptions.Center,
             Children =
             {
-                Icon(glyph, 24, Theme.Gold500),
+                Icon(glyph, 20, Theme.Gold500),
                 new Label
                 {
-                    Text = label.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, CharacterSpacing = 2,
-                    TextColor = Theme.Stone100, HorizontalTextAlignment = TextAlignment.Center,
+                    Text = label.ToUpperInvariant(), FontSize = 11, FontAttributes = FontAttributes.Bold, CharacterSpacing = 2,
+                    TextColor = Theme.Stone100, VerticalTextAlignment = TextAlignment.Center,
                 },
             },
         }, Theme.Stone800, Theme.Stone700, 12);
-        tile.Padding = new Thickness(6, 12);
+        tile.Padding = new Thickness(6, 14);
         tile.Opacity = enabled ? 1 : 0.35;
         if (enabled) OnTap(tile, onTap);
         return tile;
@@ -277,9 +314,10 @@ public sealed class BattleView : ContentView
                     TileGrid(
                     [
                         ActionTile(Ico.Swords, "Attaque", () => SetMode(Mode.Skills)),
+                        ActionTile(Ico.Shield, "Défense", Defend),
                         ActionTile(Ico.FlaskConical, "Objet", () => SetMode(Mode.Items)),
                         ActionTile(Ico.Footprints, fleeText, Flee, _battle.CanFlee),
-                    ], 3));
+                    ], 2));
             }
         }
     }
@@ -309,6 +347,12 @@ public sealed class BattleView : ContentView
         else if (_item is not null) _battle.UseItem(_item, target);
         _skill = null;
         _item = null;
+        SetMode(Mode.Main);
+    }
+
+    private void Defend()
+    {
+        _battle.Defend();
         SetMode(Mode.Main);
     }
 

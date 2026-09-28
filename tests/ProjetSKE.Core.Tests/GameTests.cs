@@ -201,6 +201,19 @@ public class GameTests
     }
 
     [Fact]
+    public void Battle_DefendHalvesDamageUntilNextTurn()
+    {
+        var s = NewGame();
+        var battle = s.StartBattle(["gobelin"]);
+        var hero = battle.CurrentActor!;
+        battle.Defend();
+        Assert.Contains(battle.Log, l => l.Contains("se met en garde"));
+        // De retour au tour du héros : la garde est levée.
+        Assert.Same(hero, battle.CurrentActor);
+        Assert.False(hero.Defending);
+    }
+
+    [Fact]
     public void Battle_FleeRules()
     {
         var s = NewGame();

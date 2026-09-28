@@ -99,11 +99,76 @@ public sealed class GamePage : ContentPage
         root.Add(_tabBar, 0, 4);
         root.Add(_overlay, 0, 0);
         Grid.SetRowSpan(_overlay, 5);
+        var eyes = BuildEyelids();
+        root.Add(eyes, 0, 0);
+        Grid.SetRowSpan(eyes, 5);
         Content = root;
         BackgroundColor = Theme.Stone900;
 
         Render();
         if (playIntro && session.Db.Start.IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
+    }
+
+    // ------------------------------------------------------------------ Réveil : les yeux s'ouvrent
+
+    /// <summary>
+    /// Deux paupières noires en amande qui s'entrouvrent, clignent, puis s'ouvrent en grand,
+    /// avec un voile sombre qui se dissipe (vision encore floue au réveil).
+    /// </summary>
+    private static Grid BuildEyelids()
+    {
+        var eyes = new Grid
+        {
+            ZIndex = 20,
+            InputTransparent = true,
+            RowSpacing = 0,
+            RowDefinitions = { new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Star) },
+        };
+        var veil = new BoxView { Color = Theme.Stone950, Opacity = 0.85 };
+        eyes.Add(veil, 0, 0);
+        Grid.SetRowSpan(veil, 2);
+
+        Border Lid(bool top) => new()
+        {
+            BackgroundColor = Colors.Black,
+            StrokeThickness = 0,
+            Margin = top ? new Thickness(-60, -2, -60, -40) : new Thickness(-60, -40, -60, -2),
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle
+            {
+                CornerRadius = top ? new CornerRadius(0, 0, 400, 400) : new CornerRadius(400, 400, 0, 0),
+            },
+        };
+        var upper = Lid(top: true);
+        var lower = Lid(top: false);
+        eyes.Add(upper, 0, 0);
+        eyes.Add(lower, 0, 1);
+
+        var started = false;
+        eyes.Loaded += async (_, _) =>
+        {
+            if (started) return;
+            started = true;
+            try
+            {
+                await Task.Delay(250);
+                async Task Open(double fraction, uint ms, Easing easing)
+                {
+                    var h = eyes.Height / 2 + 60;
+                    await Task.WhenAll(
+                        upper.TranslateTo(0, -h * fraction, ms, easing),
+                        lower.TranslateTo(0, h * fraction, ms, easing));
+                }
+                await Open(0.18, 450, Easing.SinOut);
+                await Task.WhenAll(Open(0, 220, Easing.SinIn), veil.FadeTo(0.7, 220));
+                await Task.Delay(180);
+                await Task.WhenAll(Open(0.45, 500, Easing.SinOut), veil.FadeTo(0.45, 500));
+                await Open(0.3, 250, Easing.SinInOut);
+                await Task.WhenAll(Open(1, 800, Easing.CubicOut), veil.FadeTo(0, 1100, Easing.SinOut));
+            }
+            catch (Exception) { }
+            eyes.IsVisible = false;
+        };
+        return eyes;
     }
 
     // ------------------------------------------------------------------ Affichage

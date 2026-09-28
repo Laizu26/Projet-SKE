@@ -16,6 +16,8 @@ public sealed class Combatant
     public required IReadOnlyList<SkillDef> Skills { get; init; }
     public int Hp { get; set; }
     public int Mana { get; set; }
+    /// <summary>En garde : dégâts reçus réduits jusqu'à son prochain tour.</summary>
+    public bool Defending { get; set; }
 
     public bool IsAlive => Hp > 0;
     public bool IsBoss => Monster?.IsBoss == true;
@@ -137,6 +139,15 @@ public sealed class Battle
         return true;
     }
 
+    /// <summary>Se mettre en garde : les dégâts reçus sont divisés par deux jusqu'au prochain tour.</summary>
+    public void Defend()
+    {
+        if (!IsPlayerTurn) return;
+        CurrentActor!.Defending = true;
+        Log.Add($"{CurrentActor.Name} se met en garde.");
+        EndAction();
+    }
+
     /// <summary>Passer son tour.</summary>
     public void Wait()
     {
@@ -192,6 +203,7 @@ public sealed class Battle
             var next = _queue.Dequeue();
             if (!next.IsAlive) continue;
             CurrentActor = next;
+            next.Defending = false;
             if (next.IsAlly) return;
             EnemyAct(next);
             CheckEnd();
@@ -249,7 +261,7 @@ public sealed class Battle
                 var raw = skill.Kind == SkillKind.Physical
                     ? actor.Stats.Attack * skill.Power - t.Stats.Defense * balance.PhysicalDefenseFactor
                     : actor.Stats.Magic * skill.Power * balance.MagicMultiplier - t.Stats.Defense * balance.MagicDefenseFactor;
-                var damage = Math.Max(1, (int)Math.Round(raw * variance));
+                var damage = Math.Max(1, (int)Math.Round(raw * variance * (t.Defending ? 0.5 : 1)));
                 t.Hp = Math.Max(0, t.Hp - damage);
                 parts.Add(t.IsAlive ? $"{t.Name} -{damage} PV" : $"{t.Name} -{damage} PV, vaincu !");
             }

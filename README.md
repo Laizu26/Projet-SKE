@@ -44,7 +44,7 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 | **Shop** | Uniquement en ville : achat et revente (à moitié prix) |
 | **Journal** | Page blanche où l'on écrit librement, sauvegardée avec la partie |
 | **Menu** | Sauvegarde, paramètres, retour au titre |
-| **Combat** | Par-dessus tout : barres de vie en haut, déroulé du combat au milieu, Attaque / Objet / Fuite en bas. Tour par tour selon la vitesse |
+| **Combat** | Par-dessus tout : l'ennemi en haut, la narration du combat au milieu, l'équipe en bas, puis Attaque / Défense / Objet / Fuite. Tour par tour selon la vitesse ; Défense divise les dégâts reçus par deux jusqu'au tour suivant |
 | **Histoire** | Dialogues par-dessus tout, avec choix de réponse (recruter un personnage, recevoir de l'or, lancer un combat…) |
 
 ### Paramètres modifiables (Menu)
