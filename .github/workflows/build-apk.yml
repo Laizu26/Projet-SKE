@@ -37,6 +37,8 @@ jobs:
           dotnet publish src/ProjetSKE.App/ProjetSKE.App.csproj
           -f net10.0-android -c Release
           -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT"
+          -p:ApplicationVersion=${{ github.run_number }}
+          -p:ApplicationDisplayVersion=1.0.${{ github.run_number }}
           -o out
 
       - name: Publier l'APK
@@ -92,3 +94,30 @@ jobs:
             logcat.txt
             ecran.png
           if-no-files-found: ignore
+
+  # Publie l'APK testé en « Release » GitHub : l'application la détecte et se met à jour toute seule (Updates.cs).
+  # Le numéro de compilation sert d'étiquette (v123) et de versionCode Android.
+  release:
+    needs: [build, emulator-test]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ProjetSKE-apk
+          path: apk
+
+      - name: Nommer l'APK
+        run: mv apk/*.apk apk/ProjetSKE.apk
+
+      - name: Créer la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Version 1.0.${{ github.run_number }}
+          body: ${{ github.event.head_commit.message }}
+          target_commitish: ${{ github.sha }}
+          files: apk/ProjetSKE.apk
+          make_latest: true

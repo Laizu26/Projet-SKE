@@ -201,6 +201,20 @@ public sealed class MenuView : ContentView
         settings.Add(Muted("Touchez une valeur pour la changer. Les boss empêchent toujours la fuite.", 11));
         stack.Add(TitledCard(Ico.SlidersHorizontal, "Paramètres", settings));
 
+        stack.Add(TitledCard(Ico.Sparkles, "Version du jeu", Stack(
+            Txt(Updates.CurrentVersion, 13, Theme.Stone700),
+            Muted(Updates.Status.Length > 0 ? Updates.Status : "Les nouvelles versions sont publiées sur GitHub.", 12),
+            ButtonRow(
+                Btn("Vérifier", async () => { await Updates.CheckAsync(); page.Render(); }),
+                Btn("Installer", async () =>
+                {
+                    if (Updates.Latest is not { } release) return;
+                    page.Notify("Téléchargement de la mise à jour…");
+                    page.Render();
+                    page.Notify(await Updates.DownloadAndInstallAsync(release, new Progress<double>()));
+                    page.Render();
+                }, enabled: Updates.IsAvailable, selected: Updates.IsAvailable)))));
+
         if (SkeApp.DevUnlocked)
         {
             stack.Add(Btn(page.MenuShowDevTools ? "Masquer les outils de test" : "Outils de test", () =>

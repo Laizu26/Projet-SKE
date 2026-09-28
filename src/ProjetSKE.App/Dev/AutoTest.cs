@@ -104,6 +104,8 @@ public static class AutoTest
             Log("début");
             Log("base en ligne : " + await CloudSync.TestAsync(CloudSync.Settings));
             await SyncScenario();
+            await Updates.CheckAsync();
+            Log($"mises à jour : version installée {Updates.CurrentVersion} · {Updates.Status}");
             var db = SkeApp.Db;
             var starter = db.Starters.First();
 

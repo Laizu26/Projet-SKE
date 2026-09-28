@@ -189,3 +189,28 @@ public class FirestoreErrorTests
         Assert.Contains("n'existe pas", e.Message);
     }
 }
+
+public class ReleaseTests
+{
+    [Fact]
+    public void Parse_ReadsBuildAndApk()
+    {
+        const string json = """
+            {"tag_name":"v42","name":"Version 1.0.42","body":"Nouveautés","published_at":"2026-09-28T10:00:00Z",
+             "assets":[{"name":"notes.txt","browser_download_url":"https://x/notes.txt","size":3},
+                       {"name":"ProjetSKE.apk","browser_download_url":"https://x/ProjetSKE.apk","size":1234}]}
+            """;
+        var r = ProjetSKE.Core.Cloud.ReleaseInfo.Parse(json)!;
+        Assert.Equal(42, r.Build);
+        Assert.Equal("https://x/ProjetSKE.apk", r.ApkUrl);
+        Assert.Equal(1234, r.Size);
+        Assert.Equal("Nouveautés", r.Notes);
+    }
+
+    [Fact]
+    public void Parse_IgnoresReleasesWithoutApkOrNumber()
+    {
+        Assert.Null(ProjetSKE.Core.Cloud.ReleaseInfo.Parse("""{"tag_name":"v3","assets":[]}"""));
+        Assert.Null(ProjetSKE.Core.Cloud.ReleaseInfo.Parse("""{"tag_name":"beta","assets":[{"name":"a.apk","browser_download_url":"u"}]}"""));
+    }
+}

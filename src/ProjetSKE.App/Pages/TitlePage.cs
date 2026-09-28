@@ -59,7 +59,7 @@ public sealed class TitlePage : ContentPage
             Padding = new Thickness(12),
             Content = new Label
             {
-                Text = "CHRONIQUES · VERSION 0.3", FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 3,
+                Text = $"VERSION {AppInfo.Current.VersionString}".ToUpperInvariant(), FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 3,
                 TextColor = Theme.Stone400, HorizontalTextAlignment = TextAlignment.Center,
             },
         };
@@ -114,6 +114,56 @@ public sealed class TitlePage : ContentPage
             column.Insert(0, report);
         }
 
+        // Mise à jour publiée sur GitHub : carte en tête de l'écran.
+        column.Insert(0, _updateHost);
+        RenderUpdate();
+
         Content = new ScrollView { Content = column };
+    }
+
+    private readonly ContentView _updateHost = new();
+    private string? _updateMessage;
+    private double? _progress;
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        Updates.Changed += RenderUpdate;
+        if (!Dev.AutoTest.Requested) _ = Updates.CheckAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        Updates.Changed -= RenderUpdate;
+    }
+
+    private void RenderUpdate()
+    {
+        if (!Updates.IsAvailable || Updates.Latest is not { } release)
+        {
+            _updateHost.Content = null;
+            return;
+        }
+        var notes = string.Join("\n", release.Notes.Split('\n').Where(l => l.Trim().Length > 0).Take(4));
+        var box = Stack(
+            IconCaps(Ico.Sparkles, "Mise à jour disponible", Theme.Gold700),
+            Txt(release.Name, 16, Theme.Stone900, bold: true));
+        if (notes.Length > 0) box.Add(Txt(notes, 12, Theme.Stone600));
+        if (_progress is { } p) box.Add(Bar("", (int)(p * 100), 100, Theme.Gold500, 8));
+        if (_updateMessage is not null) box.Add(Txt(_updateMessage, 12, Theme.Stone700));
+        box.Add(Primary(_progress is null ? "Installer la mise à jour" : "Téléchargement…", async () =>
+        {
+            if (_progress is not null) return;
+            _progress = 0;
+            _updateMessage = null;
+            RenderUpdate();
+            var progress = new Progress<double>(v => { _progress = v; RenderUpdate(); });
+            _updateMessage = await Updates.DownloadAndInstallAsync(release, progress);
+            _progress = null;
+            RenderUpdate();
+        }));
+        box.Add(Muted("Tes parties et ton contenu sont gardés. La première fois, Android demande d'autoriser l'installation.", 11));
+        _updateHost.Content = Card(box, Color.FromArgb("#FEF9C3"), Theme.Gold500);
     }
 }

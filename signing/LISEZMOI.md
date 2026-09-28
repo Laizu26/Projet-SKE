@@ -9,3 +9,11 @@
   1. crée un secret GitHub `SKE_KEYSTORE_PASS` ;
   2. retire le mot de passe du `.csproj` ;
   3. passe `-p:AndroidSigningStorePass=${{ secrets.SKE_KEYSTORE_PASS }} -p:AndroidSigningKeyPass=${{ secrets.SKE_KEYSTORE_PASS }}` à `dotnet publish` dans le workflow.
+
+## Dépôt public
+
+Le mot de passe de cette clé figure dans l'historique git (il était dans le `.csproj` quand le dépôt était privé).
+Une fois le dépôt public, quelqu'un pourrait signer un faux APK avec cette clé. Pour un projet perso le risque est faible
+(il faudrait aussi réussir à te le faire installer), mais pour l'éliminer il faut une **nouvelle clé** :
+elle impose de désinstaller le jeu une dernière fois (ce qui efface les sauvegardes), puis les mises à jour
+reprennent normalement. Ce changement est à décider par le propriétaire du projet.

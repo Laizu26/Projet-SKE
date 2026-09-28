@@ -58,6 +58,18 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 
 Une relique est un **objet unique**. Elle peut être **équipable**, pour un bonus permanent, ou servir d'**objet de quête**, sans effet en combat. Ce choix se règle avec `RelicUsage` dans le contenu.
 
+## Mises à jour dans l'application
+
+Chaque compilation qui passe le test sur émulateur est publiée en **Release** GitHub (`v<numéro>`, avec `ProjetSKE.apk`).
+L'application compare son numéro de compilation à la dernière Release :
+
+- sur l'écran titre, une carte « Mise à jour disponible » apparaît, avec un bouton **Installer la mise à jour** ;
+- dans **Menu → Version du jeu**, on peut vérifier et installer à la main.
+
+L'APK est téléchargé puis l'installateur d'Android s'ouvre (la première fois, Android demande d'autoriser l'application à installer des applis). Les parties, le contenu et le brouillon du mode développeur sont gardés.
+
+Il faut que le dépôt soit **public** : l'application lit les Releases sans identifiant.
+
 ## Mode développeur
 
 Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
