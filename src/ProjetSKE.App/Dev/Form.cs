@@ -372,6 +372,15 @@ public sealed class Form
                 RefField("Qui", c.Arg, DevState.CampWho, v => c.Arg = v ?? "", allowNone: false);
                 RefField("Tâche", c.Arg2, DevState.CampTasks, v => c.Arg2 = v ?? "", allowNone: false);
                 break;
+            case ConditionType.QuestAtStage or ConditionType.QuestStageReached or ConditionType.QuestEnding:
+                RefField("Quête", c.Arg, DevState.StagedQuests, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField(c.Type == ConditionType.QuestEnding ? "Fin (aucune = n'importe quelle fin)" : "Étape", c.Arg2,
+                    DevState.StagesOf(c.Arg, endingsOnly: c.Type == ConditionType.QuestEnding), v => c.Arg2 = v ?? "",
+                    allowNone: c.Type == ConditionType.QuestEnding);
+                break;
+            case ConditionType.QuestFailed:
+                RefField("Quête", c.Arg, DevState.Quests, v => c.Arg = v ?? "", allowNone: false);
+                break;
             case ConditionType.AnyOf or ConditionType.AllOf:
                 c.Children ??= [];
                 Conditions(c.Type == ConditionType.AnyOf ? "Au moins une de ces conditions" : "Toutes ces conditions", c.Children);
@@ -404,7 +413,11 @@ public sealed class Form
             case ActionType.GiveGold or ActionType.TakeGold or ActionType.GiveXp:
                 IntField("Montant", a.Amount, v => a.Amount = v);
                 break;
-            case ActionType.StartQuest or ActionType.CompleteQuest:
+            case ActionType.SetQuestStage:
+                RefField("Quête", a.Arg, DevState.StagedQuests, v => { a.Arg = v ?? ""; a.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField("Étape", a.Arg2, DevState.StagesOf(a.Arg), v => a.Arg2 = v ?? "", allowNone: false);
+                break;
+            case ActionType.StartQuest or ActionType.CompleteQuest or ActionType.FailQuest:
                 RefField("Quête", a.Arg, DevState.Quests, v => a.Arg = v ?? "", allowNone: false);
                 break;
             case ActionType.Teleport or ActionType.RevealLocation or ActionType.HideLocation:
@@ -459,6 +472,34 @@ public sealed class Form
                 break;
         }
     }
+
+    /// <summary>Objectifs de quête (parler, vaincre, aller, apporter).</summary>
+    public void Objectives(string label, List<QuestObjective> objectives) =>
+        ObjectList(label, objectives, () => new QuestObjective { Type = ObjectiveType.TalkTo }, (of, o, i) =>
+        {
+            of.Note($"Objectif {i + 1}");
+            of.EnumField("Type", o.Type, v => { o.Type = v; o.TargetId = ""; }, DevState.Name, rerender: true);
+            switch (o.Type)
+            {
+                case ObjectiveType.TalkTo:
+                    of.RefField("PNJ", o.TargetId, DevState.Npcs, v => o.TargetId = v ?? "", allowNone: false);
+                    break;
+                case ObjectiveType.Defeat:
+                    of.RefField("Monstre", o.TargetId, DevState.Monsters, v => o.TargetId = v ?? "", allowNone: false);
+                    of.IntField("Nombre", o.Count, v => o.Count = v);
+                    break;
+                case ObjectiveType.Reach:
+                    of.RefField("Lieu", o.TargetId, DevState.Locations, v => o.TargetId = v ?? "", allowNone: false);
+                    break;
+                default:
+                    of.RefField("Objet", o.TargetId, DevState.Items(), v => o.TargetId = v ?? "", allowNone: false);
+                    of.IntField("Quantité", o.Count, v => o.Count = v);
+                    of.RefField("À remettre à (aucun = il suffit de l'avoir)", o.NpcId, DevState.Npcs, v => o.NpcId = v);
+                    of.BoolField("Retirer l'objet du sac", o.ConsumeItems, v => o.ConsumeItems = v);
+                    break;
+            }
+            of.TextField("Texte affiché (vide = automatique)", o.Description, v => o.Description = v);
+        }, "+ Objectif");
 
     /// <summary>Répliques de combat (monstre, PJ ou combat fixe).</summary>
     public void BattleLines(string label, List<BattleLine> lines, bool fixedBattle = false) =>

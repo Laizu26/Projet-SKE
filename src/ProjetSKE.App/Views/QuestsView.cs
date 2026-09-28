@@ -13,7 +13,7 @@ public sealed class QuestsView : ContentView
         var s = page.Session;
         var log = s.VisibleQuestLog.ToList();
         var active = log.Where(q => q.Progress.Status == QuestStatus.Active).ToList();
-        var done = log.Where(q => q.Progress.Status == QuestStatus.Completed).ToList();
+        var done = log.Where(q => q.Progress.Status is QuestStatus.Completed or QuestStatus.Failed).ToList();
 
         var stack = new VerticalStackLayout { Spacing = 14 };
         stack.Add(ButtonRow(
@@ -41,14 +41,35 @@ public sealed class QuestsView : ContentView
 
         foreach (var (quest, progress) in list)
         {
-            var completed = progress.Status == QuestStatus.Completed;
+            var completed = progress.Status is QuestStatus.Completed or QuestStatus.Failed;
+            var failed = progress.Status == QuestStatus.Failed;
             var body = new VerticalStackLayout { Spacing = 10 };
             body.Add(Serif(quest.Name, 18));
-            body.Add(Txt(quest.Description, 13, Theme.Stone600));
+            body.Add(Txt(s.FormatText(quest.Description), 13, Theme.Stone600));
 
-            for (var i = 0; i < quest.Objectives.Count; i++)
+            // Quête à étapes : chemin parcouru, étape en cours et son récit.
+            if (quest.IsStaged)
             {
-                var o = quest.Objectives[i];
+                foreach (var stageId in progress.Path.Take(Math.Max(0, progress.Path.Count - 1)))
+                {
+                    var past = quest.Stages.FirstOrDefault(st => st.Id == stageId);
+                    if (past is { Name.Length: > 0 })
+                        body.Add(IconRow(Icon(Ico.CircleCheck, 14, Theme.Green600), Txt(s.FormatText(past.Name), 12, Theme.Stone500)));
+                }
+                if (s.CurrentStage(quest, progress) is { } stage)
+                {
+                    if (stage.Name.Length > 0)
+                        body.Add(IconRow(Icon(stage.IsEnding ? (failed ? Ico.X : Ico.Trophy) : Ico.Compass, 16, failed ? Theme.Red600 : Theme.Gold600),
+                            Txt(s.FormatText(stage.Name), 14, Theme.Stone900, bold: true)));
+                    if (stage.Journal.Length > 0)
+                        body.Add(new Label { Text = s.FormatText(stage.Journal), FontFamily = "serif", FontAttributes = FontAttributes.Italic, FontSize = 14, TextColor = Theme.Stone700 });
+                }
+            }
+
+            var objectives = s.ActiveObjectives(quest, progress);
+            for (var i = 0; i < objectives.Count; i++)
+            {
+                var o = objectives[i];
                 var text = s.ObjectiveText(o);
                 if (i < progress.Step)
                 {
@@ -66,10 +87,11 @@ public sealed class QuestsView : ContentView
                 // Les objectifs suivants restent cachés : on découvre la suite en avançant.
             }
 
-            var status = completed
-                ? Badge("Accomplie", Theme.Green600)
-                : Badge($"Étape {Math.Min(progress.Step + 1, quest.Objectives.Count)}/{quest.Objectives.Count}", Theme.Gold700);
-            stack.Add(TitledCard(completed ? Ico.Trophy : Ico.Scroll, completed ? "Quête accomplie" : "Quête", body, status));
+            var status = failed ? Badge("Échouée", Theme.Red600)
+                : completed ? Badge("Accomplie", Theme.Green600)
+                : quest.IsStaged ? Badge("En cours", Theme.Gold700)
+                : Badge($"Étape {Math.Min(progress.Step + 1, objectives.Count)}/{objectives.Count}", Theme.Gold700);
+            stack.Add(TitledCard(failed ? Ico.X : completed ? Ico.Trophy : Ico.Scroll, failed ? "Quête échouée" : completed ? "Quête accomplie" : "Quête", body, status));
         }
         Content = stack;
     }

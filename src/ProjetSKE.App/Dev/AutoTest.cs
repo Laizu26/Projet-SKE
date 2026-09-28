@@ -169,6 +169,29 @@ public static class AutoTest
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
             await Step("éditeur : monstre", () => SkeApp.GoTo(new MonsterEditor(DevState.Draft.Monsters.Last())));
             await Step("éditeur : dialogue", () => SkeApp.GoTo(new DialogueEditor(DevState.Draft.Dialogues.First(d => d.Nodes.Any(n => n.Variants.Count > 0)))), 2000);
+            await Step("éditeur : départs", () => SkeApp.GoTo(new StartsPage()));
+            await Step("éditeur : départ secondaire", () =>
+            {
+                if (DevState.Draft.ExtraStarts.Count > 0) SkeApp.GoTo(new StartEditor(DevState.Draft.ExtraStarts[0], main: false));
+            });
+            await Step("éditeur : quête à étapes", () =>
+            {
+                if (DevState.Draft.Quests.FirstOrDefault(q => q.IsStaged) is { } quest) SkeApp.GoTo(new QuestEditor(quest));
+            });
+            await Step("éditeur : étape de quête", () =>
+            {
+                if (DevState.Draft.Quests.FirstOrDefault(q => q.IsStaged) is { } quest) SkeApp.GoTo(new QuestStageEditor(quest, quest.Stages[1]));
+            });
+            await Step("choix du départ", () => SkeApp.GoTo(new StartSelectPage(0, db, starter.Id)));
+            await Step("partie avec un autre départ", () =>
+            {
+                var other = db.StartsFor(starter.Id).LastOrDefault()?.Id;
+                var session = GameSession.NewGame(db, starter.Id, other);
+                var game = new GamePage(session, -1, playIntro: true);
+                SkeApp.GoTo(game);
+                game.CampShowPeople = false;
+                game.SwitchTab(GameTab.Quests);
+            }, 2500);
             await Step("éditeur : image", () =>
             {
                 var image = new Core.Models.PortraitDef { Id = "img", Name = "Image", Url = content.Portraits[0].Url, Aspect = 1 };

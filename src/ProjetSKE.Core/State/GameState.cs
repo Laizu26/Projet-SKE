@@ -55,6 +55,10 @@ public sealed class QuestProgress
     public int Step { get; set; }
     /// <summary>Compteur de l'objectif en cours (ex : monstres vaincus).</summary>
     public int Count { get; set; }
+    /// <summary>Quête à étapes : étape en cours, étapes traversées, et fin obtenue.</summary>
+    public string? StageId { get; set; }
+    public List<string> Path { get; set; } = [];
+    public string? EndingId { get; set; }
 }
 
 /// <summary>Un membre du campement (PNJ ou PJ).</summary>
@@ -75,6 +79,8 @@ public sealed class GameState
 
     public int Version { get; set; } = CurrentVersion;
     public string HeroId { get; set; } = "";
+    /// <summary>Départ choisi en début de partie.</summary>
+    public string StartId { get; set; } = "principal";
     public List<CharacterState> Party { get; set; } = [];
     /// <summary>Sac commun : id d'objet → quantité.</summary>
     public Dictionary<string, int> Inventory { get; set; } = [];

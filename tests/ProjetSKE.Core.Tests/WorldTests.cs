@@ -437,3 +437,109 @@ public class DifferenceTests
         Assert.Equal(4, Cloud.ContentMerger.CountDifferences(a, b));
     }
 }
+
+public class StoryTests
+{
+    private static GameSession NewGame(string? start = null) => GameSession.NewGame(GameDatabase.Default, "aldric", start, new Random(2));
+
+    [Fact]
+    public void Starts_AreListedAndApplied()
+    {
+        var db = GameDatabase.Default;
+        Assert.Equal(["principal", "exile"], db.StartsFor("aldric").Select(s => s.Id).ToArray());
+
+        var s = NewGame("exile");
+        Assert.Equal("foret_sombrebois", s.State.CurrentLocationId);
+        Assert.Equal(15, s.State.Gold);
+        Assert.Equal(-10, s.GetKarma("@heros"));
+        Assert.Equal(-20, s.GetVariable("reputation"));
+        Assert.True(s.HasFlag("exile"));
+        Assert.Equal(5, s.Clock.Hour);
+        Assert.Equal("exile", s.State.StartId);
+        Assert.Equal("principal", NewGame().State.StartId);
+    }
+
+    [Fact]
+    public void Starts_CanBeRestrictedToSomeHeroes()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.ExtraStarts[0].HeroIds = ["lyra"];
+        Assert.DoesNotContain(new GameDatabase(content).StartsFor("aldric"), st => st.Id == "exile");
+    }
+
+    private static void TravelTo(GameSession s, params string[] path)
+    {
+        foreach (var id in path) Assert.True(s.Travel(id).Success, id);
+    }
+
+    [Fact]
+    public void StagedQuest_AutoStartsAndBranchesOnChoice()
+    {
+        var s = NewGame();
+        s.Config.TravelEncounters = TravelEncounterMode.None;
+        TravelTo(s, "route_roi", "bourg_brume");
+        Assert.Equal(QuestStatus.Active, s.GetQuestStatus("rancon"));
+        Assert.Equal("enquete", s.QuestProgressOf("rancon")!.StageId);
+
+        s.Talk("aubergiste");
+        Assert.Equal("ravisseurs", s.QuestProgressOf("rancon")!.StageId);
+        Assert.True(s.Check(new Condition(ConditionType.QuestAtStage, "rancon") { Arg2 = "ravisseurs" }));
+
+        TravelTo(s, "route_roi", "foret_sombrebois");
+        Assert.Contains(s.VisibleNpcs, n => n.Id == "ravisseur");
+        s.State.Gold = 100;
+        var d = s.StartDialogue(s.Talk("ravisseur")!);
+        d.ChooseOption(0); // payer
+
+        var p = s.QuestProgressOf("rancon")!;
+        Assert.Equal(QuestStatus.Completed, p.Status);
+        Assert.Equal("paix", p.EndingId);
+        Assert.Equal(["enquete", "ravisseurs", "paix"], p.Path);
+        Assert.Equal(50, s.State.Gold);
+        Assert.DoesNotContain(s.VisibleNpcs, n => n.Id == "ravisseur");
+
+        // Le monde a changé : Olric est de retour à Havrefort et se souvient de la rançon.
+        TravelTo(s, "route_roi", "havrefort");
+        Assert.Contains(s.VisibleNpcs, n => n.Id == "olric");
+        Assert.Contains("rançon", s.StartDialogue(s.Talk("olric")!).Text);
+    }
+
+    [Fact]
+    public void StagedQuest_AssaultPathNeedsVictory()
+    {
+        var s = NewGame();
+        s.Config.TravelEncounters = TravelEncounterMode.None;
+        s.GoToStage("rancon", "ravisseurs");
+        TravelTo(s, "route_roi", "foret_sombrebois");
+        var d = s.StartDialogue(s.Talk("ravisseur")!);
+        d.ChooseOption(1); // assaut
+        Assert.NotNull(d.PendingBattle);
+        Assert.Equal("assaut", s.QuestProgressOf("rancon")!.StageId);
+        s.UpdateQuests(ObjectiveType.Defeat, "bandit");
+        s.UpdateQuests(ObjectiveType.Defeat, "bandit");
+        Assert.Equal("libere", s.QuestProgressOf("rancon")!.EndingId);
+    }
+
+    [Fact]
+    public void StagedQuest_CanFail()
+    {
+        var s = NewGame();
+        s.GoToStage("rancon", "ravisseurs");
+        s.State.CurrentLocationId = "foret_sombrebois";
+        s.SetFlag("rancon_abandon");
+        s.UpdateQuests();
+        Assert.Equal(QuestStatus.Failed, s.GetQuestStatus("rancon"));
+        Assert.True(s.Check(new Condition(ConditionType.QuestFailed, "rancon")));
+        Assert.Equal(-10, s.GetKarma("@heros"));
+    }
+
+    [Fact]
+    public void Script_RoundTripsQuestWords()
+    {
+        var nodes = DialogueScript.Parse("- ? {etape rancon ravisseurs} {!fin rancon paix} [etape rancon assaut] [echouer rancon]\n> ok {passe rancon enquete}", out var errors);
+        Assert.Empty(errors);
+        var written = DialogueScript.Write(nodes);
+        Assert.Contains("[etape rancon assaut]", written);
+        Assert.Contains("{passe rancon enquete}", written);
+    }
+}

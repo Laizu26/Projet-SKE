@@ -28,6 +28,8 @@ public enum ActionType
     ShowMessage, LeaveParty, MoveNpc, RevealLocation, HideLocation,
     // Campement
     JoinCamp, LeaveCamp, SetCampRank, SetCampTask,
+    // Quêtes à étapes
+    SetQuestStage, FailQuest,
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
@@ -45,6 +47,8 @@ public enum ConditionType
     AtLocation, Visited, MetNpc, Chance,
     // Campement
     CampMember, CampRank, CampTask,
+    // Quêtes à étapes
+    QuestAtStage, QuestStageReached, QuestEnding, QuestFailed,
     // Groupes de conditions
     AnyOf, AllOf,
 }
@@ -54,7 +58,7 @@ public enum CompareOp { AtLeast, AtMost, Equal, NotEqual, Greater, Less }
 
 public enum ObjectiveType { TalkTo, Defeat, Reach, Bring }
 
-public enum QuestStatus { NotStarted, Active, Completed }
+public enum QuestStatus { NotStarted, Active, Completed, Failed }
 
 /// <summary>Quels combats peuvent se déclencher en voyageant.</summary>
 public enum TravelEncounterMode { None, RandomOnly, FixedOnly, Both }

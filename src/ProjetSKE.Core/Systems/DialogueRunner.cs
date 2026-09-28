@@ -117,5 +117,7 @@ public sealed class DialogueRunner
         {
             if (_session.Execute(action) is { } battle) PendingBattle = battle;
         }
+        // Les choix peuvent débloquer un embranchement de quête : on réévalue tout de suite.
+        _session.UpdateQuests();
     }
 }

@@ -37,6 +37,7 @@ public static partial class DialogueScript
         [temps 60] [attendre 8] [message texte libre]
         [deplace pnj lieu] [revele lieu] [cache lieu]
         [camp pnj] [camp pnj grade] [quitte_camp pnj] [grade pnj grade] [tache pnj tache]
+        [etape quete etape] [echouer quete]
 
         Conditions : {flag x} {sans_flag x} {quete_dispo id} {quete_active id}
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
@@ -45,6 +46,7 @@ public static partial class DialogueScript
         {parle perso} {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
         {mois Givrelune} {lieu id} {visite id} {connu pnj} {chance 25}
         {au_camp pnj} {grade pnj >= 2} {tache pnj rondes}
+        {etape quete etape} {passe quete etape} {fin quete etape} {fin quete} {quete_echouee quete}
         {!flag x} = sauf si · {flag a | flag b} = l'un ou l'autre · {flag a & karma > 0 | flag b}
         Qui : @parle (par défaut), @heros, @equipe, ou l'identifiant d'un PJ.
         """;
@@ -67,6 +69,7 @@ public static partial class DialogueScript
         ("deplace", ActionType.MoveNpc, "ab"), ("revele", ActionType.RevealLocation, "a"), ("cache", ActionType.HideLocation, "a"),
         ("camp", ActionType.JoinCamp, "ab"), ("quitte_camp", ActionType.LeaveCamp, "a"),
         ("grade", ActionType.SetCampRank, "ab"), ("tache", ActionType.SetCampTask, "ab"),
+        ("etape", ActionType.SetQuestStage, "ab"), ("echouer", ActionType.FailQuest, "a"),
     ];
 
     private static readonly (string Word, ConditionType Type, string Sig)[] ConditionWords =
@@ -85,6 +88,8 @@ public static partial class DialogueScript
         ("lieu", ConditionType.AtLocation, "a"), ("visite", ConditionType.Visited, "a"),
         ("connu", ConditionType.MetNpc, "a"), ("chance", ConditionType.Chance, "n"),
         ("au_camp", ConditionType.CampMember, "a"), ("grade", ConditionType.CampRank, "ao"), ("tache", ConditionType.CampTask, "ab"),
+        ("etape", ConditionType.QuestAtStage, "ab"), ("passe", ConditionType.QuestStageReached, "ab"),
+        ("fin", ConditionType.QuestEnding, "ab"), ("quete_echouee", ConditionType.QuestFailed, "a"),
     ];
 
     private static readonly (string Symbol, CompareOp Op)[] Operators =

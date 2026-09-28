@@ -25,7 +25,24 @@ internal static class SampleContent
             Gold = 100,
             Inventory = [new("potion", 3), new("ether", 1)],
             IntroDialogueId = "intro",
+            Description = "Tu arrives à Havrefort, capitale de Valdor, où le Capitaine Hardin cherche des héros.",
         },
+        ExtraStarts =
+        [
+            new()
+            {
+                Id = "exile", Name = "L'exilé de Sombrebois",
+                Description = "Banni de la capitale, tu te réveilles au cœur de la forêt, presque sans rien. Ta réputation te précède.",
+                LocationId = "foret_sombrebois", Gold = 15, Inventory = [new("potion", 1)],
+                IntroDialogueId = "intro_exile", Hour = 5,
+                Actions =
+                [
+                    new(ActionType.SetFlag, "exile"),
+                    new(ActionType.SetKarma, "@heros", -10),
+                    new(ActionType.SetVariable, "reputation", -20),
+                ],
+            },
+        ],
         World = new() { CountryName = "Valdor" },
         Camp = Camp(),
         Variables =
@@ -376,6 +393,20 @@ internal static class SampleContent
         },
         new()
         {
+            Id = "ravisseur", Name = "Chef des ravisseurs", LocationId = "foret_sombrebois",
+            Description = "Un brigand nerveux qui garde un marchand ligoté.",
+            VisibleConditions = [new(ConditionType.QuestAtStage, "rancon") { Arg2 = "ravisseurs" }],
+            DefaultDialogueId = "rancon_ravisseur",
+        },
+        new()
+        {
+            Id = "olric", Name = "Olric le marchand", LocationId = "havrefort",
+            Description = "Marchand de Havrefort, enlevé puis libéré.",
+            VisibleConditions = [new(ConditionType.QuestEnding, "rancon")],
+            DefaultDialogueId = "olric_retour",
+        },
+        new()
+        {
             Id = "bran", Name = "Bran", Description = "Vieux chasseur bourru, fidèle au camp.",
             StartsInCamp = true, StartRankId = "soldat", BaseFriendship = 10,
             DefaultDialogueId = "camp_bran",
@@ -392,6 +423,57 @@ internal static class SampleContent
 
     private static IEnumerable<QuestDef> Quests() =>
     [
+        new()
+        {
+            Id = "rancon", Name = "La rançon du marchand",
+            Description = "Olric, un marchand de Havrefort, a été enlevé sur la route.",
+            AutoStart = [new(ConditionType.Visited, "bourg_brume")],
+            Rewards = [new(ActionType.GiveXp, amount: 40)],
+            Stages =
+            [
+                new()
+                {
+                    Id = "enquete", Name = "Des rumeurs",
+                    Journal = "On dit qu'un marchand a été enlevé. L'aubergiste de Bourg-de-Brume en sait sûrement plus.",
+                    Objectives = [new() { Type = ObjectiveType.TalkTo, TargetId = "aubergiste", Description = "Interroger l'aubergiste" }],
+                    Exits = [new() { Label = "Piste trouvée", NextStageId = "ravisseurs" }],
+                },
+                new()
+                {
+                    Id = "ravisseurs", Name = "Le camp des ravisseurs",
+                    Journal = "Les ravisseurs se cachent dans la forêt de Sombrebois. Payer la rançon, ou attaquer ?",
+                    Objectives = [new() { Type = ObjectiveType.Reach, TargetId = "foret_sombrebois" }],
+                    Exits =
+                    [
+                        new() { Label = "Rançon payée", Conditions = [IfFlag("rancon_payee")], NextStageId = "paix" },
+                        new() { Label = "Assaut", Conditions = [IfFlag("rancon_assaut")], NextStageId = "assaut" },
+                        new() { Label = "Abandon", Conditions = [IfFlag("rancon_abandon")], NextStageId = "abandon" },
+                    ],
+                },
+                new()
+                {
+                    Id = "assaut", Name = "L'assaut",
+                    Journal = "Plus de discussion : il faut vaincre les ravisseurs.",
+                    Objectives = [new() { Type = ObjectiveType.Defeat, TargetId = "bandit", Count = 2 }],
+                    Exits = [new() { Label = "Victoire", NextStageId = "libere" }],
+                },
+                new()
+                {
+                    Id = "paix", Name = "Libéré contre rançon", IsEnding = true,
+                    OnEnter = [Karma(5), new(ActionType.AddVariable, "reputation", 5)],
+                },
+                new()
+                {
+                    Id = "libere", Name = "Libéré par la force", IsEnding = true,
+                    OnEnter = [new(ActionType.AddVariable, "reputation", 10), new(ActionType.GiveGold, amount: 30)],
+                },
+                new()
+                {
+                    Id = "abandon", Name = "Olric abandonné", IsEnding = true, Failure = true,
+                    OnEnter = [Karma(-10), new(ActionType.AddVariable, "reputation", -10)],
+                },
+            ],
+        },
         new()
         {
             Id = "quete_crypte", Name = "La Crypte oubliée",
@@ -627,6 +709,68 @@ internal static class SampleContent
         {
             Id = "intro_garrick", Name = "Garrick",
             Nodes = [Line("1", "Garrick le Balafré", "Personne ne passe le col sans payer. Et toi, tu vas payer cher !")],
+        },
+        new()
+        {
+            Id = "intro_exile", Name = "Introduction : l'exilé",
+            Nodes =
+            [
+                Line("1", "", "L'aube filtre à travers les arbres de Sombrebois. Tes poignets portent encore la marque des fers.", "2"),
+                Line("2", "", "Havrefort t'a banni. Mais Valdor est vaste, et chacun peut changer son destin."),
+            ],
+        },
+        new()
+        {
+            Id = "rancon_ravisseur", Name = "Rançon : le ravisseur",
+            Nodes =
+            [
+                new()
+                {
+                    Id = "1", Speaker = "Chef des ravisseurs", Text = "Pas un pas de plus ! 50 pièces et le marchand est à toi.",
+                    Choices =
+                    [
+                        new()
+                        {
+                            Text = "Voici l'or.", NextId = "paye", ShowLocked = true, LockedText = "Il te faut 50 pièces",
+                            Conditions = [new(ConditionType.GoldAtLeast, amount: 50)],
+                            Actions = [new(ActionType.TakeGold, amount: 50), new(ActionType.SetFlag, "rancon_payee")],
+                        },
+                        new()
+                        {
+                            Text = "Rends-le, ou tu le regretteras.", NextId = "assaut",
+                            Actions = [new(ActionType.SetFlag, "rancon_assaut"), new(ActionType.StartBattle, "bandit,bandit")],
+                        },
+                        new() { Text = "Ce marchand ne me concerne pas.", NextId = "abandon", Actions = [new(ActionType.SetFlag, "rancon_abandon")] },
+                    ],
+                },
+                Line("paye", "Chef des ravisseurs", "Un plaisir de faire affaire. Filez, avant que je change d'avis."),
+                Line("assaut", "Chef des ravisseurs", "Les gars, à moi !"),
+                Line("abandon", "", "Tu tournes les talons. Derrière toi, le marchand appelle à l'aide..."),
+            ],
+        },
+        new()
+        {
+            Id = "olric_retour", Name = "Olric : retour",
+            Nodes =
+            [
+                new()
+                {
+                    Id = "1", Speaker = "Olric le marchand", Text = "Tu m'as sauvé la vie, %pj%. Ma boutique t'est ouverte.",
+                    Variants =
+                    [
+                        new()
+                        {
+                            Conditions = [new(ConditionType.QuestEnding, "rancon") { Arg2 = "paix" }],
+                            Text = "Tu as payé ma rançon de ta poche, %pj%... Je te rembourserai, c'est promis.",
+                        },
+                        new()
+                        {
+                            Conditions = [new(ConditionType.QuestFailed, "rancon")],
+                            Text = "Tu m'as laissé à ces brigands, %pj%. Je ne l'oublierai pas.",
+                        },
+                    ],
+                },
+            ],
         },
         new()
         {

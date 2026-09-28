@@ -121,10 +121,14 @@ public sealed class DevToolsView : ContentView
         foreach (var q in db.Content.Quests)
         {
             var quest = q;
+            var progress = s.QuestProgressOf(q.Id);
+            var stageName = progress is not null && s.CurrentStage(q, progress) is { } cs ? cs.Name : null;
             var status = s.GetQuestStatus(q.Id) switch
             {
-                QuestStatus.Active => $"en cours (étape {s.State.Quests[q.Id].Step + 1}/{q.Objectives.Count})",
-                QuestStatus.Completed => "terminée",
+                QuestStatus.Active when q.IsStaged => $"en cours : {stageName}",
+                QuestStatus.Active => $"en cours (objectif {progress!.Step + 1}/{q.Objectives.Count})",
+                QuestStatus.Completed => "terminée" + (stageName is not null ? $" ({stageName})" : ""),
+                QuestStatus.Failed => "échouée" + (stageName is not null ? $" ({stageName})" : ""),
                 _ => "pas commencée",
             };
             questBox.Add(Txt($"{q.Name} — {status}", 13));
@@ -132,6 +136,19 @@ public sealed class DevToolsView : ContentView
                 Form.SmallButton("Démarrer", () => { s.StartQuest(quest.Id); Done(); }),
                 Form.SmallButton("Terminer", () => { s.CompleteQuest(quest.Id); Done(); }),
                 Form.SmallButton("Oublier", () => { s.ResetQuest(quest.Id); Done(); })));
+            if (q.IsStaged)
+            {
+                var stagePicker = MakePicker(q.Stages.Select(st => st.Name.Length > 0 ? st.Name : st.Id).ToList());
+                stagePicker.Title = "Aller à l'étape...";
+                stagePicker.SelectedIndexChanged += (_, _) =>
+                {
+                    if (stagePicker.SelectedIndex < 0) return;
+                    s.ResetQuest(quest.Id);
+                    s.GoToStage(quest.Id, quest.Stages[stagePicker.SelectedIndex].Id);
+                    Done();
+                };
+                questBox.Add(stagePicker);
+            }
         }
         stack.Add(Panel(questBox));
 

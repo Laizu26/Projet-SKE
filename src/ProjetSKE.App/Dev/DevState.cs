@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using ProjetSKE.Core.Data;
 using ProjetSKE.Core.Models;
+using Condition = ProjetSKE.Core.Models.Condition;
 
 namespace ProjetSKE.App.Dev;
 
@@ -192,6 +193,26 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
 
+    public static IEnumerable<(string Id, string Name)> StagedQuests => Draft.Quests.Where(q => q.IsStaged).Select(x => (x.Id, x.Name));
+
+    public static IEnumerable<(string Id, string Name)> StagesOf(string questId, bool endingsOnly = false) =>
+        Draft.Quests.FirstOrDefault(q => q.Id == questId)?.Stages.Where(s => !endingsOnly || s.IsEnding)
+            .Select(s => (s.Id, (s.Name.Length > 0 ? s.Name : s.Id) + (s.IsEnding ? (s.Failure ? " (fin, échec)" : " (fin)") : "")))
+        ?? [];
+
+    /// <summary>Résumé court d'une condition (carte des quêtes).</summary>
+    public static string Describe(Condition c)
+    {
+        var text = Name(c.Type);
+        if (c.Arg.Length > 0) text += " " + c.Arg;
+        if (c.Arg2.Length > 0) text += " › " + c.Arg2;
+        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Friendship or ConditionType.Gold
+            or ConditionType.Level or ConditionType.PartySize or ConditionType.Day or ConditionType.CampRank)
+            text += " " + Name(c.Op).Split(' ').Last().Trim('(', ')') + " " + c.Amount;
+        if (c.Type is ConditionType.AnyOf or ConditionType.AllOf) text += $" ({c.Children?.Count ?? 0})";
+        return (c.Negate ? "sauf " : "") + text;
+    }
+
     public static IEnumerable<(string Id, string Name)> CampRanks => Draft.Camp.Ranks.OrderByDescending(r => r.Level).Select(x => (x.Id, $"{x.Name} (niveau {x.Level})"));
     public static IEnumerable<(string Id, string Name)> CampTasks => Draft.Camp.Tasks.Select(x => (x.Id, x.Name));
 
@@ -252,7 +273,9 @@ public static class DevState
         ActionType.JoinCamp => "Camp : rejoindre",
         ActionType.LeaveCamp => "Camp : quitter",
         ActionType.SetCampRank => "Camp : changer de grade",
-        _ => "Camp : affecter à une tâche",
+        ActionType.SetCampTask => "Camp : affecter à une tâche",
+        ActionType.SetQuestStage => "Quête : aller à l'étape",
+        _ => "Quête : échouer",
     };
 
     public static string Name(CompareOp t) => t switch
@@ -308,7 +331,11 @@ public static class DevState
         ConditionType.AllOf => "Groupe : toutes",
         ConditionType.CampMember => "Camp : est membre",
         ConditionType.CampRank => "Camp : grade (niveau)",
-        _ => "Camp : fait la tâche",
+        ConditionType.CampTask => "Camp : fait la tâche",
+        ConditionType.QuestAtStage => "Quête à l'étape",
+        ConditionType.QuestStageReached => "Quête : étape déjà passée",
+        ConditionType.QuestEnding => "Quête finie par",
+        _ => "Quête échouée",
     };
 
     public static string Name(ObjectiveType t) => t switch

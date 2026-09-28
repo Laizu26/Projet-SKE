@@ -18,6 +18,15 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, PortraitDef> Portraits { get; }
 
     public StartSettings Start => Content.Start;
+
+    /// <summary>Tous les départs : le principal puis les autres.</summary>
+    public IReadOnlyList<StartSettings> Starts => [Content.Start, .. Content.ExtraStarts];
+
+    public StartSettings StartById(string? id) => Starts.FirstOrDefault(s => s.Id == id) ?? Content.Start;
+
+    /// <summary>Départs possibles pour un héros.</summary>
+    public IReadOnlyList<StartSettings> StartsFor(string heroId) =>
+        Starts.Where(s => s.HeroIds.Count == 0 || s.HeroIds.Contains(heroId)).ToList();
     public BalanceSettings Balance => Content.Balance;
 
     public GameDatabase(GameContent content)
@@ -202,8 +211,35 @@ public sealed class GameDatabase
         foreach (var q in Content.Quests)
         {
             var w = $"Quête {q.Id}";
+            CheckConditions(q.AutoStart, w);
+            if (q.IsStaged)
+            {
+                var stageIds = new HashSet<string>();
+                foreach (var st in q.Stages) Check(stageIds.Add(st.Id), $"{w} : étape « {st.Id} » en double");
+                foreach (var st in q.Stages)
+                {
+                    var ws = $"{w}, étape {st.Id}";
+                    CheckObjectives(st.Objectives, ws);
+                    CheckActions(st.OnEnter, ws);
+                    foreach (var x in st.Exits)
+                    {
+                        Check(stageIds.Contains(x.NextStageId), $"{ws} : étape suivante « {x.NextStageId} » introuvable");
+                        CheckConditions(x.Conditions, ws);
+                        CheckActions(x.Actions, ws);
+                    }
+                    Check(!(st.IsEnding && st.Exits.Count > 0), $"{ws} : une fin ne peut pas avoir de suite");
+                }
+                CheckActions(q.Rewards, w);
+                continue;
+            }
             Check(q.Objectives.Count > 0, $"{w} : aucun objectif");
-            foreach (var o in q.Objectives)
+            CheckObjectives(q.Objectives, w);
+            CheckActions(q.Rewards, w);
+        }
+
+        void CheckObjectives(IEnumerable<QuestObjective> objectives, string w)
+        {
+            foreach (var o in objectives)
             {
                 switch (o.Type)
                 {
@@ -217,12 +253,18 @@ public sealed class GameDatabase
                 }
                 Check(!string.IsNullOrEmpty(o.TargetId), $"{w} : objectif sans cible");
             }
-            CheckActions(q.Rewards, w);
         }
 
-        Check(Locations.ContainsKey(Start.LocationId), $"Départ : lieu « {Start.LocationId} » introuvable");
-        foreach (var s in Start.Inventory) Ref(Items, s.ItemId, "Départ", "objet");
-        Ref(Dialogues, Start.IntroDialogueId, "Départ", "dialogue");
+        CheckIds(Starts.Select(x => x.Id), "Départ");
+        foreach (var start in Starts)
+        {
+            var w = $"Départ « {start.Name} »";
+            Check(Locations.ContainsKey(start.LocationId), $"{w} : lieu « {start.LocationId} » introuvable");
+            foreach (var s in start.Inventory) Ref(Items, s.ItemId, w, "objet");
+            Ref(Dialogues, start.IntroDialogueId, w, "dialogue");
+            foreach (var id in start.HeroIds.Concat(start.Companions)) Ref(Characters, id, w, "personnage");
+            CheckActions(start.Actions, w);
+        }
         Check(Starters.Any(), "Aucun personnage de départ (cocher « Proposé au départ » sur un PJ)");
         return errors;
 
@@ -252,6 +294,11 @@ public sealed class GameDatabase
                     case ConditionType.Karma when !c.Arg.StartsWith('@'): Ref(Characters, c.Arg, w, "personnage"); break;
                     case ConditionType.Friendship:
                         Check(c.Arg.StartsWith('@') || Npcs.ContainsKey(c.Arg) || Characters.ContainsKey(c.Arg), $"{w} : personnage « {c.Arg} » introuvable");
+                        break;
+                    case ConditionType.QuestAtStage or ConditionType.QuestStageReached or ConditionType.QuestEnding or ConditionType.QuestFailed:
+                        Ref(Quests, c.Arg, w, "quête");
+                        if (c.Arg2.Length > 0 && Quests.TryGetValue(c.Arg, out var cq))
+                            Check(cq.Stages.Any(st => st.Id == c.Arg2), $"{w} : étape « {c.Arg2} » introuvable dans la quête {c.Arg}");
                         break;
                     case ConditionType.AnyOf or ConditionType.AllOf:
                         if (c.Children is { } children) CheckConditions(children, w);
@@ -284,7 +331,12 @@ public sealed class GameDatabase
                     case ActionType.AddKarma or ActionType.SetKarma when !a.Arg.StartsWith('@') && a.Arg.Length > 0:
                         Ref(Characters, a.Arg, w, "personnage"); break;
                     case ActionType.GiveItem or ActionType.TakeItem: Ref(Items, a.Arg, w, "objet"); break;
-                    case ActionType.StartQuest or ActionType.CompleteQuest: Ref(Quests, a.Arg, w, "quête"); break;
+                    case ActionType.StartQuest or ActionType.CompleteQuest or ActionType.FailQuest: Ref(Quests, a.Arg, w, "quête"); break;
+                    case ActionType.SetQuestStage:
+                        Ref(Quests, a.Arg, w, "quête");
+                        if (Quests.TryGetValue(a.Arg, out var aq))
+                            Check(aq.Stages.Any(st => st.Id == a.Arg2), $"{w} : étape « {a.Arg2} » introuvable dans la quête {a.Arg}");
+                        break;
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
                     case ActionType.StartBattle:
                         foreach (var id in SplitIds(a.Arg)) Ref(Monsters, id, w, "monstre");

@@ -35,22 +35,37 @@ public sealed partial class GameSession
         Sanitize();
     }
 
-    public static GameSession NewGame(GameDatabase db, string heroId, Random? rng = null)
+    public static GameSession NewGame(GameDatabase db, string heroId, Random? rng = null) => NewGame(db, heroId, null, rng);
+
+    /// <summary>Nouvelle partie avec un départ donné (null = départ principal).</summary>
+    public static GameSession NewGame(GameDatabase db, string heroId, string? startId, Random? rng = null)
     {
+        var start = db.StartById(startId);
+        var time = db.Content.Time;
+        var minutes = GameClock.StartMinutes(new TimeSettings
+        {
+            HoursPerDay = time.HoursPerDay,
+            StartDay = start.Day ?? time.StartDay,
+            StartHour = start.Hour ?? time.StartHour,
+        });
         var state = new GameState
         {
             HeroId = heroId,
-            Gold = db.Start.Gold,
-            CurrentLocationId = db.Start.LocationId,
-            LastCityId = db.Start.LocationId,
-            Minutes = GameClock.StartMinutes(db.Content.Time),
+            StartId = start.Id,
+            Gold = start.Gold,
+            CurrentLocationId = start.LocationId,
+            LastCityId = start.LocationId,
+            Minutes = minutes,
         };
         foreach (var v in db.Content.Variables) state.Variables[v.Id] = v.Initial;
         var session = new GameSession(db, state, rng);
-        foreach (var stack in db.Start.Inventory) session.AddItem(stack.ItemId, stack.Count);
+        foreach (var stack in start.Inventory) session.AddItem(stack.ItemId, stack.Count);
         session.Recruit(heroId);
+        foreach (var companion in start.Companions) session.Recruit(companion);
         foreach (var npc in db.Content.Npcs.Where(n => n.StartsInCamp)) session.JoinCamp(npc.Id, npc.StartRankId);
         session.DiscoverLocation(state.CurrentLocationId);
+        foreach (var action in start.Actions.Where(a => a.Type != ActionType.StartBattle)) session.Execute(action);
+        session.UpdateQuests();
         session.Notifications.Clear();
         return session;
     }
@@ -140,6 +155,10 @@ public sealed partial class GameSession
         ConditionType.CampMember => CampMember(ResolveWho(c.Arg)) is not null,
         ConditionType.CampRank => CampMember(ResolveWho(c.Arg)) is not null && Compare(RankLevel(ResolveWho(c.Arg)), c.Op, c.Amount),
         ConditionType.CampTask => CampMember(ResolveWho(c.Arg))?.TaskId == c.Arg2,
+        ConditionType.QuestAtStage => QuestProgressOf(c.Arg) is { Status: QuestStatus.Active } p && p.StageId == c.Arg2,
+        ConditionType.QuestStageReached => QuestProgressOf(c.Arg)?.Path.Contains(c.Arg2) == true,
+        ConditionType.QuestEnding => QuestProgressOf(c.Arg)?.EndingId is { } ending && (c.Arg2.Length == 0 || ending == c.Arg2),
+        ConditionType.QuestFailed => GetQuestStatus(c.Arg) == QuestStatus.Failed,
         ConditionType.AnyOf => c.Children is not { Count: > 0 } children || children.Any(Check),
         ConditionType.AllOf => c.Children is not { Count: > 0 } all || all.All(Check),
         _ => true,
@@ -288,6 +307,12 @@ public sealed partial class GameSession
             case ActionType.SetCampTask:
                 SetCampTask(ResolveWho(a.Arg), a.Arg2);
                 break;
+            case ActionType.SetQuestStage:
+                GoToStage(a.Arg, a.Arg2);
+                break;
+            case ActionType.FailQuest:
+                FailQuest(a.Arg);
+                break;
         }
         return null;
     }
@@ -430,24 +455,84 @@ public sealed partial class GameSession
     public QuestStatus GetQuestStatus(string questId) =>
         State.Quests.TryGetValue(questId, out var p) ? p.Status : QuestStatus.NotStarted;
 
+    public QuestProgress? QuestProgressOf(string questId) => State.Quests.GetValueOrDefault(questId);
+
+    /// <summary>Étape en cours d'une quête à étapes (null sinon).</summary>
+    public QuestStage? CurrentStage(QuestDef quest, QuestProgress progress) =>
+        progress.StageId is { } id ? quest.Stages.FirstOrDefault(st => st.Id == id) : null;
+
+    /// <summary>Objectifs actuellement à remplir (quête simple : sa liste ; quête à étapes : ceux de l'étape).</summary>
+    public IReadOnlyList<QuestObjective> ActiveObjectives(QuestDef quest, QuestProgress progress) =>
+        quest.IsStaged ? CurrentStage(quest, progress)?.Objectives ?? [] : quest.Objectives;
+
     public bool StartQuest(string questId)
     {
         if (!Db.Quests.TryGetValue(questId, out var quest) || State.Quests.ContainsKey(questId)) return false;
-        State.Quests[questId] = new QuestProgress();
+        var progress = new QuestProgress();
+        State.Quests[questId] = progress;
         Notifications.Add($"Nouvelle quête : {quest.Name}");
+        if (quest.IsStaged) EnterStage(quest, progress, quest.Stages[0]);
         UpdateQuests();
         return true;
     }
 
-    /// <summary>Termine une quête (tous objectifs) et donne ses récompenses.</summary>
+    /// <summary>Termine une quête avec succès et donne ses récompenses.</summary>
     public bool CompleteQuest(string questId)
     {
         if (!Db.Quests.TryGetValue(questId, out var quest)) return false;
-        if (GetQuestStatus(questId) == QuestStatus.Completed) return false;
-        State.Quests[questId] = new QuestProgress { Status = QuestStatus.Completed, Step = quest.Objectives.Count };
+        if (GetQuestStatus(questId) is QuestStatus.Completed or QuestStatus.Failed) return false;
+        var progress = State.Quests.GetValueOrDefault(questId) ?? new QuestProgress();
+        progress.Status = QuestStatus.Completed;
+        progress.Step = quest.Objectives.Count;
+        State.Quests[questId] = progress;
         Notifications.Add($"Quête terminée : {quest.Name}");
         foreach (var reward in quest.Rewards) Execute(reward);
         return true;
+    }
+
+    /// <summary>La quête échoue (pas de récompense).</summary>
+    public bool FailQuest(string questId)
+    {
+        if (!Db.Quests.TryGetValue(questId, out var quest)) return false;
+        if (GetQuestStatus(questId) is QuestStatus.Completed or QuestStatus.Failed) return false;
+        var progress = State.Quests.GetValueOrDefault(questId) ?? new QuestProgress();
+        progress.Status = QuestStatus.Failed;
+        State.Quests[questId] = progress;
+        Notifications.Add($"Quête échouée : {quest.Name}");
+        return true;
+    }
+
+    /// <summary>Envoie une quête à étapes directement à une étape (la démarre si besoin) : sert aux choix de dialogue.</summary>
+    public bool GoToStage(string questId, string stageId)
+    {
+        if (!Db.Quests.TryGetValue(questId, out var quest) || quest.Stages.FirstOrDefault(st => st.Id == stageId) is not { } stage) return false;
+        if (GetQuestStatus(questId) is QuestStatus.Completed or QuestStatus.Failed) return false;
+        if (!State.Quests.TryGetValue(questId, out var progress))
+        {
+            progress = new QuestProgress();
+            State.Quests[questId] = progress;
+            Notifications.Add($"Nouvelle quête : {quest.Name}");
+        }
+        EnterStage(quest, progress, stage);
+        UpdateQuests();
+        return true;
+    }
+
+    private void EnterStage(QuestDef quest, QuestProgress progress, QuestStage stage)
+    {
+        progress.StageId = stage.Id;
+        progress.Step = 0;
+        progress.Count = 0;
+        progress.Path.Add(stage.Id);
+        if (stage.Name.Length > 0 && !stage.IsEnding) Notifications.Add($"{quest.Name} : {FormatText(stage.Name)}");
+        foreach (var action in stage.OnEnter.Where(a => a.Type != ActionType.StartBattle)) Execute(action);
+        if (!stage.IsEnding) return;
+
+        progress.EndingId = stage.Id;
+        progress.Status = stage.Failure ? QuestStatus.Failed : QuestStatus.Completed;
+        var ending = stage.Name.Length > 0 ? $" — {FormatText(stage.Name)}" : "";
+        Notifications.Add(stage.Failure ? $"Quête échouée : {quest.Name}{ending}" : $"Quête terminée : {quest.Name}{ending}");
+        if (!stage.Failure) foreach (var reward in quest.Rewards) Execute(reward);
     }
 
     /// <summary>Oublie une quête (outil développeur).</summary>
@@ -458,7 +543,7 @@ public sealed partial class GameSession
 
     public string ObjectiveText(QuestObjective o)
     {
-        if (o.Description.Length > 0) return o.Description;
+        if (o.Description.Length > 0) return FormatText(o.Description);
         return o.Type switch
         {
             ObjectiveType.TalkTo => $"Parler à {NameOrId(Db.Npcs, o.TargetId, n => n.Name)}",
@@ -472,51 +557,103 @@ public sealed partial class GameSession
     private static string NameOrId<T>(IReadOnlyDictionary<string, T> dict, string id, Func<T, string> name) =>
         dict.TryGetValue(id, out var v) ? name(v) : id;
 
+    private bool _updatingQuests;
+
     /// <summary>
     /// Fait avancer les quêtes actives. Appelé avec un événement (PNJ à qui l'on parle, monstre vaincu),
-    /// ou sans événement pour vérifier les objectifs "aller à" et "posséder un objet".
+    /// ou sans événement pour vérifier les objectifs "aller à" et "posséder un objet", les démarrages automatiques
+    /// et les embranchements des quêtes à étapes (dont les conditions ont pu changer).
     /// </summary>
     public void UpdateQuests(ObjectiveType? eventType = null, string? eventTarget = null)
     {
-        foreach (var questId in State.Quests.Where(kv => kv.Value.Status == QuestStatus.Active).Select(kv => kv.Key).ToList())
+        if (_updatingQuests) return; // un effet de quête peut rappeler cette méthode
+        _updatingQuests = true;
+        try
         {
-            if (!Db.Quests.TryGetValue(questId, out var quest)) continue;
-            var progress = State.Quests[questId];
-            var consumed = false; // un même événement ne valide qu'un objectif par quête
-            while (progress.Status == QuestStatus.Active && progress.Step < quest.Objectives.Count)
+            foreach (var quest in Db.Content.Quests.Where(q => q.AutoStart.Count > 0 && !State.Quests.ContainsKey(q.Id)).ToList())
             {
-                var o = quest.Objectives[progress.Step];
-                var matches = !consumed && eventType == o.Type && eventTarget == o.TargetId;
-                var done = false;
-                switch (o.Type)
+                if (CheckAll(quest.AutoStart))
                 {
-                    case ObjectiveType.Defeat:
-                        if (matches) { progress.Count++; consumed = true; }
-                        done = progress.Count >= Math.Max(1, o.Count);
-                        break;
-                    case ObjectiveType.Reach:
-                        done = State.CurrentLocationId == o.TargetId;
-                        break;
-                    case ObjectiveType.TalkTo:
-                        done = matches;
-                        break;
-                    case ObjectiveType.Bring:
-                        var enough = CountItem(o.TargetId) >= Math.Max(1, o.Count);
-                        var atNpc = string.IsNullOrEmpty(o.NpcId)
-                            || (!consumed && eventType == ObjectiveType.TalkTo && eventTarget == o.NpcId);
-                        done = enough && atNpc;
-                        if (done && o.ConsumeItems) RemoveItem(o.TargetId, Math.Max(1, o.Count));
-                        break;
+                    _updatingQuests = false;
+                    StartQuest(quest.Id);
+                    _updatingQuests = true;
                 }
-                if (!done) break;
-                if (o.Type is ObjectiveType.TalkTo || (o.Type is ObjectiveType.Bring && !string.IsNullOrEmpty(o.NpcId)))
-                    consumed = true;
-                progress.Step++;
-                progress.Count = 0;
-                if (progress.Step >= quest.Objectives.Count) CompleteQuest(questId);
-                else Notifications.Add($"Objectif accompli : {ObjectiveText(o)}");
+            }
+
+            foreach (var questId in State.Quests.Where(kv => kv.Value.Status == QuestStatus.Active).Select(kv => kv.Key).ToList())
+            {
+                if (!Db.Quests.TryGetValue(questId, out var quest)) continue;
+                var progress = State.Quests[questId];
+                var consumed = false; // un même événement ne valide qu'un objectif par quête
+                for (var guard = 0; guard < 30 && progress.Status == QuestStatus.Active; guard++)
+                {
+                    var objectives = ActiveObjectives(quest, progress);
+                    if (!AdvanceObjectives(objectives, progress, eventType, eventTarget, ref consumed)) break;
+
+                    // Tous les objectifs actuels sont remplis.
+                    if (!quest.IsStaged)
+                    {
+                        CompleteQuest(questId);
+                        break;
+                    }
+                    if (CurrentStage(quest, progress) is not { } stage) break;
+                    if (stage.Exits.Count == 0)
+                    {
+                        // Étape sans suite : la quête est réussie.
+                        progress.EndingId = stage.Id;
+                        CompleteQuest(questId);
+                        break;
+                    }
+                    var exit = stage.Exits.FirstOrDefault(x => CheckAll(x.Conditions) && quest.Stages.Any(st => st.Id == x.NextStageId));
+                    if (exit is null) break; // on attend qu'une condition devienne vraie (choix, flag, heure...)
+                    foreach (var action in exit.Actions.Where(a => a.Type != ActionType.StartBattle)) Execute(action);
+                    EnterStage(quest, progress, quest.Stages.First(st => st.Id == exit.NextStageId));
+                }
             }
         }
+        finally
+        {
+            _updatingQuests = false;
+        }
+    }
+
+    /// <summary>Avance dans une liste d'objectifs. Renvoie true quand ils sont tous remplis.</summary>
+    private bool AdvanceObjectives(IReadOnlyList<QuestObjective> objectives, QuestProgress progress,
+        ObjectiveType? eventType, string? eventTarget, ref bool consumed)
+    {
+        while (progress.Step < objectives.Count)
+        {
+            var o = objectives[progress.Step];
+            var matches = !consumed && eventType == o.Type && eventTarget == o.TargetId;
+            var done = false;
+            switch (o.Type)
+            {
+                case ObjectiveType.Defeat:
+                    if (matches) { progress.Count++; consumed = true; }
+                    done = progress.Count >= Math.Max(1, o.Count);
+                    break;
+                case ObjectiveType.Reach:
+                    done = State.CurrentLocationId == o.TargetId;
+                    break;
+                case ObjectiveType.TalkTo:
+                    done = matches;
+                    break;
+                case ObjectiveType.Bring:
+                    var enough = CountItem(o.TargetId) >= Math.Max(1, o.Count);
+                    var atNpc = string.IsNullOrEmpty(o.NpcId)
+                        || (!consumed && eventType == ObjectiveType.TalkTo && eventTarget == o.NpcId);
+                    done = enough && atNpc;
+                    if (done && o.ConsumeItems) RemoveItem(o.TargetId, Math.Max(1, o.Count));
+                    break;
+            }
+            if (!done) return false;
+            if (o.Type is ObjectiveType.TalkTo || (o.Type is ObjectiveType.Bring && !string.IsNullOrEmpty(o.NpcId)))
+                consumed = true;
+            progress.Step++;
+            progress.Count = 0;
+            if (progress.Step < objectives.Count) Notifications.Add($"Objectif accompli : {ObjectiveText(o)}");
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------ Encyclopédie

@@ -47,6 +47,7 @@ public static class ContentMerger
             Dialogues = MergeList("Dialogue", @base.Dialogues, local.Dialogues, remote.Dialogues, x => x.Id, x => x.Name.Length > 0 ? x.Name : x.Id, ctx.DialogueDef, conflicts),
             Quests = MergeList("Quête", @base.Quests, local.Quests, remote.Quests, x => x.Id, x => x.Name, ctx.QuestDef, conflicts),
             Start = MergeValue("Départ", "start", @base.Start, local.Start, remote.Start, ctx.StartSettings, conflicts),
+            ExtraStarts = MergeList("Autre départ", @base.ExtraStarts, local.ExtraStarts, remote.ExtraStarts, x => x.Id, x => x.Name, ctx.StartSettings, conflicts),
             Balance = MergeValue("Équilibrage", "balance", @base.Balance, local.Balance, remote.Balance, ctx.BalanceSettings, conflicts),
             Title = MergeValue("Titre", "title", @base.Title, local.Title, remote.Title, ctx.String, conflicts),
             World = MergeValue("Monde", "world", @base.World, local.World, remote.World, ctx.WorldSettings, conflicts),
@@ -164,6 +165,7 @@ public static class ContentMerger
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.BalanceSettings) is { } balance) { content.Balance = balance; return true; }
                 return false;
             case "Variable": return Put(content.Variables, ctx.VariableDef, x => x.Id);
+            case "Autre départ": return Put(content.ExtraStarts, ctx.StartSettings, x => x.Id);
             case "Portrait": return Put(content.Portraits, ctx.PortraitDef, x => x.Id);
             case "Campement":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.CampSettings) is { } camp) { content.Camp = camp; return true; }
@@ -203,6 +205,7 @@ public static class ContentMerger
             + Lists(a.Locations, b.Locations, x => x.Id, ctx.LocationDef) + Lists(a.Npcs, b.Npcs, x => x.Id, ctx.NpcDef)
             + Lists(a.Dialogues, b.Dialogues, x => x.Id, ctx.DialogueDef) + Lists(a.Quests, b.Quests, x => x.Id, ctx.QuestDef)
             + Lists(a.Variables, b.Variables, x => x.Id, ctx.VariableDef) + Lists(a.Portraits, b.Portraits, x => x.Id, ctx.PortraitDef)
+            + Lists(a.ExtraStarts, b.ExtraStarts, x => x.Id, ctx.StartSettings)
             + Value(a.Start, b.Start, ctx.StartSettings) + Value(a.Balance, b.Balance, ctx.BalanceSettings)
             + Value(a.Title, b.Title, ctx.String) + Value(a.World, b.World, ctx.WorldSettings) + Value(a.Time, b.Time, ctx.TimeSettings)
             + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings)

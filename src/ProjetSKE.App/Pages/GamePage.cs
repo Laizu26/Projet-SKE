@@ -115,7 +115,7 @@ public sealed class GamePage : ContentPage
         BackgroundColor = Theme.Stone900;
 
         Render();
-        if (playIntro && session.Db.Start.IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
+        if (playIntro && session.Db.StartById(session.State.StartId).IntroDialogueId is { } intro && session.Db.Dialogues.ContainsKey(intro)) ShowDialogue(intro);
     }
 
     // ------------------------------------------------------------------ Réveil : les yeux s'ouvrent

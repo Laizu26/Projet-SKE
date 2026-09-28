@@ -331,14 +331,55 @@ public sealed class QuestObjective
     public string Description { get; set; } = "";
 }
 
-/// <summary>Quête : objectifs à accomplir dans l'ordre, puis récompenses.</summary>
+/// <summary>Sortie d'une étape : si les conditions passent, la quête part vers l'étape visée (bifurcation).</summary>
+public sealed class QuestExit
+{
+    /// <summary>Nom lisible du chemin (éditeur, historique), ex : « A épargné le bandit ».</summary>
+    public string Label { get; set; } = "";
+    public List<Condition> Conditions { get; set; } = [];
+    public string NextStageId { get; set; } = "";
+    /// <summary>Effets appliqués en prenant ce chemin.</summary>
+    public List<GameAction> Actions { get; set; } = [];
+}
+
+/// <summary>
+/// Étape d'une quête narrative. On y entre (effets sur le monde), on remplit ses objectifs (dans l'ordre),
+/// puis la première sortie dont les conditions passent mène à l'étape suivante. Une étape « fin » termine la quête.
+/// </summary>
+public sealed class QuestStage
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    /// <summary>Texte du journal pour cette étape (balises %pj%... possibles).</summary>
+    public string Journal { get; set; } = "";
+    public List<QuestObjective> Objectives { get; set; } = [];
+    /// <summary>Effets en entrant dans l'étape (le monde change : lieux révélés, PNJ déplacés, flags...).</summary>
+    public List<GameAction> OnEnter { get; set; } = [];
+    /// <summary>Chemins possibles, testés dans l'ordre une fois les objectifs remplis.</summary>
+    public List<QuestExit> Exits { get; set; } = [];
+    /// <summary>Étape finale : la quête se termine ici (réussie, ou échouée).</summary>
+    public bool IsEnding { get; set; }
+    public bool Failure { get; set; }
+}
+
+/// <summary>
+/// Quête. Deux façons de la construire : une simple liste d'objectifs (dans l'ordre, puis récompenses),
+/// ou des étapes avec embranchements et plusieurs fins (<see cref="Stages"/>).
+/// </summary>
 public sealed class QuestDef
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public List<QuestObjective> Objectives { get; set; } = [];
+    /// <summary>Récompenses de fin (quête simple, ou fin réussie d'une quête à étapes).</summary>
     public List<GameAction> Rewards { get; set; } = [];
+    /// <summary>Étapes de la quête narrative (vide = quête simple). La première est le point de départ.</summary>
+    public List<QuestStage> Stages { get; set; } = [];
+    /// <summary>La quête démarre toute seule dès que ces conditions sont remplies (vide = seulement par un effet).</summary>
+    public List<Condition> AutoStart { get; set; } = [];
+
+    [JsonIgnore] public bool IsStaged => Stages.Count > 0;
     /// <summary>Quête secrète : n'apparaît pas dans le journal des quêtes.</summary>
     public bool Hidden { get; set; }
 }
@@ -352,12 +393,25 @@ public sealed class ItemStack
     public ItemStack(string itemId, int count) { ItemId = itemId; Count = count; }
 }
 
+/// <summary>Un départ de partie (origine, prologue). Le contenu peut en proposer plusieurs.</summary>
 public sealed class StartSettings
 {
+    public string Id { get; set; } = "principal";
+    public string Name { get; set; } = "Départ principal";
+    public string Description { get; set; } = "";
+    /// <summary>Héros qui peuvent prendre ce départ (vide = tous les héros proposés).</summary>
+    public List<string> HeroIds { get; set; } = [];
     public string LocationId { get; set; } = "";
     public int Gold { get; set; } = 100;
     public List<ItemStack> Inventory { get; set; } = [];
     public string? IntroDialogueId { get; set; }
+    /// <summary>PJ qui accompagnent le héros dès le début.</summary>
+    public List<string> Companions { get; set; } = [];
+    /// <summary>Effets au lancement (flags, variables, karma, quêtes, camp...) : le monde de départ.</summary>
+    public List<GameAction> Actions { get; set; } = [];
+    /// <summary>Date de départ propre à ce départ (vide = celle des réglages du temps).</summary>
+    public int? Day { get; set; }
+    public int? Hour { get; set; }
 }
 
 /// <summary>Formules d'équilibrage.</summary>
@@ -555,6 +609,8 @@ public sealed class GameContent
     public List<DialogueDef> Dialogues { get; set; } = [];
     public List<QuestDef> Quests { get; set; } = [];
     public StartSettings Start { get; set; } = new();
+    /// <summary>Autres départs proposés au joueur (en plus du départ principal).</summary>
+    public List<StartSettings> ExtraStarts { get; set; } = [];
     public BalanceSettings Balance { get; set; } = new();
     public WorldSettings World { get; set; } = new();
     public TimeSettings Time { get; set; } = new();

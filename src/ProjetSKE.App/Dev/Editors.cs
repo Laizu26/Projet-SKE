@@ -1,5 +1,6 @@
 using ProjetSKE.Core.Data;
 using ProjetSKE.Core.Models;
+using Condition = ProjetSKE.Core.Models.Condition;
 using ProjetSKE.App.Ui;
 using static ProjetSKE.App.Ui.UiKit;
 
@@ -284,36 +285,93 @@ public sealed class QuestEditor : EditorPage
 
     protected override void Build(Form f)
     {
-        f.Note($"Identifiant : {_x.Id} — à démarrer depuis un dialogue avec l'effet « Démarrer une quête ».");
+        f.Note($"Identifiant : {_x.Id} — démarre par l'effet « Démarrer une quête », ou toute seule (ci-dessous).");
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
         f.BoolField("Quête secrète (cachée du journal)", _x.Hidden, v => _x.Hidden = v);
-        f.ObjectList("Objectifs (dans l'ordre)", _x.Objectives, () => new QuestObjective { Type = ObjectiveType.TalkTo }, (of, o, i) =>
+        f.Conditions("Démarre toute seule quand", _x.AutoStart);
+
+        f.BoolField("Quête à étapes (embranchements, plusieurs fins)", _x.IsStaged, v =>
         {
-            of.Note($"Étape {i + 1}");
-            of.EnumField("Type", o.Type, v => { o.Type = v; o.TargetId = ""; }, DevState.Name, rerender: true);
-            switch (o.Type)
+            if (v && _x.Stages.Count == 0)
             {
-                case ObjectiveType.TalkTo:
-                    of.RefField("PNJ", o.TargetId, DevState.Npcs, v => o.TargetId = v ?? "", allowNone: false);
-                    break;
-                case ObjectiveType.Defeat:
-                    of.RefField("Monstre", o.TargetId, DevState.Monsters, v => o.TargetId = v ?? "", allowNone: false);
-                    of.IntField("Nombre", o.Count, v => o.Count = v);
-                    break;
-                case ObjectiveType.Reach:
-                    of.RefField("Lieu", o.TargetId, DevState.Locations, v => o.TargetId = v ?? "", allowNone: false);
-                    break;
-                default:
-                    of.RefField("Objet", o.TargetId, DevState.Items(), v => o.TargetId = v ?? "", allowNone: false);
-                    of.IntField("Quantité", o.Count, v => o.Count = v);
-                    of.RefField("À remettre à (aucun = il suffit de l'avoir)", o.NpcId, DevState.Npcs, v => o.NpcId = v);
-                    of.BoolField("Retirer l'objet du sac", o.ConsumeItems, v => o.ConsumeItems = v);
-                    break;
+                _x.Stages.Add(new QuestStage { Id = "debut", Name = "Début", Objectives = [.. _x.Objectives] });
+                _x.Objectives.Clear();
             }
-            of.TextField("Texte affiché (vide = automatique)", o.Description, v => o.Description = v);
-        }, "+ Objectif");
-        f.Actions("Récompenses", _x.Rewards);
+            else if (!v && _x.Stages.Count > 0)
+            {
+                _x.Objectives.AddRange(_x.Stages[0].Objectives);
+                _x.Stages.Clear();
+            }
+        }, rerender: true);
+
+        if (_x.IsStaged) BuildStages(f);
+        else f.Objectives("Objectifs (dans l'ordre)", _x.Objectives);
+
+        f.Actions(_x.IsStaged ? "Récompenses (toute fin réussie)" : "Récompenses", _x.Rewards);
+    }
+
+    private void BuildStages(Form f)
+    {
+        f.Note("La quête commence à la première étape. Dans chaque étape : remplir ses objectifs, puis le premier chemin dont les conditions "
+            + "passent mène à l'étape suivante (un choix de dialogue qui pose un flag suffit à bifurquer). Une étape « fin » termine la quête, "
+            + "réussie ou échouée. Chaque étape peut changer le monde en y entrant.");
+        f.Header("Carte de la quête");
+        for (var i = 0; i < _x.Stages.Count; i++)
+        {
+            var stage = _x.Stages[i];
+            var st = stage;
+            var title = $"{i + 1}. {(stage.Name.Length > 0 ? stage.Name : stage.Id)}";
+            if (stage.IsEnding) title += stage.Failure ? "   ✗ FIN (échec)" : "   ✓ FIN";
+            var box = Stack(Txt(title, 15, stage.IsEnding ? (stage.Failure ? Theme.Danger : Theme.Good) : Theme.Text, bold: true),
+                Muted($"{stage.Id} · {stage.Objectives.Count} objectif(s) · {stage.OnEnter.Count} effet(s) à l'entrée", 11));
+            foreach (var exit in stage.Exits)
+            {
+                var target = _x.Stages.FirstOrDefault(o => o.Id == exit.NextStageId);
+                var cond = exit.Conditions.Count == 0 ? "toujours" : "si " + string.Join(" et ", exit.Conditions.Select(DevState.Describe));
+                box.Add(Txt($"   → {(exit.Label.Length > 0 ? exit.Label + " : " : "")}{target?.Name ?? "⚠ " + exit.NextStageId} ({cond})", 12, Theme.Stone600));
+            }
+            if (!stage.IsEnding && stage.Exits.Count == 0) box.Add(Muted("   → aucune suite : la quête est réussie ici", 11));
+            box.Add(Form.SmallButton("Modifier l'étape", () => SkeApp.GoTo(new QuestStageEditor(_x, st))));
+            f.Add(Panel(box));
+        }
+        f.Add(Btn("+ Étape", () =>
+        {
+            var stage = new QuestStage { Id = DevState.NewId("etape", _x.Stages.Select(o => o.Id)), Name = "Nouvelle étape" };
+            _x.Stages.Add(stage);
+            DevState.Touch();
+            SkeApp.GoTo(new QuestStageEditor(_x, stage));
+        }));
+    }
+}
+
+public sealed class QuestStageEditor : EditorPage
+{
+    private readonly QuestDef _quest;
+    private readonly QuestStage _x;
+    public QuestStageEditor(QuestDef quest, QuestStage x) { _quest = quest; _x = x; Render(); }
+    protected override string PageTitle => $"{_quest.Name} › {_x.Name}";
+    protected override void GoBack() => SkeApp.GoTo(new QuestEditor(_quest));
+    protected override Action? Delete => _quest.Stages.Count > 1 ? () => _quest.Stages.Remove(_x) : null;
+
+    protected override void Build(Form f)
+    {
+        f.Note($"Identifiant : {_x.Id} — conditions : « Quête à l'étape », « Étape déjà passée », « Quête finie par » ; effet : « Quête : aller à l'étape ».");
+        f.TextField("Nom de l'étape (affiché au joueur)", _x.Name, v => _x.Name = v);
+        f.TextField("Récit du journal", _x.Journal, v => _x.Journal = v, multiline: true);
+        f.BoolField("Étape finale (termine la quête)", _x.IsEnding, v => { _x.IsEnding = v; if (v) _x.Exits.Clear(); }, rerender: true);
+        if (_x.IsEnding) f.BoolField("Fin en échec", _x.Failure, v => _x.Failure = v);
+        f.Actions("Effets en entrant (le monde change)", _x.OnEnter);
+        if (_x.IsEnding) return;
+        f.Objectives("Objectifs de l'étape (dans l'ordre)", _x.Objectives);
+        var stages = _quest.Stages.Where(o => o != _x).Select(o => (o.Id, (o.Name.Length > 0 ? o.Name : o.Id) + (o.IsEnding ? " (fin)" : "")));
+        f.ObjectList("Chemins (testés dans l'ordre)", _x.Exits, () => new QuestExit(), (ef, e, _) =>
+        {
+            ef.TextField("Nom du chemin", e.Label, v => e.Label = v);
+            ef.RefField("Mène à l'étape", e.NextStageId, stages, v => e.NextStageId = v ?? "", allowNone: false);
+            ef.Conditions("Si (vide = toujours)", e.Conditions);
+            ef.Actions("Effets en prenant ce chemin", e.Actions);
+        }, "+ Chemin");
     }
 }
 
@@ -477,31 +535,86 @@ public sealed class LocationEditor : EditorPage
 
 // ====================================================================== Départ et équilibrage
 
-public sealed class StartEditor : EditorPage
+/// <summary>Liste des départs : le principal et les autres (le joueur choisit après son héros).</summary>
+public sealed class StartsPage : EditorPage
 {
-    public StartEditor() => Render();
-    protected override string PageTitle => "Départ de partie";
+    public StartsPage() => Render();
+    protected override string PageTitle => "Départs de partie";
     protected override void GoBack() => SkeApp.GoTo(new DevHomePage());
 
     protected override void Build(Form f)
     {
-        var s = DevState.Draft.Start;
         var c = DevState.Draft;
         f.TextField("Titre du jeu", c.Title, v => c.Title = v);
-        f.RefField("Lieu de départ", s.LocationId, DevState.Locations, v => s.LocationId = v ?? "", allowNone: false);
-        f.IntField("Or de départ", s.Gold, v => s.Gold = v);
-        f.RefField("Dialogue d'introduction", s.IntroDialogueId, DevState.Dialogues, v => s.IntroDialogueId = v);
-        f.ObjectList("Objets de départ", s.Inventory, () => new ItemStack("", 1), (sf, st, _) =>
-        {
-            sf.RefField("Objet", st.ItemId, DevState.Items(), v => st.ItemId = v ?? "", allowNone: false);
-            sf.IntField("Quantité", st.Count, v => st.Count = v);
-        }, "+ Objet");
         f.Header("Héros proposés");
         foreach (var ch in c.Characters)
         {
             var character = ch;
             f.BoolField(ch.Name, ch.IsStarter, v => character.IsStarter = v);
         }
+        f.Header("Départs");
+        f.Note("Avec plusieurs départs, le joueur choisit le sien après son héros (origine, prologue, lieu, équipement, monde de départ).");
+        foreach (var start in new[] { c.Start }.Concat(c.ExtraStarts))
+        {
+            var st = start;
+            var main = st == c.Start;
+            f.Add(Panel(Row(
+                Stack(Txt(st.Name + (main ? "  (principal)" : ""), 15, Theme.Text, bold: true),
+                    Muted($"{st.Id} · {DevState.Locations.FirstOrDefault(l => l.Id == st.LocationId).Name ?? st.LocationId}"
+                        + (st.HeroIds.Count > 0 ? $" · {st.HeroIds.Count} héros" : " · tous les héros"))),
+                Form.SmallButton("Modifier", () => SkeApp.GoTo(new StartEditor(st, main))))));
+        }
+        f.Add(Btn("+ Nouveau départ", async () =>
+        {
+            var name = await DisplayPromptAsync("Nouveau départ", "Nom :", "Créer", "Annuler");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var ids = new[] { c.Start.Id }.Concat(c.ExtraStarts.Select(x => x.Id));
+            var start = new StartSettings { Id = DevState.NewId(name, ids), Name = name.Trim(), LocationId = c.Start.LocationId, Gold = c.Start.Gold };
+            c.ExtraStarts.Add(start);
+            DevState.Touch();
+            SkeApp.GoTo(new StartEditor(start, main: false));
+        }));
+    }
+}
+
+public sealed class StartEditor : EditorPage
+{
+    private readonly StartSettings _s;
+    private readonly bool _main;
+
+    public StartEditor() : this(DevState.Draft.Start, main: true) { }
+
+    public StartEditor(StartSettings s, bool main)
+    {
+        _s = s;
+        _main = main;
+        Render();
+    }
+
+    protected override string PageTitle => "Départ : " + _s.Name;
+    protected override void GoBack() => SkeApp.GoTo(new StartsPage());
+    protected override Action? Delete => _main ? null : () => DevState.Draft.ExtraStarts.Remove(_s);
+
+    protected override void Build(Form f)
+    {
+        var s = _s;
+        f.Note("Identifiant : " + s.Id + (_main ? " (départ principal)" : ""));
+        f.TextField("Nom", s.Name, v => s.Name = v);
+        f.TextField("Description (écran de choix)", s.Description, v => s.Description = v, multiline: true);
+        f.IdList("Réservé à ces héros (vide = tous)", s.HeroIds, DevState.Characters);
+        f.RefField("Lieu de départ", s.LocationId, DevState.Locations, v => s.LocationId = v ?? "", allowNone: false);
+        f.IntField("Or de départ", s.Gold, v => s.Gold = v);
+        f.RefField("Dialogue d'introduction", s.IntroDialogueId, DevState.Dialogues, v => s.IntroDialogueId = v);
+        f.IdList("Compagnons dès le début", s.Companions, DevState.Characters);
+        Form.OptionalInt(f, "Jour de départ", s.Day, v => s.Day = v, $"par défaut : {DevState.Draft.Time.StartDay}");
+        Form.OptionalInt(f, "Heure de départ", s.Hour, v => s.Hour = v, $"par défaut : {DevState.Draft.Time.StartHour}");
+        f.ObjectList("Objets de départ", s.Inventory, () => new ItemStack("", 1), (sf, st, _) =>
+        {
+            sf.RefField("Objet", st.ItemId, DevState.Items(), v => st.ItemId = v ?? "", allowNone: false);
+            sf.IntField("Quantité", st.Count, v => st.Count = v);
+        }, "+ Objet");
+        f.Note("Monde de départ : flags, variables, karma, quêtes déjà lancées, lieux révélés, PNJ au camp...");
+        f.Actions("Effets au lancement", s.Actions);
     }
 }
 
