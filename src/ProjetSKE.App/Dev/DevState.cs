@@ -361,7 +361,28 @@ public static class DevState
     {
         SkillKind.Physical => "Physique (ATQ)",
         SkillKind.Magical => "Magique (MAG)",
-        _ => "Soin (MAG)",
+        SkillKind.Heal => "Soin (MAG)",
+        SkillKind.Status => "Effets seulement (bonus, poison...)",
+        _ => "Résurrection (allié K.O.)",
+    };
+
+    public static string Name(EffectType t) => t switch
+    {
+        EffectType.Poison => "Poison (PV perdus par tour)",
+        EffectType.Regen => "Régénération (PV rendus par tour)",
+        EffectType.Stun => "Étourdissement (perd ses tours)",
+        EffectType.StatUp => "Bonus de stat (%)",
+        EffectType.StatDown => "Malus de stat (%)",
+        EffectType.Shield => "Bouclier (absorbe des dégâts)",
+        _ => "Purification (retire les effets négatifs)",
+    };
+
+    public static string Name(StatKind t) => t switch
+    {
+        StatKind.Attack => "Attaque",
+        StatKind.Defense => "Défense",
+        StatKind.Magic => "Magie",
+        _ => "Vitesse",
     };
 
     public static string Name(SkillTarget t) => t switch

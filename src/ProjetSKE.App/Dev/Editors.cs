@@ -79,7 +79,9 @@ public static class Editors
         "Compétences", C.Skills, x => x.Id, x => x.Name,
         (id, name) => new SkillDef { Id = id, Name = name },
         x => new SkillEditor(x),
-        subtitle: x => DevState.Name(x.Kind) + (x.ManaCost > 0 ? $" · {x.ManaCost} PM" : ""));
+        subtitle: x => DevState.Name(x.Kind) + (x.ManaCost > 0 ? $" · {x.ManaCost} PM" : "")
+            + (x.Element.Length > 0 ? $" · {x.Element}" : "") + (x.Effects.Count > 0 ? $" · {x.Effects.Count} effet(s)" : "")
+            + (x.Cooldown > 0 ? $" · recharge {x.Cooldown}" : ""));
 
     public static Page LocationList() => new EntityListPage<LocationDef>(
         "Lieux et carte", C.Locations, x => x.Id, x => x.Name,
@@ -122,6 +124,7 @@ public sealed class CharacterEditor : EditorPage
         f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
         Form.OptionalInt(f, "Karma de départ", _x.BaseKarma, v => _x.BaseKarma = v, $"par défaut : {DevState.Draft.Karma.Default}");
         Form.OptionalInt(f, "Amitié de départ envers les autres", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
+        f.Resistances("Faiblesses et résistances", _x.Resistances);
         f.BattleLines("Répliques de combat", _x.BattleLines);
     }
 }
@@ -432,6 +435,7 @@ public sealed class MonsterEditor : EditorPage
             df.RefField("Objet", d.ItemId, DevState.Items(), v => d.ItemId = v ?? "", allowNone: false);
             df.DoubleField("Chance (0 à 1, ex : 0.25 = 25 %)", d.Chance, v => d.Chance = v);
         }, "+ Butin");
+        f.Resistances("Faiblesses et résistances", _x.Resistances);
         f.BattleLines("Répliques de combat", _x.BattleLines);
     }
 }
@@ -451,10 +455,51 @@ public sealed class SkillEditor : EditorPage
         f.Note("Identifiant : " + _x.Id);
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description", _x.Description, v => _x.Description = v);
-        f.EnumField("Type", _x.Kind, v => _x.Kind = v, DevState.Name);
+        f.EnumField("Type", _x.Kind, v => _x.Kind = v, DevState.Name, rerender: true);
         f.EnumField("Cible", _x.Target, v => _x.Target = v, DevState.Name);
+        var offensive = _x.Kind is SkillKind.Physical or SkillKind.Magical;
+
+        f.Header("Coûts");
         f.IntField("Coût en PM", _x.ManaCost, v => _x.ManaCost = v);
-        f.DoubleField("Puissance (1 = normal, 1.5 = +50 %)", _x.Power, v => _x.Power = v);
+        f.IntField("Coût en PV (le lanceur garde 1 PV)", _x.HpCost, v => _x.HpCost = v);
+        f.IntField("Recharge (tours avant de la réutiliser, 0 = aucune)", _x.Cooldown, v => _x.Cooldown = v);
+
+        if (_x.Kind != SkillKind.Status)
+        {
+            f.Header(offensive ? "Dégâts" : _x.Kind == SkillKind.Revive ? "PV rendus à la résurrection" : "Soin");
+            f.DoubleField(offensive ? "Puissance (× ATQ ou MAG ; 1 = normal)" : "Puissance (× MAG ; 0 = seulement le montant fixe)", _x.Power, v => _x.Power = v);
+            f.IntField("Montant fixe ajouté", _x.FlatAmount, v => _x.FlatAmount = v);
+        }
+        if (offensive)
+        {
+            f.TextField("Élément (feu, glace... vide = aucun)", _x.Element, v => _x.Element = v.Trim());
+            f.IntField("Nombre de coups", _x.Hits, v => _x.Hits = v);
+            f.IntField("Précision (%)", _x.Accuracy, v => _x.Accuracy = v);
+            f.IntField("Chance de critique (%)", _x.CritChance, v => _x.CritChance = v);
+            f.DoubleField("Multiplicateur de critique", _x.CritMultiplier, v => _x.CritMultiplier = v);
+            f.IntField("Vol de vie (% des dégâts rendus au lanceur)", _x.DrainPercent, v => _x.DrainPercent = v);
+        }
+
+        f.Note("Effets durables : ils s'appliquent aux cibles (ou au lanceur) et comptent en tours de celui qui les subit. "
+            + "Un même effet de la même compétence est rafraîchi, pas cumulé.");
+        f.ObjectList("Effets", _x.Effects, () => new SkillEffect(), (ef, e, _) =>
+        {
+            ef.EnumField("Effet", e.Type, v => e.Type = v, DevState.Name, rerender: true);
+            if (e.Type is EffectType.StatUp or EffectType.StatDown) ef.EnumField("Statistique", e.Stat, v => e.Stat = v, DevState.Name);
+            if (e.Type != EffectType.Cleanse && e.Type != EffectType.Stun)
+                ef.IntField(e.Type switch
+                {
+                    EffectType.Poison or EffectType.Regen => "PV par tour",
+                    EffectType.Shield => "Points absorbés",
+                    _ => "Pourcentage",
+                }, e.Amount, v => e.Amount = v);
+            if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
+            ef.IntField("Chance (%)", e.Chance, v => e.Chance = v);
+            ef.BoolField("Sur le lanceur (au lieu des cibles)", e.OnSelf, v => e.OnSelf = v);
+        }, "+ Effet");
+
+        f.Header("Journal");
+        f.TextField("Texte à la place du texte automatique (%lanceur%, %sort%, %cible%)", _x.UseText, v => _x.UseText = v);
     }
 }
 

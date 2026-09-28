@@ -473,6 +473,18 @@ public sealed class Form
         }
     }
 
+    /// <summary>Faiblesses et résistances aux éléments des compétences.</summary>
+    public void Resistances(string label, List<ElementModifier> list)
+    {
+        Note("100 = normal, 200 = faiblesse (dégâts ×2), 50 = résistance, 0 = immunité, négatif = absorbe (soigne).");
+        ObjectList(label, list, () => new ElementModifier("feu", 150), (rf, r, _) =>
+        {
+            var known = DevState.Draft.Skills.Select(s => s.Element).Where(e => e.Length > 0).Distinct().ToList();
+            rf.TextField(known.Count > 0 ? $"Élément (utilisés : {string.Join(", ", known)})" : "Élément", r.Element, v => r.Element = v.Trim());
+            rf.IntField("Pourcentage", r.Percent, v => r.Percent = v);
+        }, "+ Élément");
+    }
+
     /// <summary>Objectifs de quête (parler, vaincre, aller, apporter).</summary>
     public void Objectives(string label, List<QuestObjective> objectives) =>
         ObjectList(label, objectives, () => new QuestObjective { Type = ObjectiveType.TalkTo }, (of, o, i) =>

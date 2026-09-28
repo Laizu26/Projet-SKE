@@ -5,6 +5,16 @@ namespace ProjetSKE.Core.Systems;
 
 public enum BattleOutcome { Ongoing, Victory, Defeat, Fled }
 
+/// <summary>Effet durable actif sur un combattant (poison, bonus, étourdissement...).</summary>
+public sealed class ActiveEffect
+{
+    public required SkillEffect Def { get; init; }
+    public required string Source { get; init; }
+    public int TurnsLeft { get; set; }
+
+    public bool IsNegative => Def.Type is EffectType.Poison or EffectType.Stun or EffectType.StatDown;
+}
+
 /// <summary>Un participant au combat (personnage de l'équipe ou monstre).</summary>
 public sealed class Combatant
 {
@@ -20,13 +30,68 @@ public sealed class Combatant
     public bool Defending { get; set; }
     /// <summary>Répliques de combat de ce participant.</summary>
     public IReadOnlyList<BattleLine> Lines { get; init; } = [];
+    /// <summary>Faiblesses et résistances aux éléments.</summary>
+    public IReadOnlyList<ElementModifier> Resistances { get; init; } = [];
+    public List<ActiveEffect> Effects { get; } = [];
+    /// <summary>Tours restants avant de pouvoir réutiliser une compétence (id → tours).</summary>
+    public Dictionary<string, int> Cooldowns { get; } = [];
+    /// <summary>Points de dégâts encore absorbés par un bouclier.</summary>
+    public int Shield { get; set; }
 
     public bool IsAlive => Hp > 0;
     public bool IsBoss => Monster?.IsBoss == true;
+    public bool IsStunned => Effects.Any(e => e.Def.Type == EffectType.Stun);
+
+    /// <summary>Statistique avec bonus et malus en cours (en %).</summary>
+    public int Stat(StatKind kind)
+    {
+        var baseValue = kind switch
+        {
+            StatKind.Attack => Stats.Attack,
+            StatKind.Defense => Stats.Defense,
+            StatKind.Magic => Stats.Magic,
+            _ => Stats.Speed,
+        };
+        var percent = 100
+            + Effects.Where(e => e.Def.Type == EffectType.StatUp && e.Def.Stat == kind).Sum(e => e.Def.Amount)
+            - Effects.Where(e => e.Def.Type == EffectType.StatDown && e.Def.Stat == kind).Sum(e => e.Def.Amount);
+        return Math.Max(kind == StatKind.Defense ? 0 : 1, baseValue * Math.Max(0, percent) / 100);
+    }
+
+    public int CooldownOf(SkillDef skill) => Cooldowns.GetValueOrDefault(skill.Id);
+
+    /// <summary>Résumé des effets en cours, pour l'affichage (« Poison 2 · ATQ +20 % (3) »).</summary>
+    public string StatusText
+    {
+        get
+        {
+            var parts = Effects.Select(Describe).Where(t => t.Length > 0).ToList();
+            if (Shield > 0) parts.Add($"Bouclier {Shield}");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    public static string StatName(StatKind s) => s switch
+    {
+        StatKind.Attack => "ATQ",
+        StatKind.Defense => "DEF",
+        StatKind.Magic => "MAG",
+        _ => "VIT",
+    };
+
+    private static string Describe(ActiveEffect e) => e.Def.Type switch
+    {
+        EffectType.Poison => $"Poison {e.TurnsLeft}",
+        EffectType.Regen => $"Régén. {e.TurnsLeft}",
+        EffectType.Stun => "Étourdi",
+        EffectType.StatUp => $"{StatName(e.Def.Stat)} +{e.Def.Amount} % ({e.TurnsLeft})",
+        EffectType.StatDown => $"{StatName(e.Def.Stat)} -{e.Def.Amount} % ({e.TurnsLeft})",
+        _ => "",
+    };
 }
 
 /// <summary>
-/// Combat au tour par tour. L'ordre de jeu dépend de la vitesse.
+/// Combat au tour par tour. L'ordre de jeu dépend de la vitesse (bonus compris).
 /// Les ennemis jouent automatiquement ; le combat s'arrête dès que c'est au tour d'un personnage du joueur.
 /// </summary>
 public sealed class Battle
@@ -58,16 +123,18 @@ public sealed class Battle
         Allies = session.ActiveParty.Select(c =>
         {
             var stats = session.GetStats(c);
+            var def = session.DefOf(c);
             return new Combatant
             {
-                Name = session.DefOf(c).Name,
+                Name = def.Name,
                 IsAlly = true,
                 Character = c,
                 Stats = stats,
                 Skills = session.GetSkills(c),
                 Hp = Math.Min(c.CurrentHp, stats.MaxHp),
                 Mana = Math.Min(c.CurrentMana, stats.MaxMana),
-                Lines = session.DefOf(c).BattleLines,
+                Lines = def.BattleLines,
+                Resistances = def.Resistances,
             };
         }).ToList();
 
@@ -89,6 +156,7 @@ public sealed class Battle
                 Hp = def.Stats.MaxHp,
                 Mana = def.Stats.MaxMana,
                 Lines = def.BattleLines,
+                Resistances = def.Resistances,
             });
         }
         Enemies = enemies;
@@ -108,18 +176,23 @@ public sealed class Battle
 
     public static bool NeedsTarget(SkillDef skill) => skill.Target is SkillTarget.SingleEnemy or SkillTarget.SingleAlly;
 
-    public bool CanUse(SkillDef skill) => IsPlayerTurn && CurrentActor!.Mana >= skill.ManaCost;
+    /// <summary>Le combattant peut payer la compétence (PM, PV) et elle n'est pas en recharge.</summary>
+    public static bool CanAfford(Combatant c, SkillDef skill) =>
+        c.Mana >= skill.ManaCost && (skill.HpCost <= 0 || c.Hp > skill.HpCost) && c.CooldownOf(skill) == 0;
 
-    /// <summary>Cibles possibles pour une compétence à cible unique.</summary>
-    public IReadOnlyList<Combatant> TargetsFor(SkillDef skill)
+    public bool CanUse(SkillDef skill) => IsPlayerTurn && CanAfford(CurrentActor!, skill);
+
+    /// <summary>Cibles possibles pour une compétence à cible unique (résurrection : les alliés K.O.).</summary>
+    public IReadOnlyList<Combatant> TargetsFor(SkillDef skill) => CurrentActor is null ? [] : TargetsFor(CurrentActor, skill);
+
+    private IReadOnlyList<Combatant> TargetsFor(Combatant actor, SkillDef skill)
     {
-        if (CurrentActor is null) return [];
-        var foes = CurrentActor.IsAlly ? Enemies : Allies;
-        var friends = CurrentActor.IsAlly ? Allies : Enemies;
+        var foes = actor.IsAlly ? Enemies : Allies;
+        var friends = actor.IsAlly ? Allies : Enemies;
         return skill.Target switch
         {
             SkillTarget.SingleEnemy => foes.Where(c => c.IsAlive).ToList(),
-            SkillTarget.SingleAlly => friends.Where(c => c.IsAlive).ToList(),
+            SkillTarget.SingleAlly => friends.Where(c => skill.Kind == SkillKind.Revive ? !c.IsAlive : c.IsAlive).ToList(),
             _ => [],
         };
     }
@@ -172,8 +245,8 @@ public sealed class Battle
     {
         if (!CanFlee) return 0;
         if (_session.Config.Flee == FleeRule.AlwaysSucceed) return 1;
-        var allySpeed = Allies.Where(a => a.IsAlive).Average(a => a.Stats.Speed);
-        var enemySpeed = Enemies.Where(e => e.IsAlive).Average(e => e.Stats.Speed);
+        var allySpeed = Allies.Where(a => a.IsAlive).Average(a => a.Stat(StatKind.Speed));
+        var enemySpeed = Enemies.Where(e => e.IsAlive).Average(e => e.Stat(StatKind.Speed));
         return Math.Clamp(0.5 + (allySpeed - enemySpeed) * 0.03, 0.1, 0.95);
     }
 
@@ -210,29 +283,82 @@ public sealed class Battle
             {
                 Round++;
                 SayAll(BattleTrigger.Turn, Round);
-                foreach (var c in All.Where(c => c.IsAlive).OrderByDescending(c => c.Stats.Speed).ThenBy(c => c.IsAlly ? 0 : 1))
+                foreach (var c in All.Where(c => c.IsAlive).OrderByDescending(c => c.Stat(StatKind.Speed)).ThenBy(c => c.IsAlly ? 0 : 1))
                     _queue.Enqueue(c);
             }
             var next = _queue.Dequeue();
             if (!next.IsAlive) continue;
             CurrentActor = next;
             next.Defending = false;
+            if (!StartOfTurn(next))
+            {
+                CheckEnd();
+                continue;
+            }
             if (next.IsAlly) return;
             EnemyAct(next);
             CheckEnd();
         }
     }
 
+    /// <summary>Début du tour d'un combattant : recharges, poison, régénération, étourdissement. Renvoie false s'il ne joue pas.</summary>
+    private bool StartOfTurn(Combatant c)
+    {
+        foreach (var key in c.Cooldowns.Keys.ToList())
+            if (--c.Cooldowns[key] <= 0) c.Cooldowns.Remove(key);
+
+        var stunned = c.IsStunned;
+        foreach (var e in c.Effects.ToList())
+        {
+            switch (e.Def.Type)
+            {
+                case EffectType.Poison:
+                    var before = c.Hp;
+                    c.Hp = Math.Max(0, c.Hp - Math.Max(1, e.Def.Amount));
+                    Log.Add($"{c.Name} souffre du poison : -{before - c.Hp} PV{(c.IsAlive ? "" : ", vaincu !")}");
+                    break;
+                case EffectType.Regen:
+                    var healed = Math.Min(e.Def.Amount, c.Stats.MaxHp - c.Hp);
+                    c.Hp += healed;
+                    if (healed > 0) Log.Add($"{c.Name} se régénère : +{healed} PV");
+                    break;
+            }
+            if (--e.TurnsLeft <= 0)
+            {
+                c.Effects.Remove(e);
+                if (e.Def.Type == EffectType.Shield) c.Shield = 0;
+            }
+        }
+        if (!c.IsAlive)
+        {
+            Say(c, BattleTrigger.Down);
+            return false;
+        }
+        if (stunned)
+        {
+            Log.Add($"{c.Name} est étourdi et perd son tour.");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>L'ennemi choisit une compétence utile au hasard (pas de soin si personne n'est blessé...).</summary>
     private void EnemyAct(Combatant enemy)
     {
-        var usable = enemy.Skills.Where(s => enemy.Mana >= s.ManaCost).ToList();
+        var friends = Enemies;
+        var usable = enemy.Skills.Where(s => CanAfford(enemy, s)).Where(s => s.Kind switch
+        {
+            SkillKind.Heal => friends.Any(f => f.IsAlive && f.Hp < f.Stats.MaxHp),
+            SkillKind.Revive => friends.Any(f => !f.IsAlive),
+            _ => true,
+        }).ToList();
         if (usable.Count == 0)
         {
             Log.Add($"{enemy.Name} hésite.");
             return;
         }
         var skill = usable[_session.Rng.Next(usable.Count)];
-        var candidates = TargetsFor(skill);
+        var candidates = TargetsFor(enemy, skill);
         var target = candidates.Count > 0 ? candidates[_session.Rng.Next(candidates.Count)] : null;
         var targets = ResolveTargets(enemy, skill, target);
         if (targets.Count > 0) Perform(enemy, skill, targets);
@@ -248,52 +374,164 @@ public sealed class Battle
             SkillTarget.SingleAlly or SkillTarget.AllAllies => friends,
             _ => new[] { actor },
         };
-        var alive = pool.Where(c => c.IsAlive).ToList();
-        if (!NeedsTarget(skill)) return alive;
-        return target is not null && alive.Contains(target) ? new List<Combatant> { target } : new List<Combatant>();
+        var valid = pool.Where(c => skill.Kind == SkillKind.Revive ? !c.IsAlive : c.IsAlive).ToList();
+        if (!NeedsTarget(skill)) return valid;
+        return target is not null && valid.Contains(target) ? [target] : [];
+    }
+
+    /// <summary>Multiplicateur d'élément de la cible (1 = normal).</summary>
+    private static double ElementFactor(SkillDef skill, Combatant target)
+    {
+        if (skill.Element.Length == 0) return 1;
+        var mod = target.Resistances.FirstOrDefault(r => string.Equals(r.Element.Trim(), skill.Element.Trim(), StringComparison.OrdinalIgnoreCase));
+        return mod is null ? 1 : mod.Percent / 100.0;
     }
 
     private void Perform(Combatant actor, SkillDef skill, List<Combatant> targets)
     {
         var balance = _session.Balance;
         actor.Mana -= skill.ManaCost;
+        if (skill.HpCost > 0) actor.Hp = Math.Max(1, actor.Hp - skill.HpCost);
+        if (skill.Cooldown > 0) actor.Cooldowns[skill.Id] = skill.Cooldown + 1;
+
         var parts = new List<string>();
         var hits = new List<(Combatant Target, int Before)>();
+        var spread = Math.Clamp(balance.DamageVariancePercent, 0, 100) / 100.0;
+        double Variance() => 1 - spread + _session.Rng.NextDouble() * spread * 2;
+        var offensive = skill.Kind is SkillKind.Physical or SkillKind.Magical;
+
         foreach (var t in targets)
         {
-            var spread = Math.Clamp(balance.DamageVariancePercent, 0, 100) / 100.0;
-            var variance = 1 - spread + _session.Rng.NextDouble() * spread * 2;
-            if (skill.Kind == SkillKind.Heal)
+            var before = t.Hp;
+            switch (skill.Kind)
             {
-                var heal = (int)(actor.Stats.Magic * skill.Power * balance.HealMultiplier * variance) + balance.HealFlat;
-                var amount = Math.Max(0, Math.Min(heal, t.Stats.MaxHp - t.Hp));
-                t.Hp += amount;
-                parts.Add($"{t.Name} +{amount} PV");
+                case SkillKind.Heal:
+                {
+                    var heal = (int)(actor.Stat(StatKind.Magic) * skill.Power * balance.HealMultiplier * Variance()) + balance.HealFlat + skill.FlatAmount;
+                    var amount = Math.Max(0, Math.Min(heal, t.Stats.MaxHp - t.Hp));
+                    t.Hp += amount;
+                    parts.Add($"{t.Name} +{amount} PV");
+                    break;
+                }
+                case SkillKind.Revive:
+                {
+                    var heal = (int)(actor.Stat(StatKind.Magic) * skill.Power * balance.HealMultiplier) + skill.FlatAmount;
+                    t.Hp = Math.Clamp(heal, 1, t.Stats.MaxHp);
+                    t.Effects.Clear();
+                    parts.Add($"{t.Name} se relève avec {t.Hp} PV");
+                    break;
+                }
+                case SkillKind.Status:
+                    break;
+                default:
+                {
+                    var total = 0;
+                    var notes = new List<string>();
+                    var factor = ElementFactor(skill, t);
+                    if (factor > 1) notes.Add("faiblesse !");
+                    else if (factor is > 0 and < 1) notes.Add("résiste");
+                    else if (factor == 0) notes.Add("immunisé");
+                    for (var h = 0; h < Math.Max(1, skill.Hits) && t.IsAlive; h++)
+                    {
+                        if (skill.Accuracy < 100 && _session.Rng.Next(100) >= skill.Accuracy)
+                        {
+                            notes.Add("raté");
+                            continue;
+                        }
+                        var raw = skill.Kind == SkillKind.Physical
+                            ? actor.Stat(StatKind.Attack) * skill.Power - t.Stat(StatKind.Defense) * balance.PhysicalDefenseFactor
+                            : actor.Stat(StatKind.Magic) * skill.Power * balance.MagicMultiplier - t.Stat(StatKind.Defense) * balance.MagicDefenseFactor;
+                        raw = Math.Max(1, raw) + skill.FlatAmount;
+                        if (skill.CritChance > 0 && _session.Rng.Next(100) < skill.CritChance)
+                        {
+                            raw *= skill.CritMultiplier;
+                            notes.Add("critique");
+                        }
+                        var damage = (int)Math.Round(raw * Variance() * factor * (t.Defending ? 0.5 : 1));
+                        if (factor < 0)
+                        {
+                            // L'élément soigne la cible.
+                            var absorbed = Math.Min(-damage, t.Stats.MaxHp - t.Hp);
+                            t.Hp += absorbed;
+                            notes.Add($"absorbe +{absorbed} PV");
+                            continue;
+                        }
+                        if (factor > 0) damage = Math.Max(1, damage);
+                        if (t.Shield > 0)
+                        {
+                            var blocked = Math.Min(t.Shield, damage);
+                            t.Shield -= blocked;
+                            damage -= blocked;
+                            if (blocked > 0) notes.Add($"bouclier -{blocked}");
+                        }
+                        t.Hp = Math.Max(0, t.Hp - damage);
+                        total += damage;
+                    }
+                    var extra = notes.Count > 0 ? $" ({string.Join(", ", notes.Distinct())})" : "";
+                    parts.Add(t.IsAlive ? $"{t.Name} -{total} PV{extra}" : $"{t.Name} -{total} PV{extra}, vaincu !");
+                    if (skill.DrainPercent > 0 && total > 0)
+                    {
+                        var drained = Math.Min(total * skill.DrainPercent / 100, actor.Stats.MaxHp - actor.Hp);
+                        actor.Hp += drained;
+                        if (drained > 0) parts.Add($"{actor.Name} +{drained} PV");
+                    }
+                    break;
+                }
             }
-            else
+            hits.Add((t, before));
+        }
+
+        // Effets durables.
+        foreach (var effect in skill.Effects)
+        {
+            var receivers = effect.OnSelf ? new List<Combatant> { actor } : targets.Where(t => t.IsAlive).ToList();
+            foreach (var r in receivers)
             {
-                var raw = skill.Kind == SkillKind.Physical
-                    ? actor.Stats.Attack * skill.Power - t.Stats.Defense * balance.PhysicalDefenseFactor
-                    : actor.Stats.Magic * skill.Power * balance.MagicMultiplier - t.Stats.Defense * balance.MagicDefenseFactor;
-                var damage = Math.Max(1, (int)Math.Round(raw * variance * (t.Defending ? 0.5 : 1)));
-                var before = t.Hp;
-                t.Hp = Math.Max(0, t.Hp - damage);
-                parts.Add(t.IsAlive ? $"{t.Name} -{damage} PV" : $"{t.Name} -{damage} PV, vaincu !");
-                hits.Add((t, before));
+                if (effect.Chance < 100 && _session.Rng.Next(100) >= effect.Chance) continue;
+                parts.Add(ApplyEffect(r, effect, skill.Name));
             }
         }
-        Log.Add($"{actor.Name} : {skill.Name} → {string.Join(", ", parts)}");
+
+        Log.Add(skill.UseText.Length > 0
+            ? skill.UseText.Replace("%lanceur%", actor.Name).Replace("%sort%", skill.Name)
+                .Replace("%cible%", string.Join(", ", targets.Select(t => t.Name))) + (parts.Count > 0 ? " → " + string.Join(", ", parts) : "")
+            : $"{actor.Name} : {skill.Name}" + (parts.Count > 0 ? " → " + string.Join(", ", parts) : ""));
+
         foreach (var (t, before) in hits)
         {
             var max = Math.Max(1, t.Stats.MaxHp);
             foreach (var line in t.Lines.Where(l => l.Trigger == BattleTrigger.HpBelow))
                 if (t.IsAlive && t.Hp * 100 < line.Amount * max && before * 100 >= line.Amount * max) Say(t, line);
-            if (!t.IsAlive)
+            if (!t.IsAlive && before > 0)
             {
                 Say(t, BattleTrigger.Down);
                 Say(actor, BattleTrigger.Kill);
             }
         }
+    }
+
+    /// <summary>Pose un effet durable ; un même effet venant de la même compétence est rafraîchi, pas cumulé.</summary>
+    private static string ApplyEffect(Combatant r, SkillEffect effect, string source)
+    {
+        if (effect.Type == EffectType.Cleanse)
+        {
+            var removed = r.Effects.RemoveAll(e => e.IsNegative);
+            return removed > 0 ? $"{r.Name} est purifié" : $"{r.Name} n'a rien à purifier";
+        }
+        var existing = r.Effects.FirstOrDefault(e => e.Source == source && e.Def.Type == effect.Type && e.Def.Stat == effect.Stat);
+        if (existing is not null) r.Effects.Remove(existing);
+        // Le tour en cours compte : un effet de 3 tours dure les 3 prochains tours de la cible.
+        r.Effects.Add(new ActiveEffect { Def = effect, Source = source, TurnsLeft = Math.Max(1, effect.Turns) });
+        if (effect.Type == EffectType.Shield) r.Shield = Math.Max(r.Shield, effect.Amount);
+        return effect.Type switch
+        {
+            EffectType.Poison => $"{r.Name} est empoisonné",
+            EffectType.Regen => $"{r.Name} se régénère",
+            EffectType.Stun => $"{r.Name} est étourdi",
+            EffectType.StatUp => $"{r.Name} {Combatant.StatName(effect.Stat)} +{effect.Amount} %",
+            EffectType.StatDown => $"{r.Name} {Combatant.StatName(effect.Stat)} -{effect.Amount} %",
+            _ => $"{r.Name} est protégé ({effect.Amount})",
+        };
     }
 
     private void CheckEnd()

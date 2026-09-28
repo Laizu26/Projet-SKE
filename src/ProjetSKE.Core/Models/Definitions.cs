@@ -14,6 +14,50 @@ public sealed class SkillDef
     public int ManaCost { get; set; }
     /// <summary>Multiplicateur appliqué à la stat d'attaque ou de magie.</summary>
     public double Power { get; set; } = 1.0;
+    /// <summary>Montant fixe ajouté (dégâts, soin, PV rendus à la résurrection).</summary>
+    public int FlatAmount { get; set; }
+    /// <summary>Élément (feu, glace, sacré... texte libre) : les faiblesses et résistances des cibles s'appliquent.</summary>
+    public string Element { get; set; } = "";
+    /// <summary>Nombre de coups portés à chaque cible.</summary>
+    public int Hits { get; set; } = 1;
+    /// <summary>Chance de toucher (%), pour les attaques.</summary>
+    public int Accuracy { get; set; } = 100;
+    public int CritChance { get; set; }
+    public double CritMultiplier { get; set; } = 1.5;
+    /// <summary>PV que coûte la compétence au lanceur (il garde toujours au moins 1 PV).</summary>
+    public int HpCost { get; set; }
+    /// <summary>Tours à attendre avant de la réutiliser (0 = aucun).</summary>
+    public int Cooldown { get; set; }
+    /// <summary>Part des dégâts rendue en PV au lanceur (%).</summary>
+    public int DrainPercent { get; set; }
+    /// <summary>Effets durables (poison, bonus, étourdissement...).</summary>
+    public List<SkillEffect> Effects { get; set; } = [];
+    /// <summary>Texte du journal à la place du texte automatique (%lanceur%, %cible%, %sort%).</summary>
+    public string UseText { get; set; } = "";
+}
+
+/// <summary>Effet durable d'une compétence.</summary>
+public sealed class SkillEffect
+{
+    public EffectType Type { get; set; } = EffectType.Poison;
+    /// <summary>Statistique visée (bonus / malus).</summary>
+    public StatKind Stat { get; set; } = StatKind.Attack;
+    /// <summary>PV par tour (poison, régénération), % (bonus, malus) ou points absorbés (bouclier).</summary>
+    public int Amount { get; set; } = 10;
+    public int Turns { get; set; } = 3;
+    public int Chance { get; set; } = 100;
+    /// <summary>S'applique au lanceur plutôt qu'aux cibles.</summary>
+    public bool OnSelf { get; set; }
+}
+
+/// <summary>Faiblesse ou résistance à un élément : 100 = normal, 200 = faiblesse, 50 = résistance, 0 = immunité, négatif = absorbe (soigne).</summary>
+public sealed class ElementModifier
+{
+    public string Element { get; set; } = "";
+    public int Percent { get; set; } = 100;
+
+    public ElementModifier() { }
+    public ElementModifier(string element, int percent) { Element = element; Percent = percent; }
 }
 
 public sealed class ItemDef
@@ -85,6 +129,7 @@ public sealed class CharacterDef
     public int? BaseFriendship { get; set; }
     /// <summary>Répliques de combat du personnage.</summary>
     public List<BattleLine> BattleLines { get; set; } = [];
+    public List<ElementModifier> Resistances { get; set; } = [];
     public string? PortraitId { get; set; }
 }
 
@@ -127,6 +172,7 @@ public sealed class MonsterDef
     public bool IsBoss { get; set; }
     /// <summary>Répliques de combat du monstre.</summary>
     public List<BattleLine> BattleLines { get; set; } = [];
+    public List<ElementModifier> Resistances { get; set; } = [];
     public string? PortraitId { get; set; }
 }
 

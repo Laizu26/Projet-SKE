@@ -128,21 +128,47 @@ internal static class SampleContent
         new() { Id = "coup_puissant", Name = "Coup puissant", Description = "Un coup lourd.", ManaCost = 4, Power = 1.6 },
         new() { Id = "tourbillon", Name = "Tourbillon", Description = "Frappe tous les ennemis.", ManaCost = 8, Power = 0.8, Target = SkillTarget.AllEnemies },
         new() { Id = "trait_arcanique", Name = "Trait arcanique", Description = "Petit projectile magique.", Kind = SkillKind.Magical, Power = 0.9 },
-        new() { Id = "boule_feu", Name = "Boule de feu", Description = "Brûle un ennemi.", Kind = SkillKind.Magical, ManaCost = 5, Power = 1.6 },
-        new() { Id = "blizzard", Name = "Blizzard", Description = "Gèle tous les ennemis.", Kind = SkillKind.Magical, ManaCost = 10, Power = 1.0, Target = SkillTarget.AllEnemies },
-        new() { Id = "attaque_sournoise", Name = "Attaque sournoise", Description = "Vise les points faibles.", ManaCost = 3, Power = 1.8 },
-        new() { Id = "pluie_dagues", Name = "Pluie de dagues", Description = "Touche tous les ennemis.", ManaCost = 6, Power = 0.7, Target = SkillTarget.AllEnemies },
+        new() { Id = "boule_feu", Name = "Boule de feu", Description = "Brûle un ennemi.", Kind = SkillKind.Magical, ManaCost = 5, Power = 1.6, Element = "feu" },
+        new()
+        {
+            Id = "blizzard", Name = "Blizzard", Description = "Gèle tous les ennemis et les ralentit.", Kind = SkillKind.Magical, ManaCost = 10, Power = 1.0,
+            Target = SkillTarget.AllEnemies, Element = "glace",
+            Effects = [new() { Type = EffectType.StatDown, Stat = StatKind.Speed, Amount = 30, Turns = 2 }],
+        },
+        new() { Id = "attaque_sournoise", Name = "Attaque sournoise", Description = "Vise les points faibles (souvent critique).", ManaCost = 3, Power = 1.4, CritChance = 40, CritMultiplier = 2 },
+        new() { Id = "pluie_dagues", Name = "Pluie de dagues", Description = "Trois dagues sur chaque ennemi, pas toutes au but.", ManaCost = 6, Power = 0.35, Hits = 3, Accuracy = 75, Target = SkillTarget.AllEnemies },
+        new()
+        {
+            Id = "cri_guerre", Name = "Cri de guerre", Description = "ATQ +30 % pendant 3 tours.", Kind = SkillKind.Status, Target = SkillTarget.Self, Cooldown = 3,
+            Effects = [new() { Type = EffectType.StatUp, Stat = StatKind.Attack, Amount = 30, Turns = 3 }],
+            UseText = "%lanceur% pousse un cri de guerre !",
+        },
         new() { Id = "soin", Name = "Soin", Description = "Soigne un allié.", Kind = SkillKind.Heal, ManaCost = 4, Power = 1.2, Target = SkillTarget.SingleAlly },
         new() { Id = "priere", Name = "Prière", Description = "Soigne toute l'équipe.", Kind = SkillKind.Heal, ManaCost = 10, Power = 0.7, Target = SkillTarget.AllAllies },
+        new()
+        {
+            Id = "egide", Name = "Égide", Description = "Bouclier de 30 points sur un allié et purification.", Kind = SkillKind.Status, ManaCost = 6,
+            Target = SkillTarget.SingleAlly, Cooldown = 2,
+            Effects = [new() { Type = EffectType.Cleanse }, new() { Type = EffectType.Shield, Amount = 30, Turns = 3 }],
+        },
+        new() { Id = "resurrection", Name = "Résurrection", Description = "Relève un allié K.O.", Kind = SkillKind.Revive, ManaCost = 15, Power = 1.0, FlatAmount = 20, Target = SkillTarget.SingleAlly, Cooldown = 4 },
 
         // Monstres
         new() { Id = "morsure", Name = "Morsure" },
         new() { Id = "griffe", Name = "Griffes", Power = 1.2 },
         new() { Id = "coup_massue", Name = "Coup de massue", Power = 1.1 },
         new() { Id = "entaille", Name = "Entaille" },
-        new() { Id = "crachat_venin", Name = "Crachat de venin", Kind = SkillKind.Magical, Power = 1.0, ManaCost = 3 },
+        new()
+        {
+            Id = "crachat_venin", Name = "Crachat de venin", Kind = SkillKind.Magical, Power = 0.7, ManaCost = 3, Element = "poison",
+            Effects = [new() { Type = EffectType.Poison, Amount = 5, Turns = 3, Chance = 60 }],
+        },
         new() { Id = "coup_os", Name = "Coup d'os", Power = 1.1 },
-        new() { Id = "charge_brutale", Name = "Charge brutale", Power = 1.5, ManaCost = 5 },
+        new()
+        {
+            Id = "charge_brutale", Name = "Charge brutale", Power = 1.5, ManaCost = 5, Cooldown = 2,
+            Effects = [new() { Type = EffectType.Stun, Turns = 1, Chance = 30 }],
+        },
         new() { Id = "rayon_necrotique", Name = "Rayon nécrotique", Kind = SkillKind.Magical, Power = 1.3 },
         new() { Id = "vague_morte", Name = "Vague de mort", Kind = SkillKind.Magical, Power = 0.8, ManaCost = 8, Target = SkillTarget.AllEnemies },
     ];
@@ -184,7 +210,7 @@ internal static class SampleContent
             Description = "Chevalier sans seigneur, parti sur les routes pour sauver Valdor.",
             BaseStats = new(MaxHp: 120, MaxMana: 20, Attack: 14, Defense: 10, Magic: 4, Speed: 8),
             GrowthPerLevel = new(MaxHp: 12, MaxMana: 2, Attack: 2, Defense: 2, Magic: 0, Speed: 1),
-            Skills = [new(1, "frappe"), new(1, "coup_puissant"), new(4, "tourbillon")],
+            Skills = [new(1, "frappe"), new(1, "coup_puissant"), new(3, "cri_guerre"), new(4, "tourbillon")],
             StartingWeaponId = "epee_courte", StartingArmorId = "armure_cuir",
         },
         new()
@@ -211,7 +237,7 @@ internal static class SampleContent
             Description = "Prêtresse de la chapelle de Havrefort. Les morts la craignent.",
             BaseStats = new(MaxHp: 90, MaxMana: 40, Attack: 8, Defense: 8, Magic: 12, Speed: 7),
             GrowthPerLevel = new(MaxHp: 10, MaxMana: 4, Attack: 1, Defense: 2, Magic: 2, Speed: 1),
-            Skills = [new(1, "frappe"), new(1, "soin"), new(4, "priere")],
+            Skills = [new(1, "frappe"), new(1, "soin"), new(2, "egide"), new(4, "priere"), new(5, "resurrection")],
             StartingWeaponId = "masse", StartingArmorId = "robe_mage",
         },
     ];
@@ -230,18 +256,19 @@ internal static class SampleContent
             Drops = [new("potion", 0.3), new("dague", 0.05)] },
         new() { Id = "araignee", Name = "Araignée géante", Description = "Tisse ses toiles au cœur de Sombrebois.",
             Stats = new(MaxHp: 60, MaxMana: 12, Attack: 10, Defense: 4, Magic: 8, Speed: 12), SkillIds = ["morsure", "crachat_venin"], Xp = 14, Gold = 6,
-            Drops = [new("ether", 0.2), new("anneau_sombrebois", 0.03)] },
+            Drops = [new("ether", 0.2), new("anneau_sombrebois", 0.03)], Resistances = [new("feu", 150), new("poison", 0)] },
         new() { Id = "harpie", Name = "Harpie", Description = "Hante le Col des Corbeaux.",
             Stats = new(MaxHp: 45, Attack: 12, Defense: 4, Speed: 15), SkillIds = ["griffe"], Xp = 12, Gold = 9 },
         new() { Id = "squelette", Name = "Squelette", Description = "Garde éternel de la Crypte oubliée.",
             Stats = new(MaxHp: 50, Attack: 12, Defense: 7, Speed: 6), SkillIds = ["coup_os"], Xp = 13, Gold = 10,
-            Drops = [new("potion", 0.25)] },
+            Drops = [new("potion", 0.25)], Resistances = [new("glace", 50), new("poison", 0)] },
         new() { Id = "garrick", Name = "Garrick le Balafré", Description = "Chef des bandits du Col des Corbeaux.", IsBoss = true,
             Stats = new(MaxHp: 180, MaxMana: 30, Attack: 15, Defense: 8, Speed: 10), SkillIds = ["entaille", "charge_brutale"], Xp = 60, Gold = 120,
             Drops = [new("epee_longue", 0.5), new("grande_potion", 1.0)] },
         new() { Id = "morvath", Name = "Roi-Liche Morvath", Description = "Ancien roi de Valdor, revenu d'entre les morts.", IsBoss = true,
             Stats = new(MaxHp: 400, MaxMana: 80, Attack: 14, Defense: 10, Magic: 20, Speed: 9), SkillIds = ["rayon_necrotique", "vague_morte", "coup_os"], Xp = 200, Gold = 300,
             Drops = [new("fragment_couronne", 1.0), new("amulette_valdor", 1.0)],
+            Resistances = [new("feu", 150), new("glace", 50), new("poison", -100)],
             BattleLines =
             [
                 new() { Trigger = BattleTrigger.Start, Text = "Agenouillez-vous devant votre roi !" },

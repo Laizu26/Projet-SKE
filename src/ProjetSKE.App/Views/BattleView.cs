@@ -138,6 +138,8 @@ public sealed class BattleView : ContentView
         if (c.Stats.MaxMana > 0)
             bars.Add(AnimatedBar(_page.T("mp"), before.Mana, c.Mana, c.Stats.MaxMana, Theme.Blue500, compact ? 4 : 6, dark: true));
         if (c.Defending) bars.Add(IconRow(Icon(Ico.Shield, 11, Theme.Gold500), Txt("En garde", 10, Theme.Gold500, bold: true)));
+        if (c.StatusText is { Length: > 0 } status)
+            bars.Add(IconRow(Icon(Ico.Sparkles, 11, Theme.Purple600), Txt(status, 10, Theme.Stone300, bold: true)));
 
         var row = new Grid
         {
@@ -289,7 +291,11 @@ public sealed class BattleView : ContentView
                 var buttons = new List<View>();
                 foreach (var skill in actor.Skills)
                 {
-                    var cost = skill.ManaCost > 0 ? $" · {skill.ManaCost} PM" : "";
+                    var details = new List<string>();
+                    if (skill.ManaCost > 0) details.Add($"{skill.ManaCost} {_page.T("mp")}");
+                    if (skill.HpCost > 0) details.Add($"{skill.HpCost} {_page.T("hp")}");
+                    if (actor.CooldownOf(skill) is var wait && wait > 0) details.Add($"recharge {wait}");
+                    var cost = details.Count > 0 ? " · " + string.Join(" · ", details) : "";
                     var s = skill;
                     buttons.Add(DarkBtn(skill.Name + cost, () => PickSkill(s), enabled: _battle.CanUse(skill)));
                 }

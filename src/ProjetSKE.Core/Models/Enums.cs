@@ -1,6 +1,13 @@
 namespace ProjetSKE.Core.Models;
 
-public enum SkillKind { Physical, Magical, Heal }
+/// <summary>Nature d'une compétence : dégâts (ATQ ou MAG), soin, effets seuls, ou résurrection d'un allié K.O.</summary>
+public enum SkillKind { Physical, Magical, Heal, Status, Revive }
+
+/// <summary>Effet durable posé par une compétence.</summary>
+public enum EffectType { Poison, Regen, Stun, StatUp, StatDown, Shield, Cleanse }
+
+/// <summary>Statistique modifiée par un bonus / malus.</summary>
+public enum StatKind { Attack, Defense, Magic, Speed }
 
 public enum SkillTarget { SingleEnemy, AllEnemies, SingleAlly, AllAllies, Self }
 

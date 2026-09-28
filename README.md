@@ -88,7 +88,7 @@ Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
 | **Quêtes** | Quête simple (objectifs dans l'ordre, récompenses) ou **quête à étapes** : chaque étape a son récit, ses objectifs, des effets sur le monde en y entrant, et des **chemins sous conditions** vers d'autres étapes, jusqu'à plusieurs **fins** (réussies ou échouées). Démarrage par un effet ou automatique sous condition |
 | **Objets / Reliques** | Type, prix, soins, bonus d'équipement, objet unique, relique équipable ou de quête |
 | **Monstres** | Stats, compétences, XP, or, butin (avec probabilités), boss, portrait, répliques de combat |
-| **Compétences** | Physique / magique / soin, cible, coût en PM, puissance |
+| **Compétences** | Physique / magique / soin / effets seuls / résurrection, cible, coût en PM et en PV, recharge, puissance et montant fixe, élément, nombre de coups, précision, critiques, vol de vie, **effets durables** (poison, régénération, étourdissement, bonus ou malus de stat, bouclier, purification) avec durée et chance, texte du journal. Monstres et PJ ont des **faiblesses et résistances** aux éléments |
 | **Lieux et carte** | Type, liens entre lieux, lieu secret (visible sous condition), durée du voyage, boutique, auberge, rencontres aléatoires, combat fixe (dialogues avant / après victoire / après défaite, répliques), accès sous condition, dialogue de première visite |
 | **Départs** | Plusieurs départs possibles : nom, description, héros autorisés, lieu, or, objets, compagnons, date, dialogue d'introduction, effets au lancement (flags, variables, karma, quêtes…) |
 | **Équilibrage** | XP par niveau, niveau max, prix de revente, formules de dégâts et de soin |
