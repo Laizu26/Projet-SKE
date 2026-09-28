@@ -60,7 +60,7 @@ Une relique est un **objet unique**. Elle peut être **équipable**, pour un bon
 
 ## Mises à jour dans l'application
 
-Chaque compilation qui passe le test sur émulateur est publiée en **Release** GitHub (`v<numéro>`, avec `ProjetSKE.apk`).
+Chaque push est compilé et testé, mais une nouvelle version n'est publiée en **Release** GitHub (`v<numéro>`, avec `ProjetSKE.apk`) qu'à la fin d'un lot de changements : commit dont le message contient `[maj]`, ou lancement manuel (Actions › Compiler l'APK › Run workflow). Le téléphone ne reçoit donc qu'une mise à jour par lot, qui contient tout.
 L'application compare son numéro de compilation à la dernière Release :
 
 - sur l'écran titre, une carte « Mise à jour disponible » apparaît, avec un bouton **Installer la mise à jour** ;

@@ -112,9 +112,11 @@ jobs:
 
   # Publie l'APK testé en « Release » GitHub : l'application la détecte et se met à jour toute seule (Updates.cs).
   # Le numéro de compilation sert d'étiquette (v123) et de versionCode Android.
+  # Pas une version par push : seulement quand le message du commit contient « [maj] » (fin d'un lot de
+  # changements), ou en lançant le workflow à la main (Actions › Compiler l'APK › Run workflow).
   release:
     needs: [build, emulator-test]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[maj]'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -132,7 +134,7 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Version 1.0.${{ github.run_number }}
-          body: ${{ github.event.head_commit.message }}
+          body: ${{ github.event.head_commit.message || 'Publication manuelle.' }}
           target_commitish: ${{ github.sha }}
           files: apk/ProjetSKE.apk
           make_latest: true
