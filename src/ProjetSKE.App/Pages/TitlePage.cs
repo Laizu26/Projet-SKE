@@ -64,7 +64,7 @@ public sealed class TitlePage : ContentPage
             Padding = new Thickness(12),
             Content = new Label
             {
-                Text = $"VERSION {AppInfo.Current.VersionString}".ToUpperInvariant(), FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 3,
+                Text = $"VERSION 1.0.{Updates.CurrentBuild} · {Updates.PlatformName}".ToUpperInvariant(), FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 3,
                 TextColor = Theme.Stone400, HorizontalTextAlignment = TextAlignment.Center,
             },
         };
