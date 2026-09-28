@@ -116,6 +116,10 @@ public sealed class DialogueEditor : EditorPage
     {
         f.Note($"Identifiant : {_x.Id} (pour « -> {_x.Id}: » et l'effet « Dialogue : lancer »)");
         f.TextField("Nom (pour s'y retrouver)", _x.Name, v => _x.Name = v);
+        f.RefField("Affichage", _x.Style.ToString(),
+            [(nameof(DialogueStyle.Classic), "Classique (boîte en bas, le jeu reste visible)"),
+             (nameof(DialogueStyle.Cinematic), "Cinématique (plein écran noir, texte au milieu)")],
+            v => _x.Style = Enum.TryParse<DialogueStyle>(v, out var st) ? st : DialogueStyle.Classic, allowNone: false);
         f.Add(ButtonRow(
             Btn("Déroulé", () =>
             {

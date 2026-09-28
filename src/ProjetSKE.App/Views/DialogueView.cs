@@ -41,16 +41,185 @@ public sealed class DialogueView : ContentView
         _runner = runner;
         _onEnd = onEnd;
         BackgroundColor = Colors.Transparent;
-        Content = new Grid { Children = { _dim, _layer } };
+        Content = new Grid { Children = { _dim, _barTop, _barBottom, _layer } };
         Loaded += async (_, _) =>
         {
             if (_entered) return;
             _entered = true;
-            // 1. L'écran s'assombrit, 2. le portrait et la boîte apparaissent.
-            await _dim.FadeTo(0.72, 280, Easing.SinOut);
-            await _layer.FadeTo(1, 200);
+            // Classique : l'écran s'assombrit, puis le portrait et la boîte apparaissent.
+            // Cinématique : noir complet, les bandes de cinéma glissent, puis le texte au milieu.
+            await ApplyStyle(animate: true);
+            await _layer.FadeTo(1, Cinematic ? 450u : 200u);
+        };
+        SizeChanged += (_, _) =>
+        {
+            var bar = Math.Max(40, Height * 0.11);
+            _barTop.HeightRequest = _barBottom.HeightRequest = bar;
+            if (!_cinematicShown) { _barTop.TranslationY = -bar; _barBottom.TranslationY = bar; }
         };
         Render();
+    }
+
+    // ------------------------------------------------------------------ Classique / cinématique
+
+    /// <summary>Bandes noires façon cinéma (en haut et en bas), avec un filet doré.</summary>
+    private readonly Grid _barTop = CinemaBar(top: true);
+    private readonly Grid _barBottom = CinemaBar(top: false);
+    private bool _cinematicShown;
+
+    private bool Cinematic => _runner.Dialogue.Style == DialogueStyle.Cinematic;
+
+    private static Grid CinemaBar(bool top)
+    {
+        var bar = new Grid
+        {
+            VerticalOptions = top ? LayoutOptions.Start : LayoutOptions.End,
+            HeightRequest = 80,
+            InputTransparent = true,
+            Children = { new BoxView { Color = Colors.Black } },
+        };
+        bar.Add(new BoxView
+        {
+            HeightRequest = 1,
+            Color = Color.FromArgb("#A16207"),
+            VerticalOptions = top ? LayoutOptions.End : LayoutOptions.Start,
+        });
+        bar.TranslationY = top ? -200 : 200;
+        return bar;
+    }
+
+    /// <summary>Met l'écran dans le style du dialogue en cours (il peut changer si l'histoire saute dans un autre dialogue).</summary>
+    private async Task ApplyStyle(bool animate)
+    {
+        var cinematic = Cinematic;
+        if (cinematic == _cinematicShown && _entered && !animate) return;
+        _cinematicShown = cinematic;
+        var bar = Math.Max(40, Height > 0 ? Height * 0.11 : 80);
+        uint ms = animate ? 600u : 0u;
+        if (cinematic)
+        {
+            await Task.WhenAll(
+                _dim.FadeTo(1, animate ? 500u : 0u, Easing.SinOut),
+                _barTop.TranslateTo(0, 0, ms, Easing.CubicOut),
+                _barBottom.TranslateTo(0, 0, ms, Easing.CubicOut));
+        }
+        else
+        {
+            await Task.WhenAll(
+                _dim.FadeTo(0.72, animate ? 280u : 0u, Easing.SinOut),
+                _barTop.TranslateTo(0, -bar, ms, Easing.CubicIn),
+                _barBottom.TranslateTo(0, bar, ms, Easing.CubicIn));
+        }
+    }
+
+    /// <summary>
+    /// Cinématique : plus d'interface, tout est au milieu de l'écran noir — l'image, le nom, le texte, puis les choix.
+    /// Toucher n'importe où fait avancer.
+    /// </summary>
+    private View CinematicStage(DialogueNode? node)
+    {
+        var center = new VerticalStackLayout
+        {
+            Spacing = 16,
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Center,
+            Padding = new Thickness(28, 0),
+            MaximumWidthRequest = 620,
+        };
+        if (_notes.Count > 0)
+            foreach (var n in _notes)
+                center.Add(IconRow(Icon(Ico.Sparkles, 13, Theme.Gold500), Txt(n, 13, Theme.Gold400, bold: true)));
+
+        if (node is not null)
+        {
+            if (_runner.Portrait is { } portrait)
+            {
+                var narration = Narration;
+                var frame = new Border
+                {
+                    WidthRequest = narration ? 320 : 170,
+                    HeightRequest = narration ? 200 : 210,
+                    HorizontalOptions = LayoutOptions.Center,
+                    Stroke = Color.FromArgb("#A16207"),
+                    StrokeThickness = 1.5,
+                    StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                    BackgroundColor = Colors.Black,
+                    Content = new FramedImage(portrait),
+                };
+                if (_shownPortrait != portrait.Id)
+                {
+                    _shownPortrait = portrait.Id;
+                    frame.Opacity = 0;
+                    frame.Loaded += async (_, _) => await frame.FadeTo(1, 500, Easing.SinOut);
+                }
+                center.Add(frame);
+            }
+            else _shownPortrait = null;
+
+            if (_runner.Speaker.Length > 0)
+            {
+                var name = new Label
+                {
+                    Text = _runner.Speaker.ToUpperInvariant(), FontFamily = "serif", FontSize = 13, FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Gold500, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center,
+                };
+                center.Add(name);
+            }
+            var full = FullText();
+            _textLabel = new Label
+            {
+                Text = full[..Math.Min(_revealed, full.Length)],
+                FontFamily = "serif",
+                FontSize = 21,
+                LineHeight = 1.4,
+                TextColor = Theme.Stone100,
+                FontAttributes = Narration ? FontAttributes.Italic : FontAttributes.None,
+                HorizontalTextAlignment = TextAlignment.Center,
+                MinimumHeightRequest = 60,
+            };
+            center.Add(_textLabel);
+
+            var options = _runner.Options;
+            if (!Typing && options.Count > 0)
+            {
+                for (var i = 0; i < options.Count; i++)
+                {
+                    var index = i;
+                    var option = options[i];
+                    var choice = Btn((option.Enabled ? (option.Choice.Narration ? "✦  " : "›  ") : "✕  ") + option.Text, () =>
+                    {
+                        _history.Add((option.Choice.Narration ? "" : _session.CharacterName("@parle"), option.Text));
+                        _runner.ChooseOption(index);
+                        Render();
+                    }, enabled: option.Enabled);
+                    choice.BackgroundColor = Color.FromArgb("#1C1917");
+                    choice.BorderColor = Color.FromArgb("#A16207");
+                    choice.TextColor = Theme.Stone100;
+                    choice.MinimumHeightRequest = 48;
+                    if (option.Choice.Narration) choice.FontAttributes = FontAttributes.Italic;
+                    center.Add(choice);
+                    if (!option.Enabled && option.LockedText.Length > 0)
+                        center.Add(IconRow(Icon(Ico.Lock, 11, Theme.Stone500), Txt(option.LockedText, 11, Theme.Stone400)));
+                }
+            }
+            else
+            {
+                var hint = Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Theme.Stone500);
+                hint.HorizontalTextAlignment = TextAlignment.Center;
+                if (!Typing) Blink(hint);
+                center.Add(hint);
+            }
+        }
+        else center.Add(Primary("Fermer", End));
+
+        var stage = new Grid { Children = { center } };
+        if (_showHistory) stage.Add(HistoryPanel());
+        // Toucher n'importe où avance (sans l'éclat doré des boutons : c'est tout l'écran).
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += (_, _) => OnBoxTapped();
+        stage.GestureRecognizers.Add(tap);
+        stage.BackgroundColor = Colors.Transparent;
+        return stage;
     }
 
     /// <summary>Texte de la réplique en cours, tel que joué (variante choisie, balises remplacées).</summary>
@@ -100,6 +269,20 @@ public sealed class DialogueView : ContentView
                 new RowDefinition(GridLength.Auto),
             },
         };
+        if (_entered && Cinematic != _cinematicShown) _ = ApplyStyle(animate: true);
+        if (Cinematic)
+        {
+            // Les commandes (historique, passer) restent discrètes, entre les bandes noires.
+            var top = TopBar();
+            top.Opacity = 0.55;
+            top.Margin = new Thickness(0, Math.Max(40, Height * 0.11), 0, 0);
+            grid.Add(top, 0, 0);
+            var stage = CinematicStage(node);
+            grid.Add(stage, 0, 1);
+            Grid.SetRowSpan(stage, 3);
+            _layer.Content = grid;
+            return;
+        }
         grid.Add(TopBar(), 0, 0);
         grid.Add(Stage(), 0, 1);
         grid.Add(PortraitView(), 0, 2);

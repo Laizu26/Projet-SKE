@@ -69,6 +69,9 @@ public enum ConditionType
     AnyOf, AllOf,
 }
 
+/// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>
+public enum DialogueStyle { Classic, Cinematic }
+
 /// <summary>Comparaison d'une valeur (variable, karma, amitié, jour...).</summary>
 public enum CompareOp { AtLeast, AtMost, Equal, NotEqual, Greater, Less }
 

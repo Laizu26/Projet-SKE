@@ -195,6 +195,17 @@ public static class AutoTest
                 world.TalkTo(npc.Id);
             });
             await Step("dialogue avec portrait", () => world!.ShowDialogue(testDb.Content.Npcs.First(n => n.DefaultDialogueId is not null).DefaultDialogueId!), 2500);
+            await Step("dialogue cinématique (plein écran noir)", () =>
+            {
+                var cinema = testDb.Content.Dialogues.First(d => d.Nodes.Count > 0);
+                cinema.Style = ProjetSKE.Core.Models.DialogueStyle.Cinematic;
+                world!.ShowDialogue(cinema.Id);
+            }, 3000);
+            await Step("dialogue cinématique : retour au classique", () =>
+            {
+                foreach (var d in testDb.Content.Dialogues) d.Style = ProjetSKE.Core.Models.DialogueStyle.Classic;
+                world!.Render();
+            });
             await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
             foreach (var percent in new[] { 25, 10, 3 })
                 await Step($"écran fissuré ({percent} % PV)", () =>

@@ -389,6 +389,8 @@ public sealed class DialogueDef
     public string Id { get; set; } = "";
     /// <summary>Nom lisible dans l'éditeur.</summary>
     public string Name { get; set; } = "";
+    /// <summary>Classique (boîte de dialogue sur le jeu) ou cinématique (plein écran noir, texte au milieu).</summary>
+    public DialogueStyle Style { get; set; } = DialogueStyle.Classic;
     public List<DialogueNode> Nodes { get; set; } = [];
 
     [JsonIgnore] public string? StartId => Nodes.Count > 0 ? Nodes[0].Id : null;

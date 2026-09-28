@@ -241,3 +241,17 @@ public class SegmentTests
         Assert.Equal(nodes[0].Text, again[0].Text);
     }
 }
+
+public class DialogueStyleTests
+{
+    [Fact]
+    public void Style_DefaultsToClassic_AndSurvivesSave()
+    {
+        var content = ContentSerializer.LoadDefault();
+        Assert.All(content.Dialogues, d => Assert.Equal(DialogueStyle.Classic, d.Style));
+        content.Dialogues[0].Style = DialogueStyle.Cinematic;
+        var json = ContentSerializer.ToJson(content);
+        Assert.Contains("\"Cinematic\"", json);
+        Assert.Equal(DialogueStyle.Cinematic, ContentSerializer.FromJson(json).Dialogues[0].Style);
+    }
+}
