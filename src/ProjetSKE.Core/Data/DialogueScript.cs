@@ -16,6 +16,7 @@ public static partial class DialogueScript
         * texte  ou  Narration: texte → narration aussi
         > texte -> etiquette    → choix (sans "->" : termine le dialogue)
         >~ texte {cond} ((raison)) → choix affiché grisé si la condition manque
+        > * texte -> etiquette  → choix-narration : une action décrite, pas une parole
         ? {cond} -> etiquette   → aiguillage après la réplique (le 1er qui passe gagne)
         ~ {cond} Nom: texte     → autre version de la réplique si la condition passe
         @etiquette              → commence un nouveau bloc
@@ -203,6 +204,12 @@ public static partial class DialogueScript
                     body = body[..jump.Index];
                 }
                 choice.Text = body.Trim();
+                // « > * texte » : choix-narration (une action décrite, pas une parole).
+                if (choice.Text.StartsWith("* ") || choice.Text == "*")
+                {
+                    choice.Narration = true;
+                    choice.Text = choice.Text.Length > 1 ? choice.Text[2..].Trim() : "";
+                }
                 last.Choices.Add(choice);
                 chainOpen = false;
                 continue;
@@ -402,7 +409,7 @@ public static partial class DialogueScript
 
             foreach (var c in n.Choices)
             {
-                sb.Append(c.ShowLocked ? ">~ " : "> ").Append(c.Text);
+                sb.Append(c.ShowLocked ? ">~ " : "> ").Append(c.Narration ? "* " : "").Append(c.Text);
                 if (c.NextId is not null) sb.Append(" -> ").Append(c.NextId);
                 AppendConditions(sb, c.Conditions);
                 if (c.LockedText.Length > 0) sb.Append(" ((").Append(c.LockedText).Append("))");

@@ -134,10 +134,12 @@ public sealed class Form
         return view;
     }
 
-    public View EnumField<T>(string label, T value, Action<T> set, Func<T, string> name, bool rerender = false, bool add = true)
+    public View EnumField<T>(string label, T value, Action<T> set, Func<T, string> name, bool rerender = false, bool add = true, bool sorted = false)
         where T : struct, Enum
     {
         var values = Enum.GetValues<T>();
+        // Longues listes (effets, conditions) : par ordre alphabétique, les noms « Catégorie : ... » se regroupent.
+        if (sorted) values = values.OrderBy(v => name(v), StringComparer.Create(new System.Globalization.CultureInfo("fr-FR"), true)).ToArray();
         var picker = MakePicker(values.Select(name).ToList(), Array.IndexOf(values, value));
         picker.SelectedIndexChanged += (_, _) =>
         {
@@ -316,7 +318,7 @@ public sealed class Form
             c.Arg = "";
             c.Arg2 = "";
             c.Children = v is ConditionType.AnyOf or ConditionType.AllOf ? c.Children ?? [] : null;
-        }, DevState.Name, rerender: true);
+        }, DevState.Name, rerender: true, sorted: true);
         switch (c.Type)
         {
             case ConditionType.FlagSet or ConditionType.FlagNotSet:
@@ -415,7 +417,7 @@ public sealed class Form
 
     private void ActionFields(GameAction a)
     {
-        EnumField("Effet", a.Type, v => { a.Type = v; a.Arg = ""; a.Arg2 = ""; a.Amount = 1; }, DevState.Name, rerender: true);
+        EnumField("Effet", a.Type, v => { a.Type = v; a.Arg = ""; a.Arg2 = ""; a.Amount = 1; }, DevState.Name, rerender: true, sorted: true);
         switch (a.Type)
         {
             case ActionType.SetFlag or ActionType.ClearFlag:

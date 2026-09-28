@@ -301,8 +301,24 @@ public sealed class DialogueView : ContentView
                 {
                     var index = i;
                     var option = options[i];
-                    var choice = Btn((option.Enabled ? "›  " : "✕  ") + option.Text, () => { _runner.ChooseOption(index); Render(); }, enabled: option.Enabled);
+                    var narrative = option.Choice.Narration;
+                    var marker = !option.Enabled ? "✕  " : narrative ? "✦  " : "›  ";
+                    var choice = Btn(marker + option.Text, () =>
+                    {
+                        // Le choix rejoint l'historique : action décrite (narration) ou réplique de celui qui parle.
+                        _history.Add((narrative ? "" : _session.CharacterName("@parle"), option.Text));
+                        _runner.ChooseOption(index);
+                        Render();
+                    }, enabled: option.Enabled);
                     choice.MinimumHeightRequest = 48;
+                    if (narrative)
+                    {
+                        // Choix-narration : une action, pas une parole (italique, sur fond sombre).
+                        choice.FontAttributes = FontAttributes.Italic;
+                        choice.BackgroundColor = Theme.Stone800;
+                        choice.BorderColor = Theme.Gold700;
+                        choice.TextColor = Theme.Stone100;
+                    }
                     body.Add(choice);
                     if (!option.Enabled && option.LockedText.Length > 0)
                         body.Add(IconRow(Icon(Ico.Lock, 11, Theme.Stone500), Txt(option.LockedText, 11, Theme.Stone500)));

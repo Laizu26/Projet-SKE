@@ -272,7 +272,8 @@ public sealed class DialogueEditor : EditorPage
             }
             nf.ObjectList("Choix", n.Choices, () => new DialogueChoice { Text = "..." }, (cf, c, _) =>
             {
-                cf.TextField("Texte du choix", c.Text, v => c.Text = v);
+                cf.TextField(c.Narration ? "Action décrite (ex : Tu t'éloignes sans un mot.)" : "Texte du choix", c.Text, v => c.Text = v);
+                cf.BoolField("Narration (une action décrite, pas une parole)", c.Narration, v => c.Narration = v, rerender: true);
                 cf.RefField("Mène à (aucun = fin)", c.NextId, nodeIds, v => c.NextId = v);
                 cf.Conditions("Proposé seulement si", c.Conditions);
                 if (c.Conditions.Count > 0)

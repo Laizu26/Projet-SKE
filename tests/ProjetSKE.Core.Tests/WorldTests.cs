@@ -514,6 +514,21 @@ public class NarrationTests
         Assert.Empty(errors2);
         Assert.Equal(nodes.Select(n => (n.Speaker, n.Text)), again.Select(n => (n.Speaker, n.Text)));
     }
+
+    [Fact]
+    public void Script_ChoiceCanBeNarration()
+    {
+        var script = "Bran: Tu restes ?\n> Oui, je reste. -> fin\n> * Tu t'éloignes sans un mot. -> fin";
+        var nodes = DialogueScript.Parse(script, out var errors);
+        Assert.Empty(errors);
+        var choices = nodes[0].Choices;
+        Assert.False(choices[0].Narration);
+        Assert.True(choices[1].Narration);
+        Assert.Equal("Tu t'éloignes sans un mot.", choices[1].Text);
+        var again = DialogueScript.Parse(DialogueScript.Write(nodes), out _);
+        Assert.True(again[0].Choices[1].Narration);
+        Assert.Equal("Tu t'éloignes sans un mot.", again[0].Choices[1].Text);
+    }
 }
 
 public class CrackTests

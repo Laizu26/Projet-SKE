@@ -330,6 +330,8 @@ public sealed class DialogueChoice
     public bool ShowLocked { get; set; }
     /// <summary>Texte affiché sous un choix grisé (ex : « Karma trop bas »).</summary>
     public string LockedText { get; set; } = "";
+    /// <summary>Choix-narration : une action décrite (« Tu t'éloignes sans un mot. ») plutôt qu'une réplique.</summary>
+    public bool Narration { get; set; }
 }
 
 /// <summary>Aiguillage : après la réplique, va à NextId si les conditions sont remplies (le premier qui passe gagne).</summary>
