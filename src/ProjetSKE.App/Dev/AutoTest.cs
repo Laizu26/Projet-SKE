@@ -13,12 +13,25 @@ public static class AutoTest
 
     private static void Log(string message) => CrashReporter.Log("SKE_AUTOTEST " + message);
 
+    private static readonly List<string> Failures = [];
+
+    /// <summary>Une étape en échec est notée (avec la trace complète, ligne par ligne) et le parcours continue.</summary>
     private static async Task Step(string name, Action action, int waitMs = 1200)
     {
         Log("étape : " + name);
-        await MainThread.InvokeOnMainThreadAsync(action);
-        await Task.Delay(waitMs);
-        Log("ok : " + name);
+        try
+        {
+            await MainThread.InvokeOnMainThreadAsync(action);
+            await Task.Delay(waitMs);
+            Log("ok : " + name);
+        }
+        catch (Exception e)
+        {
+            Failures.Add(name);
+            Log("ÉCHEC : " + name);
+            foreach (var line in e.ToString().Split('\n')) Log("  | " + line.TrimEnd());
+            await Task.Delay(waitMs);
+        }
     }
 
     private static void Sync(string message) => CrashReporter.Log("SKE_SYNC_TEST " + message);
@@ -74,6 +87,7 @@ public static class AutoTest
         catch (Exception e)
         {
             CrashReporter.Log("SKE_SYNC_FAIL exception " + e.Message);
+            foreach (var line in e.ToString().Split('\n')) Sync("  | " + line.TrimEnd());
         }
         finally
         {
@@ -88,6 +102,8 @@ public static class AutoTest
         try
         {
             Log("début");
+            Log("base en ligne : " + await CloudSync.TestAsync(CloudSync.Settings));
+            await SyncScenario();
             var db = SkeApp.Db;
             var starter = db.Starters.First();
 
@@ -166,13 +182,12 @@ public static class AutoTest
                 SkeApp.GoTo(new GamePage(new GameSession(db, state), 0, playIntro: false));
             }, 2500);
 
-            Log("base en ligne : " + await CloudSync.TestAsync(CloudSync.Settings));
-            await SyncScenario();
-            Log("SKE_AUTOTEST_DONE");
+            Log(Failures.Count == 0 ? "SKE_AUTOTEST_DONE" : "SKE_AUTOTEST_FAIL étapes en échec : " + string.Join(", ", Failures));
         }
         catch (Exception e)
         {
-            Log("SKE_AUTOTEST_FAIL " + e);
+            foreach (var line in e.ToString().Split('\n')) Log("  | " + line.TrimEnd());
+            Log("SKE_AUTOTEST_FAIL " + e.Message);
         }
     }
 }
