@@ -261,8 +261,35 @@ public sealed class GamePage : ContentPage
             GameTab.Menu => new MenuView(this),
             _ => new MapView(this),
         };
-        _body.Content = new ScrollView { Content = new ContentView { Content = view, Padding = new Thickness(14, 16, 14, 28) } };
+        // Même écran qu'avant (ex : on ouvre un emplacement d'équipement) : on garde la position de défilement.
+        // Nouvel écran (autre onglet, autre fiche...) : on repart du haut.
+        var key = ScreenKey();
+        var keepY = key == _screenKey && _body.Content is ScrollView old ? old.ScrollY : 0;
+        _screenKey = key;
+        var content = new ContentView { Content = view, Padding = new Thickness(14, 16, 14, 28) };
+        var scroll = new ScrollView { Content = content };
+        _body.Content = scroll;
+        if (keepY > 0)
+        {
+            // Une fois la page mesurée, on revient au même endroit (sans animation).
+            void Restore(object? sender, EventArgs e)
+            {
+                if (content.Height < keepY) return; // pas encore mesurée en entier
+                content.SizeChanged -= Restore;
+                Dispatcher.Dispatch(async () =>
+                {
+                    try { await scroll.ScrollToAsync(0, keepY, false); } catch (Exception) { }
+                });
+            }
+            content.SizeChanged += Restore;
+        }
     }
+
+    private string _screenKey = "";
+
+    /// <summary>Identifie l'écran affiché : s'il ne change pas, un rafraîchissement garde le défilement.</summary>
+    private string ScreenKey() => string.Join("|", Tab, CampSection, SelectedCharacter, SelectedCampMember, CampPeopleAsList,
+        MapShowCountry, MapSelectedLocation, MapSelectedBuilding, EncyclopediaCategory, ShopSelling, QuestsShowDone, MenuShowDevTools);
 
     private string TabTitle(GameTab tab) => tab switch
     {
