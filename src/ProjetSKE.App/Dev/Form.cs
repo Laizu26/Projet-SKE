@@ -438,6 +438,11 @@ public sealed class Form
             case ConditionType.QuestFailed:
                 RefField("Quête", c.Arg, DevState.Quests, v => c.Arg = v ?? "", allowNone: false);
                 break;
+            case ConditionType.ChoiceMade:
+                RefField("Dans le dialogue", c.Arg, DevState.Dialogues, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField("Le joueur a choisi", c.Arg2, DevState.ChoicesOf(c.Arg), v => c.Arg2 = v ?? "", allowNone: false);
+                Note("Vrai dès que ce choix a été fait (même dans une ancienne conversation). « Inverser » = ne l'a pas choisi.");
+                break;
             case ConditionType.QuestPartNotStarted or ConditionType.QuestPartActive or ConditionType.QuestPartCompleted or ConditionType.QuestPartFailed:
                 RefField("Quête", c.Arg, DevState.PartQuests, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true);
                 RefField("Partie", c.Arg2, DevState.PartsOf(c.Arg), v => c.Arg2 = v ?? "", allowNone: false);

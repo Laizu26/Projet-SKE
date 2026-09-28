@@ -352,6 +352,14 @@ public sealed class GameDatabase
                         if (Quests.TryGetValue(c.Arg, out var pq))
                             Check(pq.Parts.Any(p => p.Id == c.Arg2), $"{w} : partie « {c.Arg2} » introuvable dans la quête {c.Arg}");
                         break;
+                    case ConditionType.ChoiceMade:
+                    {
+                        var parts = c.Arg2.Split(':');
+                        var node = Dialogues.TryGetValue(c.Arg, out var cd) ? cd.Nodes.FirstOrDefault(n => n.Id == parts[0]) : null;
+                        Check(node is not null && parts.Length == 2 && node.Choices.Any(ch => node.ChoiceKey(ch) == parts[1]),
+                            $"{w} : choix « {c.Arg}:{c.Arg2} » introuvable");
+                        break;
+                    }
                     case ConditionType.AnyOf or ConditionType.AllOf:
                         if (c.Children is { } children) CheckConditions(children, w);
                         break;

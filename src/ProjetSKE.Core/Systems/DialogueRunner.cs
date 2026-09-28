@@ -88,6 +88,8 @@ public sealed class DialogueRunner
 
     private void Pick(DialogueChoice choice)
     {
+        // On retient le choix : la suite (ou une autre histoire, plus tard) peut en dépendre (« A choisi »).
+        if (Current is { } node) _session.State.Choices.Add($"{Dialogue.Id}:{node.Id}:{node.ChoiceKey(choice)}");
         Apply(choice.Actions);
         Enter(choice.NextId);
     }

@@ -280,10 +280,11 @@ public sealed class DialogueEditor : EditorPage
                     bf.RefField("Aller à (aucun = fin)", b.NextId, nodeIds, v => b.NextId = v);
                 }, "+ Aiguillage");
             }
-            nf.ObjectList("Choix", n.Choices, () => new DialogueChoice { Text = "..." }, (cf, c, _) =>
+            nf.ObjectList("Choix", n.Choices, () => new DialogueChoice { Text = "...", Id = DevState.NewId("choix", n.Choices.Select(o => o.Id)) }, (cf, c, _) =>
             {
                 cf.TextField(c.Narration ? "Action décrite (ex : Tu t'éloignes sans un mot.)" : "Texte du choix", c.Text, v => c.Text = v);
                 cf.BoolField("Narration (une action décrite, pas une parole)", c.Narration, v => c.Narration = v, rerender: true);
+                cf.TextField($"Identifiant (condition « A choisi » ; vide = n° {n.Choices.IndexOf(c) + 1})", c.Id, v => c.Id = v.Trim());
                 cf.RefField("Mène à (aucun = fin)", c.NextId, nodeIds, v => c.NextId = v);
                 cf.Conditions("Proposé seulement si", c.Conditions);
                 if (c.Conditions.Count > 0)

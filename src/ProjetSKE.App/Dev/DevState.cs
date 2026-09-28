@@ -193,6 +193,10 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
 
+    /// <summary>Choix d'un dialogue, pour la condition « A choisi » : « réplique:choix ».</summary>
+    public static IEnumerable<(string Id, string Name)> ChoicesOf(string dialogueId) =>
+        Draft.Dialogues.FirstOrDefault(d => d.Id == dialogueId)?.Nodes.SelectMany(n => n.Choices.Select(c =>
+            ($"{n.Id}:{n.ChoiceKey(c)}", $"{n.Id} › « {(c.Text.Length > 40 ? c.Text[..40] + "…" : c.Text)} »"))) ?? [];
     public static IEnumerable<(string Id, string Name)> PartQuests => Draft.Quests.Where(q => q.HasParts).Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> PartsOf(string questId) =>
         Draft.Quests.FirstOrDefault(q => q.Id == questId)?.Parts.Select(p => (p.Id, p.Name.Length > 0 ? p.Name : p.Id)) ?? [];
@@ -329,6 +333,7 @@ public static class DevState
         ConditionType.PartySize => "Taille de l'équipe",
         ConditionType.Speaker => "Qui parle",
         ConditionType.IsHero => "Être : (PJ incarné par le joueur)",
+        ConditionType.ChoiceMade => "A choisi (un choix de dialogue)",
         ConditionType.HourBetween => "Entre deux heures",
         ConditionType.Day => "Jour n°",
         ConditionType.Period => "Moment de la journée",

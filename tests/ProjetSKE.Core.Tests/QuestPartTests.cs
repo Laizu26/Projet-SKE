@@ -100,3 +100,46 @@ public class QuestPartTests
         Assert.False(Game().IsInParty("lyra")); // Aldric n'a pas ces compagnons
     }
 }
+
+/// <summary>« A choisi » : un choix fait peut conditionner la suite du dialogue (ou toute autre chose, plus tard).</summary>
+public class ChoiceMadeTests
+{
+    private const string Script = "Bran: Tu m'aides ?\n> Oui, bien sûr #oui -> suite\n> Non -> suite\n@suite\nsi {choisi test debut:oui} Bran: Merci !\nsi {choisi test debut:2} Bran: Tant pis.\n- Il s'éloigne.";
+
+    private static (GameSession, DialogueRunner) Run(int choice)
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Dialogues.Add(new DialogueDef { Id = "test", Nodes = DialogueScript.Parse(Script, out var errors) });
+        Assert.Empty(errors);
+        Assert.Empty(new GameDatabase(content).Validate());
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        var d = s.StartDialogue("test");
+        d.Choose(choice);
+        return (s, d);
+    }
+
+    [Fact]
+    public void ChoiceMade_DrivesTheNextLines()
+    {
+        var (s, yes) = Run(0);
+        Assert.Equal("Merci !", yes.Text);
+        Assert.True(s.Check(new Condition(ConditionType.ChoiceMade, "test") { Arg2 = "debut:oui" }));
+        Assert.False(s.Check(new Condition(ConditionType.ChoiceMade, "test") { Arg2 = "debut:2" }));
+
+        var (_, no) = Run(1);
+        Assert.Equal("Tant pis.", no.Text);
+    }
+
+    [Fact]
+    public void ChoiceId_RoundTripsThroughText()
+    {
+        var nodes = DialogueScript.Parse(Script, out _);
+        Assert.Equal("oui", nodes[0].Choices[0].Id);
+        Assert.Equal("Oui, bien sûr", nodes[0].Choices[0].Text);
+        Assert.Equal("2", nodes[0].ChoiceKey(nodes[0].Choices[1]));
+        var again = DialogueScript.Parse(DialogueScript.Write(nodes), out var errors);
+        Assert.Empty(errors);
+        Assert.Equal("oui", again[0].Choices[0].Id);
+        Assert.Equal(ConditionType.ChoiceMade, again[1].Conditions[0].Type);
+    }
+}

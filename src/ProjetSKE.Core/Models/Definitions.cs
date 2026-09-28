@@ -325,6 +325,8 @@ public sealed class GameAction
 
 public sealed class DialogueChoice
 {
+    /// <summary>Identifiant du choix dans sa réplique (condition « A choisi ») ; vide = son numéro (1, 2, 3...).</summary>
+    public string Id { get; set; } = "";
     public string Text { get; set; } = "";
     public string? NextId { get; set; }
     public List<GameAction> Actions { get; set; } = [];
@@ -357,6 +359,9 @@ public sealed class TextVariant
 
 public sealed class DialogueNode
 {
+    /// <summary>Clé d'un choix de cette réplique : son identifiant, sinon son numéro (à partir de 1).</summary>
+    public string ChoiceKey(DialogueChoice choice) => choice.Id.Length > 0 ? choice.Id : (Choices.IndexOf(choice) + 1).ToString();
+
     public string Id { get; set; } = "";
     public string Speaker { get; set; } = "";
     public string Text { get; set; } = "";

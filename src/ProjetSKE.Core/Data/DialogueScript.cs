@@ -17,6 +17,7 @@ public static partial class DialogueScript
         > texte -> etiquette    → choix (sans "->" : termine le dialogue)
         >~ texte {cond} ((raison)) → choix affiché grisé si la condition manque
         > * texte -> etiquette  → choix-narration : une action décrite, pas une parole
+        > texte #id -> etiquette → choix avec un identifiant (condition {choisi dialogue replique:id})
         ? {cond} -> etiquette   → aiguillage après la réplique (le 1er qui passe gagne)
         ~ {cond} Nom: texte     → autre version de la réplique si la condition passe
         si {cond} Nom: texte    → réplique jouée seulement si la condition passe (sinon : sautée)
@@ -49,7 +50,7 @@ public static partial class DialogueScript
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
         {amitie pnj >= 30} {amitie pnj > 50 @parle} {taille_equipe >= 2}
-        {parle perso} {etre perso} {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
+        {parle perso} {etre perso} {choisi dialogue replique:2} (2 = 2e choix, ou son #identifiant) {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
         {mois Givrelune} {lieu id} {visite id} {connu pnj} {chance 25}
         {au_camp pnj} {grade pnj >= 2} {tache pnj rondes}
         {ressource bois >= 10} {construit palissade}
@@ -93,7 +94,7 @@ public static partial class DialogueScript
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
         ("amitie", ConditionType.Friendship, "aob"), ("taille_equipe", ConditionType.PartySize, "o"),
-        ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("heure", ConditionType.HourBetween, "nm"),
+        ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"),
         ("lieu", ConditionType.AtLocation, "a"), ("visite", ConditionType.Visited, "a"),
@@ -115,6 +116,10 @@ public static partial class DialogueScript
     private static bool IsOperator(string? token) => token is not null && Operators.Any(o => o.Symbol == token);
 
     /// <summary>« si {condition}... » en début de réplique (les accolades qui suivent font partie de la condition).</summary>
+    /// <summary>« #identifiant » à la fin du texte d'un choix.</summary>
+    [GeneratedRegex(@"\s#([\w-]+)\s*$")]
+    private static partial Regex ChoiceIdTag();
+
     [GeneratedRegex(@"^si\s*((?:\{[^}]*\}\s*)+)", RegexOptions.IgnoreCase)]
     private static partial Regex OnlyIf();
 
@@ -220,6 +225,12 @@ public static partial class DialogueScript
                     body = body[..jump.Index];
                 }
                 choice.Text = body.Trim();
+                // « > texte #id » : identifiant du choix (pour « {choisi dialogue replique:id} »).
+                if (ChoiceIdTag().Match(choice.Text) is { Success: true } tag)
+                {
+                    choice.Id = tag.Groups[1].Value;
+                    choice.Text = choice.Text[..tag.Index].TrimEnd();
+                }
                 // « > * texte » : choix-narration (une action décrite, pas une parole).
                 if (choice.Text.StartsWith("* ") || choice.Text == "*")
                 {
@@ -449,6 +460,7 @@ public static partial class DialogueScript
             foreach (var c in n.Choices)
             {
                 sb.Append(c.ShowLocked ? ">~ " : "> ").Append(c.Narration ? "* " : "").Append(c.Text);
+                if (c.Id.Length > 0) sb.Append(" #").Append(c.Id);
                 if (c.NextId is not null) sb.Append(" -> ").Append(c.NextId);
                 AppendConditions(sb, c.Conditions);
                 if (c.LockedText.Length > 0) sb.Append(" ((").Append(c.LockedText).Append("))");

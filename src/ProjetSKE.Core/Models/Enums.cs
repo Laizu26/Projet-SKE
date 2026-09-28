@@ -51,6 +51,8 @@ public enum ConditionType
     Variable, Karma, Friendship, Gold, Level, PartySize,
     // Qui parle, qui est incarné (le héros choisi au départ)
     Speaker, IsHero,
+    // Choix déjà fait dans un dialogue
+    ChoiceMade,
     // Temps
     HourBetween, Day, Period, WeekDay, Month,
     // Monde
