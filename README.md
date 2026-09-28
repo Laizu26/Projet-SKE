@@ -39,11 +39,11 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 | **Sélection** | Choix du personnage de départ (1 héros pour l'instant, on peut en ajouter d'autres) |
 | **Camp** | Titulaires et réserve, fiche de chaque personnage (stats, niveau, XP, karma, compétences), équipement, sac commun, et **le camp** : hiérarchie (grades), tâches (rondes, chasse…) et journal du camp |
 | **Carte** | Vue du lieu actuel (ville : auberge, boutique, habitants ; nature : explorer, combat fixe), puis vue du pays avec la liste des destinations |
-| **Quêtes** | Quêtes en cours (objectif actuel, compteur) et quêtes terminées |
+| **Quêtes** | Onglet masqué par défaut (activable dans Monde et textes) : quêtes en cours et terminées. Les quêtes avancent quand même, avec des messages à l'écran |
 | **Encyclo** | Personnages (PJ et PNJ), monstres, lieux, armes et reliques rencontrés (les autres restent invisibles) |
 | **Shop** | Uniquement en ville : achat et revente (à moitié prix) |
 | **Journal** | Page blanche où l'on écrit librement, sauvegardée avec la partie |
-| **Menu** | Sauvegarde, paramètres, retour au titre |
+| **Menu** | Sauvegarde, paramètres (dont la vitesse du texte : lente, normale, rapide, instantanée), retour au titre |
 | **Combat** | Par-dessus tout : l'ennemi en haut, la narration du combat (avec les répliques des combattants) au milieu, l'équipe en bas, puis Attaque / Défense / Objet / Fuite. Tour par tour selon la vitesse ; Défense divise les dégâts reçus par deux jusqu'au tour suivant |
 | **Histoire** | L'écran s'assombrit, le portrait de celui qui parle apparaît, puis la boîte de dialogue ; choix de réponse (certains grisés avec la raison) |
 | **Horloge** | En haut à droite : heure, moment de la journée, jour. Le temps passe en voyageant, en parlant, en combattant, à l'auberge |

@@ -197,6 +197,7 @@ public sealed class MenuView : ContentView
         settings.Add(Setting(Ico.Compass, "Combats en voyage", Describe(config.TravelEncounters), () => config.TravelEncounters = Next(config.TravelEncounters)));
         settings.Add(Setting(Ico.Skull, "En cas de défaite", Describe(config.Defeat), () => config.Defeat = Next(config.Defeat)));
         settings.Add(Setting(Ico.Footprints, "Fuite", Describe(config.Flee), () => config.Flee = Next(config.Flee)));
+        settings.Add(Setting(Ico.Feather, "Vitesse du texte", TextSpeed.Name, TextSpeed.Next));
         settings.Add(Muted("Touchez une valeur pour la changer. Les boss empêchent toujours la fuite.", 11));
         stack.Add(TitledCard(Ico.SlidersHorizontal, "Paramètres", settings));
 

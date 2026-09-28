@@ -200,6 +200,7 @@ public sealed class GamePage : ContentPage
     {
         var loc = Session.CurrentLocation;
         if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
+        if (Tab == GameTab.Quests && !Session.Db.Content.World.ShowQuestTab) Tab = GameTab.Map;
         var hero = Session.State.Party.FirstOrDefault(c => c.DefId == Session.State.HeroId) ?? Session.State.Party.FirstOrDefault();
         _avatarHost.Content = hero is null
             ? Emblem(Ico.Shield, 38)
@@ -257,9 +258,10 @@ public sealed class GamePage : ContentPage
     {
         _tabBar.Children.Clear();
         _tabBar.ColumnDefinitions.Clear();
-        for (var i = 0; i < Tabs.Length; i++)
+        var tabs = Tabs.Where(t => t.Tab != GameTab.Quests || Session.Db.Content.World.ShowQuestTab).ToArray();
+        for (var i = 0; i < tabs.Length; i++)
         {
-            var t = Tabs[i];
+            var t = tabs[i];
             var label = T(t.Key);
             var enabled = t.Tab != GameTab.Shop || Session.InCity;
             var selected = Tab == t.Tab;

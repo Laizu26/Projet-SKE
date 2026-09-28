@@ -39,6 +39,7 @@ public sealed class WorldEditor : EditorPage
         f.TextField("Titre du jeu", DevState.Draft.Title, v => DevState.Draft.Title = v);
         f.TextField("Nom du pays (carte, %pays%)", w.CountryName, v => w.CountryName = v);
         f.BoolField("Demander quel PJ parle aux PNJ", w.AskSpeaker, v => w.AskSpeaker = v);
+        f.BoolField("Afficher l'onglet Quêtes (journal des quêtes)", w.ShowQuestTab, v => w.ShowQuestTab = v);
         f.Note("Tous les textes de l'interface se renomment ici. Laisser vide = texte par défaut.");
         foreach (var group in Vocabulary.Entries.GroupBy(e => e.Group))
         {

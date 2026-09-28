@@ -535,6 +535,8 @@ public sealed class WorldSettings
     public string CountryName { get; set; } = "Royaume";
     /// <summary>Quand l'équipe compte plusieurs PJ : demander lequel parle au PNJ.</summary>
     public bool AskSpeaker { get; set; } = true;
+    /// <summary>Afficher l'onglet Quêtes (journal des quêtes). Sans lui, les quêtes avancent quand même (messages à l'écran).</summary>
+    public bool ShowQuestTab { get; set; }
     /// <summary>Textes de l'interface remplacés (clé → texte). Voir <see cref="Data.Vocabulary"/>.</summary>
     public Dictionary<string, string> Texts { get; set; } = [];
 }

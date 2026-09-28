@@ -366,13 +366,24 @@ public sealed class DialogueView : ContentView
     private void StartTyping()
     {
         _timer?.Stop();
+        var cps = TextSpeed.CharsPerSecond;
+        if (cps <= 0)
+        {
+            _revealed = FullText().Length; // vitesse « Instantanée »
+            return;
+        }
+        var pause = 0;
         _timer = Dispatcher.CreateTimer();
-        _timer.Interval = TimeSpan.FromMilliseconds(22);
+        _timer.Interval = TimeSpan.FromMilliseconds(1000.0 / cps);
         _timer.Tick += (_, _) =>
         {
             if (_shownNode is null || _ended) { _timer?.Stop(); return; }
+            if (pause > 0) { pause--; return; }
             var full = FullText();
-            _revealed = Math.Min(full.Length, _revealed + 2);
+            _revealed = Math.Min(full.Length, _revealed + 1);
+            // Petite respiration après la ponctuation, comme à l'oral.
+            var last = _revealed > 0 ? full[_revealed - 1] : ' ';
+            if (_revealed < full.Length) pause = last is '.' or '!' or '?' or '…' ? 7 : last is ',' or ';' or ':' ? 3 : 0;
             if (_textLabel is not null) _textLabel.Text = full[.._revealed];
             if (_revealed >= full.Length)
             {
