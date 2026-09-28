@@ -307,8 +307,40 @@ public sealed class Form
         IntField(valueLabel, c.Amount, v => c.Amount = v);
     }
 
-    public void Conditions(string label, List<Condition> conditions) =>
-        ObjectList(label, conditions, () => new Condition(ConditionType.FlagSet), (f, c, _) => f.ConditionFields(c), "+ Condition");
+    /// <summary>
+    /// Liste de conditions : toutes doivent être vraies (ET). Pour « l'une ou l'autre », un groupe OU ;
+    /// les groupes s'imbriquent (ex : OU [ être Aldric, ET [ être Lyra, karma ≥ 20 ] ]).
+    /// </summary>
+    public void Conditions(string label, List<Condition> conditions, bool anyOf = false)
+    {
+        Root.Add(Section($"{label} ({conditions.Count})"));
+        var link = anyOf ? "OU" : "ET";
+        if (conditions.Count >= 2)
+            Root.Add(Muted(anyOf ? "Il suffit qu'UNE de ces conditions soit vraie (OU)." : "TOUTES ces conditions doivent être vraies (ET).", 11));
+        for (var i = 0; i < conditions.Count; i++)
+        {
+            var index = i;
+            if (i > 0)
+            {
+                // Le lien entre deux conditions, bien visible.
+                var tag = Badge(link, anyOf ? Theme.Gold700 : Theme.Stone600);
+                tag.HorizontalOptions = LayoutOptions.Center;
+                Root.Add(tag);
+            }
+            var sub = new Form(_rerender);
+            sub.ConditionFields(conditions[i]);
+            var actions = new HorizontalStackLayout { Spacing = 4 };
+            if (i > 0) actions.Add(SmallButton("▲", () => { (conditions[index - 1], conditions[index]) = (conditions[index], conditions[index - 1]); Changed(); _rerender(); }));
+            actions.Add(SmallButton("✕ Supprimer", () => { conditions.RemoveAt(index); Changed(); _rerender(); }));
+            sub.Root.Add(actions);
+            Root.Add(Panel(sub.Root));
+        }
+        void Add(Condition c) { conditions.Add(c); Changed(); _rerender(); }
+        Root.Add(ButtonRow(
+            Btn("+ Condition", () => Add(new Condition(ConditionType.FlagSet))),
+            Btn("+ Groupe OU", () => Add(new Condition(ConditionType.AnyOf) { Children = [] })),
+            Btn("+ Groupe ET", () => Add(new Condition(ConditionType.AllOf) { Children = [] }))));
+    }
 
     private void ConditionFields(Condition c)
     {
@@ -331,8 +363,13 @@ public sealed class Form
                 RefField("Objet", c.Arg, DevState.Items(), v => c.Arg = v ?? "", allowNone: false);
                 IntField("Quantité", c.Amount, v => c.Amount = v);
                 break;
-            case ConditionType.InParty or ConditionType.NotInParty or ConditionType.Speaker:
-                RefField(c.Type == ConditionType.Speaker ? "Le PJ qui parle est" : "Personnage", c.Arg, DevState.Characters, v => c.Arg = v ?? "", allowNone: false);
+            case ConditionType.InParty or ConditionType.NotInParty or ConditionType.Speaker or ConditionType.IsHero:
+                RefField(c.Type switch
+                {
+                    ConditionType.Speaker => "Le PJ qui parle est",
+                    ConditionType.IsHero => "Le joueur incarne",
+                    _ => "Personnage",
+                }, c.Arg, DevState.Characters, v => c.Arg = v ?? "", allowNone: false);
                 break;
             case ConditionType.Variable:
                 RefField("Variable", c.Arg, DevState.Variables, v => c.Arg = v ?? "", allowNone: false);
@@ -403,7 +440,7 @@ public sealed class Form
                 break;
             case ConditionType.AnyOf or ConditionType.AllOf:
                 c.Children ??= [];
-                Conditions(c.Type == ConditionType.AnyOf ? "Au moins une de ces conditions" : "Toutes ces conditions", c.Children);
+                Conditions(c.Type == ConditionType.AnyOf ? "OU : au moins une de ces conditions" : "ET : toutes ces conditions", c.Children, anyOf: c.Type == ConditionType.AnyOf);
                 break;
             default:
                 IntField("Valeur", c.Amount, v => c.Amount = v);

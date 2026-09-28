@@ -310,7 +310,7 @@ public sealed class GameDatabase
                     case ConditionType.QuestActive or ConditionType.QuestCompleted or ConditionType.QuestNotStarted:
                         Ref(Quests, c.Arg, w, "quête"); break;
                     case ConditionType.HasItem: Ref(Items, c.Arg, w, "objet"); break;
-                    case ConditionType.InParty or ConditionType.NotInParty or ConditionType.Speaker:
+                    case ConditionType.InParty or ConditionType.NotInParty or ConditionType.Speaker or ConditionType.IsHero:
                         Ref(Characters, c.Arg, w, "personnage"); break;
                     case ConditionType.AtLocation or ConditionType.Visited: Ref(Locations, c.Arg, w, "lieu"); break;
                     case ConditionType.MetNpc: Ref(Npcs, c.Arg, w, "PNJ"); break;

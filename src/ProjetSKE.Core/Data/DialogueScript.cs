@@ -46,7 +46,7 @@ public static partial class DialogueScript
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
         {amitie pnj >= 30} {amitie pnj > 50 @parle} {taille_equipe >= 2}
-        {parle perso} {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
+        {parle perso} {etre perso} {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
         {mois Givrelune} {lieu id} {visite id} {connu pnj} {chance 25}
         {au_camp pnj} {grade pnj >= 2} {tache pnj rondes}
         {ressource bois >= 10} {construit palissade}
@@ -87,7 +87,7 @@ public static partial class DialogueScript
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
         ("amitie", ConditionType.Friendship, "aob"), ("taille_equipe", ConditionType.PartySize, "o"),
-        ("parle", ConditionType.Speaker, "a"), ("heure", ConditionType.HourBetween, "nm"),
+        ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"),
         ("lieu", ConditionType.AtLocation, "a"), ("visite", ConditionType.Visited, "a"),

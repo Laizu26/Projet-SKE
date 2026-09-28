@@ -47,8 +47,8 @@ public enum ConditionType
     HasItem, InParty, NotInParty, GoldAtLeast, LevelAtLeast,
     // Valeurs
     Variable, Karma, Friendship, Gold, Level, PartySize,
-    // Qui parle
-    Speaker,
+    // Qui parle, qui est incarné (le héros choisi au départ)
+    Speaker, IsHero,
     // Temps
     HourBetween, Day, Period, WeekDay, Month,
     // Monde

@@ -152,6 +152,7 @@ public sealed partial class GameSession
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
         ConditionType.PartySize => Compare(State.Party.Count, c.Op, c.Amount),
         ConditionType.Speaker => SpeakerId == c.Arg,
+        ConditionType.IsHero => State.HeroId == c.Arg,
         ConditionType.HourBetween => HourBetween(Clock.Hour, c.Amount, c.Amount2),
         ConditionType.Day => Compare(Clock.Day, c.Op, c.Amount),
         ConditionType.Period => SameName(Clock.Period, c.Arg),

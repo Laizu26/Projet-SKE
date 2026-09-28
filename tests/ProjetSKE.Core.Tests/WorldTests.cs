@@ -531,6 +531,21 @@ public class NarrationTests
     }
 }
 
+public class IsHeroTests
+{
+    [Fact]
+    public void IsHero_ChecksTheCharacterPlayedByThePlayer()
+    {
+        var s = GameSession.NewGame(GameDatabase.Default, "tobin", new Random(1));
+        s.Recruit("aldric");
+        Assert.True(s.Check(new Condition(ConditionType.IsHero, "tobin")));
+        Assert.False(s.Check(new Condition(ConditionType.IsHero, "aldric"))); // dans l'équipe, mais pas incarné
+        var nodes = DialogueScript.Parse("- Test {etre tobin}\n> Choix {etre aldric}", out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(ConditionType.IsHero, nodes[0].Choices[0].Conditions[0].Type);
+    }
+}
+
 public class CrackTests
 {
     [Fact]
