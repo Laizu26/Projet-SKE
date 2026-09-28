@@ -248,6 +248,7 @@ public static class UiKit
             Opacity = enabled ? 1 : 0.45,
         };
         button.Clicked += (_, _) => onClick();
+        Interactive.Attach(button);
         return button;
     }
 
@@ -278,6 +279,7 @@ public static class UiKit
     public static T OnTap<T>(T view, Action action) where T : View
     {
         view.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(action) });
+        Interactive.Attach(view);
         return view;
     }
 

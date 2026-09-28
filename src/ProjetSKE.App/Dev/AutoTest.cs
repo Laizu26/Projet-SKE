@@ -220,7 +220,11 @@ public static class AutoTest
             });
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
             await Step("éditeur : monstre", () => SkeApp.GoTo(new MonsterEditor(DevState.Draft.Monsters.Last())));
-            await Step("éditeur : dialogue", () => SkeApp.GoTo(new DialogueEditor(DevState.Draft.Dialogues.First(d => d.Nodes.Any(n => n.Variants.Count > 0)))), 2000);
+            var sampleDialogue = DevState.Draft.Dialogues.First(d => d.Nodes.Any(n => n.Variants.Count > 0));
+            await Step("éditeur : dialogue (déroulé)", () => SkeApp.GoTo(new DialogueEditor(sampleDialogue)), 2000);
+            await Step("éditeur : dialogue (texte)", () => SkeApp.GoTo(new DialogueEditor(sampleDialogue, textMode: true)), 2000);
+            await Step("éditeur : une réplique", () => SkeApp.GoTo(new DialogueNodeEditor(sampleDialogue, sampleDialogue.Nodes.First(n => n.Choices.Count > 0 || n.Variants.Count > 0))), 1500);
+            await Step("éditeur : tester un dialogue", () => DialogueTools.Test(sampleDialogue), 2500);
             await Step("éditeur : départs", () => SkeApp.GoTo(new StartsPage()));
             await Step("éditeur : départ secondaire", () =>
             {

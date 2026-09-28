@@ -175,3 +175,31 @@ public class StartDialogueTests
         Assert.Contains(new GameDatabase(content).Validate(), e => e.Contains("disparu"));
     }
 }
+
+/// <summary>Liens entre répliques (garde-fous de l'éditeur de dialogues).</summary>
+public class DialogueGraphTests
+{
+    [Fact]
+    public void Graph_FindsBrokenAndUnreachableAndCleansOnRemove()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var nodes = DialogueScript.Parse("Bran: Salut.\n> Oui -> b\n> Non -> c\n@b\n- B.\n-> fin\n@c\n- C.\n-> fin\n@seul\n- Personne ne vient ici.", out _);
+        var d = new DialogueDef { Id = "g", Nodes = nodes };
+        content.Dialogues.Add(d);
+        Assert.Empty(DialogueGraph.Broken(content, d));
+        Assert.Equal(["seul"], DialogueGraph.Unreachable(content, d).Select(n => n.Id));
+
+        var c = d.Nodes.First(n => n.Id == "c");
+        Assert.Single(DialogueGraph.Incoming(content, d, c));
+        Assert.Equal(1, DialogueGraph.Remove(content, d, c));
+        Assert.Null(d.Nodes[0].Choices[1].NextId); // le choix mène à la fin, plus à une réplique disparue
+        Assert.Empty(DialogueGraph.Broken(content, d));
+
+        d.Nodes[0].Choices[0].NextId = "disparue";
+        Assert.Single(DialogueGraph.Broken(content, d));
+
+        var copy = ContentSerializer.Clone(d.Nodes[0]);
+        Assert.Equal(d.Nodes[0].Text, copy.Text);
+        Assert.NotSame(d.Nodes[0].Choices, copy.Choices);
+    }
+}
