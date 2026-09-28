@@ -18,7 +18,7 @@ public sealed record BattleRewards(int Xp, int Gold, IReadOnlyList<string> ItemI
 public sealed record DefeatResult(bool IsGameOver, int GoldLost, string? ReturnLocationId);
 
 /// <summary>Partie en cours : toutes les règles du jeu hors déroulé du combat et du dialogue.</summary>
-public sealed class GameSession
+public sealed partial class GameSession
 {
     public GameDatabase Db { get; }
     public GameState State { get; }
@@ -43,7 +43,9 @@ public sealed class GameSession
             Gold = db.Start.Gold,
             CurrentLocationId = db.Start.LocationId,
             LastCityId = db.Start.LocationId,
+            Minutes = GameClock.StartMinutes(db.Content.Time),
         };
+        foreach (var v in db.Content.Variables) state.Variables[v.Id] = v.Initial;
         var session = new GameSession(db, state, rng);
         foreach (var stack in db.Start.Inventory) session.AddItem(stack.ItemId, stack.Count);
         session.Recruit(heroId);
@@ -58,6 +60,16 @@ public sealed class GameSession
     /// </summary>
     private void Sanitize()
     {
+        if (State.Version < 2)
+        {
+            // Ancienne sauvegarde : début du calendrier, karma de départ, variables initiales.
+            State.Minutes = GameClock.StartMinutes(Db.Content.Time);
+            foreach (var c in State.Party)
+                if (Db.Characters.TryGetValue(c.DefId, out var d)) c.Karma = d.BaseKarma ?? Db.Content.Karma.Default;
+            foreach (var v in Db.Content.Variables) State.Variables.TryAdd(v.Id, v.Initial);
+            State.Version = GameState.CurrentVersion;
+        }
+        if (State.SpeakerId is { } sp && !State.Party.Any(c => c.DefId == sp)) State.SpeakerId = null;
         State.Party.RemoveAll(c => !Db.Characters.ContainsKey(c.DefId));
         foreach (var c in State.Party)
         {
@@ -88,7 +100,9 @@ public sealed class GameSession
 
     // ------------------------------------------------------------------ Conditions et actions
 
-    public bool Check(Condition c) => c.Type switch
+    public bool Check(Condition c) => c.Negate ? !CheckRaw(c) : CheckRaw(c);
+
+    private bool CheckRaw(Condition c) => c.Type switch
     {
         ConditionType.FlagSet => HasFlag(c.Arg),
         ConditionType.FlagNotSet => !HasFlag(c.Arg),
@@ -99,11 +113,47 @@ public sealed class GameSession
         ConditionType.InParty => IsInParty(c.Arg),
         ConditionType.NotInParty => !IsInParty(c.Arg),
         ConditionType.GoldAtLeast => State.Gold >= c.Amount,
-        ConditionType.LevelAtLeast => State.Party.Count > 0 && State.Party.Max(p => p.Level) >= c.Amount,
+        ConditionType.LevelAtLeast => MaxLevel >= c.Amount,
+        ConditionType.Variable => Compare(GetVariable(c.Arg), c.Op, c.Amount),
+        ConditionType.Karma => Compare(GetKarma(c.Arg), c.Op, c.Amount),
+        ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
+        ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
+        ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
+        ConditionType.PartySize => Compare(State.Party.Count, c.Op, c.Amount),
+        ConditionType.Speaker => SpeakerId == c.Arg,
+        ConditionType.HourBetween => HourBetween(Clock.Hour, c.Amount, c.Amount2),
+        ConditionType.Day => Compare(Clock.Day, c.Op, c.Amount),
+        ConditionType.Period => SameName(Clock.Period, c.Arg),
+        ConditionType.WeekDay => SameName(Clock.WeekDay, c.Arg),
+        ConditionType.Month => SameName(Clock.Month, c.Arg),
+        ConditionType.AtLocation => State.CurrentLocationId == c.Arg,
+        ConditionType.Visited => State.SeenLocations.Contains(c.Arg),
+        ConditionType.MetNpc => State.SeenNpcs.Contains(c.Arg),
+        ConditionType.Chance => Rng.Next(100) < c.Amount,
+        ConditionType.AnyOf => c.Children is not { Count: > 0 } children || children.Any(Check),
+        ConditionType.AllOf => c.Children is not { Count: > 0 } all || all.All(Check),
         _ => true,
     };
 
     public bool CheckAll(IEnumerable<Condition> conditions) => conditions.All(Check);
+
+    public static bool Compare(int value, CompareOp op, int amount) => op switch
+    {
+        CompareOp.AtLeast => value >= amount,
+        CompareOp.AtMost => value <= amount,
+        CompareOp.Equal => value == amount,
+        CompareOp.NotEqual => value != amount,
+        CompareOp.Greater => value > amount,
+        _ => value < amount,
+    };
+
+    /// <summary>Heure comprise entre « de » (inclus) et « à » (exclu) ; 22 → 6 passe par minuit.</summary>
+    public static bool HourBetween(int hour, int from, int to) =>
+        from == to || (from < to ? hour >= from && hour < to : hour >= from || hour < to);
+
+    private static bool SameName(string a, string b) => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private int MaxLevel => State.Party.Count > 0 ? State.Party.Max(p => p.Level) : 0;
 
     /// <summary>Applique un effet. Renvoie les monstres à combattre si l'action lance un combat.</summary>
     public IReadOnlyList<string>? Execute(GameAction a)
@@ -123,6 +173,9 @@ public sealed class GameSession
                     Notifications.Add($"{Db.Characters[a.Arg].Name} rejoint l'équipe{(c.IsActive ? "" : " (réserve)")} !");
                 }
                 break;
+            case ActionType.LeaveParty:
+                if (Leave(a.Arg)) Notifications.Add($"{Db.Characters[a.Arg].Name} quitte l'équipe.");
+                break;
             case ActionType.GiveItem:
                 if (Db.Items.TryGetValue(a.Arg, out var given) && AddItem(a.Arg, a.Amount))
                     Notifications.Add($"Obtenu : {given.Name} x{a.Amount}");
@@ -133,16 +186,16 @@ public sealed class GameSession
                 break;
             case ActionType.GiveGold:
                 State.Gold += a.Amount;
-                Notifications.Add($"Obtenu : {a.Amount} or");
+                Notifications.Add($"Obtenu : {a.Amount} {Db.T("money")}");
                 break;
             case ActionType.TakeGold:
                 State.Gold = Math.Max(0, State.Gold - a.Amount);
-                Notifications.Add($"Payé : {a.Amount} or");
+                Notifications.Add($"Payé : {a.Amount} {Db.T("money")}");
                 break;
             case ActionType.GiveXp:
                 foreach (var c in ActiveParty.ToList())
                     if (GiveXp(c, a.Amount) > 0) Notifications.Add($"{DefOf(c).Name} passe niveau {c.Level} !");
-                Notifications.Add($"+{a.Amount} XP");
+                Notifications.Add($"+{a.Amount} {Db.T("xp")}");
                 break;
             case ActionType.HealParty:
                 HealAll();
@@ -164,9 +217,185 @@ public sealed class GameSession
             case ActionType.StartBattle:
                 var monsters = GameDatabase.SplitIds(a.Arg).Where(Db.Monsters.ContainsKey).ToList();
                 return monsters.Count > 0 ? monsters : null;
+            case ActionType.SetVariable:
+                SetVariable(a.Arg, a.Amount);
+                break;
+            case ActionType.AddVariable:
+                SetVariable(a.Arg, GetVariable(a.Arg) + a.Amount);
+                break;
+            case ActionType.AddKarma or ActionType.SetKarma:
+                foreach (var c in KarmaTargets(a.Arg))
+                {
+                    var before = c.Karma;
+                    c.Karma = ClampScale(Db.Content.Karma, a.Type == ActionType.AddKarma ? c.Karma + a.Amount : a.Amount);
+                    if (Db.Content.Karma.Visible && c.Karma != before)
+                        Notifications.Add($"{DefOf(c).Name} : {Db.Content.Karma.Name} {Signed(c.Karma - before)}");
+                }
+                break;
+            case ActionType.AddFriendship or ActionType.SetFriendship:
+            {
+                var before = GetFriendship(a.Arg, a.Arg2);
+                var after = a.Type == ActionType.AddFriendship ? before + a.Amount : a.Amount;
+                SetFriendship(a.Arg, a.Arg2, after);
+                var now = GetFriendship(a.Arg, a.Arg2);
+                if (Db.Content.Friendship.Visible && now != before)
+                    Notifications.Add($"{CharacterName(a.Arg)} : {Db.Content.Friendship.Name} {Signed(now - before)}");
+                break;
+            }
+            case ActionType.AdvanceTime:
+                AdvanceTime(a.Amount);
+                break;
+            case ActionType.WaitUntilHour:
+                AdvanceTime(Clock.MinutesUntilHour(a.Amount));
+                break;
+            case ActionType.ShowMessage:
+                if (a.Arg.Length > 0) Notifications.Add(FormatText(a.Arg));
+                break;
+            case ActionType.MoveNpc:
+                if (string.IsNullOrEmpty(a.Arg2)) State.NpcLocations.Remove(a.Arg);
+                else State.NpcLocations[a.Arg] = a.Arg2;
+                break;
+            case ActionType.RevealLocation:
+                State.HiddenLocations.Remove(a.Arg);
+                if (State.RevealedLocations.Add(a.Arg) && Db.Locations.TryGetValue(a.Arg, out var revealed))
+                    Notifications.Add($"Nouveau lieu sur la carte : {revealed.Name}");
+                break;
+            case ActionType.HideLocation:
+                State.RevealedLocations.Remove(a.Arg);
+                State.HiddenLocations.Add(a.Arg);
+                break;
         }
         return null;
     }
+
+    private static string Signed(int v) => v > 0 ? $"+{v}" : v.ToString();
+
+    // ------------------------------------------------------------------ Temps
+
+    public GameClock Clock => new(State.Minutes, Db.Content.Time);
+
+    /// <summary>Fait passer le temps (si l'échelle de temps est activée).</summary>
+    public void AdvanceTime(long minutes)
+    {
+        if (Db.Content.Time.Enabled && minutes > 0) State.Minutes += minutes;
+    }
+
+    // ------------------------------------------------------------------ Variables
+
+    public int GetVariable(string id) =>
+        State.Variables.TryGetValue(id, out var v) ? v : Db.Variables.TryGetValue(id, out var def) ? def.Initial : 0;
+
+    public void SetVariable(string id, int value)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        if (Db.Variables.TryGetValue(id, out var def))
+        {
+            if (def.Min is { } min) value = Math.Max(min, value);
+            if (def.Max is { } max) value = Math.Min(max, value);
+        }
+        State.Variables[id] = value;
+    }
+
+    // ------------------------------------------------------------------ Qui parle, karma, amitié
+
+    /// <summary>PJ qui parle aux PNJ : celui choisi, sinon le héros.</summary>
+    public string SpeakerId => State.SpeakerId is { } id && IsInParty(id) ? id : State.HeroId;
+
+    public CharacterState? Speaker => State.Party.FirstOrDefault(c => c.DefId == SpeakerId) ?? State.Party.FirstOrDefault();
+
+    public void SetSpeaker(string? characterId) => State.SpeakerId = characterId is not null && IsInParty(characterId) ? characterId : null;
+
+    /// <summary>« @parle » = PJ qui parle, « @heros » = héros, sinon identifiant tel quel.</summary>
+    public string ResolveWho(string who) => who switch
+    {
+        "" or "@parle" => SpeakerId,
+        "@heros" => State.HeroId,
+        _ => who,
+    };
+
+    private static int ClampScale(ScaleSettings s, int value) => Math.Clamp(value, Math.Min(s.Min, s.Max), Math.Max(s.Min, s.Max));
+
+    /// <summary>Karma d'un PJ (« @parle », « @heros », id), ou moyenne de l'équipe (« @equipe »).</summary>
+    public int GetKarma(string who)
+    {
+        if (who == "@equipe")
+            return State.Party.Count > 0 ? (int)Math.Round(State.Party.Average(c => c.Karma)) : Db.Content.Karma.Default;
+        var id = ResolveWho(who);
+        return State.Party.FirstOrDefault(c => c.DefId == id)?.Karma ?? Db.Content.Karma.Default;
+    }
+
+    private IEnumerable<CharacterState> KarmaTargets(string who)
+    {
+        if (who == "@equipe") return State.Party.ToList();
+        var id = ResolveWho(who);
+        return State.Party.Where(c => c.DefId == id).ToList();
+    }
+
+    /// <summary>Envers qui : « @equipe » (par défaut, l'équipe entière), « @parle », « @heros » ou un PJ.</summary>
+    private string ResolveToward(string toward) => toward is "" or "@equipe" ? "@equipe" : ResolveWho(toward);
+
+    private static string RelationKey(string who, string toward) => $"{who}>{toward}";
+
+    /// <summary>Amitié d'un personnage (PNJ ou PJ) envers l'équipe ou un PJ précis.</summary>
+    public int GetFriendship(string who, string toward = "")
+    {
+        who = ResolveWho(who);
+        var key = RelationKey(who, ResolveToward(toward));
+        if (State.Relations.TryGetValue(key, out var value)) return value;
+        return Db.Npcs.TryGetValue(who, out var npc) && npc.BaseFriendship is { } nb ? nb
+            : Db.Characters.TryGetValue(who, out var pj) && pj.BaseFriendship is { } pb ? pb
+            : Db.Content.Friendship.Default;
+    }
+
+    public void SetFriendship(string who, string toward, int value)
+    {
+        who = ResolveWho(who);
+        if (string.IsNullOrEmpty(who)) return;
+        State.Relations[RelationKey(who, ResolveToward(toward))] = ClampScale(Db.Content.Friendship, value);
+    }
+
+    public string CharacterName(string id)
+    {
+        id = ResolveWho(id);
+        return Db.Npcs.TryGetValue(id, out var n) ? n.Name : Db.Characters.TryGetValue(id, out var c) ? c.Name : id;
+    }
+
+    // ------------------------------------------------------------------ Textes
+
+    /// <summary>
+    /// Remplace les balises d'un texte : %pj% (qui parle), %heros%, %pays%, %monnaie%, %heure%, %date%, %jour%,
+    /// %periode%, %lieu%, %or%, %karma%, %karma:id%, %var:id%, %amitie:id%, %nom:id%.
+    /// </summary>
+    public string FormatText(string text)
+    {
+        if (!text.Contains('%')) return text;
+        return TagRegex().Replace(text, m =>
+        {
+            var tag = m.Groups[1].Value;
+            var arg = m.Groups[2].Success ? m.Groups[2].Value : "";
+            return tag.ToLowerInvariant() switch
+            {
+                "pj" => CharacterName("@parle"),
+                "heros" => CharacterName("@heros"),
+                "pays" => Db.Content.World.CountryName,
+                "monnaie" => Db.T("money"),
+                "heure" => Clock.TimeText,
+                "date" => Clock.DateText,
+                "jour" => Clock.Day.ToString(),
+                "periode" => Clock.Period,
+                "lieu" => CurrentLocation.Name,
+                "or" => State.Gold.ToString(),
+                "karma" => GetKarma(arg.Length > 0 ? arg : "@parle").ToString(),
+                "var" => GetVariable(arg).ToString(),
+                "amitie" => GetFriendship(arg).ToString(),
+                "nom" => CharacterName(arg),
+                _ => m.Value,
+            };
+        });
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"%([a-zA-Z]+)(?::([^%\s]+))?%")]
+    private static partial System.Text.RegularExpressions.Regex TagRegex();
 
     // ------------------------------------------------------------------ Quêtes
 
@@ -283,11 +512,11 @@ public sealed class GameSession
             EncyclopediaCategory.Characters => State.SeenCharacters.Select(id => Db.Characters[id])
                 .Select(c => (c.Name, c.Title, c.Description))
                 .Concat(State.SeenNpcs.Select(id => Db.Npcs[id])
-                    .Select(n => (n.Name, "PNJ · " + NameOrId(Db.Locations, n.LocationId, l => l.Name), n.Description))),
+                    .Select(n => (n.Name, "PNJ · " + NameOrId(Db.Locations, NpcLocation(n), l => l.Name), n.Description))),
             EncyclopediaCategory.Monsters => State.SeenMonsters.Select(id => Db.Monsters[id])
                 .Select(m => (m.Name, m.IsBoss ? "Boss" : $"PV {m.Stats.MaxHp} · ATQ {m.Stats.Attack} · DEF {m.Stats.Defense}", m.Description)),
             EncyclopediaCategory.Locations => State.SeenLocations.Select(id => Db.Locations[id])
-                .Select(l => (l.Name, LocationTypeName(l.Type), l.Description)),
+                .Select(l => (l.Name, LocationTypeLabel(l.Type), l.Description)),
             EncyclopediaCategory.Weapons => State.SeenWeapons.Select(id => Db.Items[id])
                 .Select(i => (i.Name, i.Bonus.ToBonusString(), i.Description)),
             _ => State.SeenRelics.Select(id => Db.Items[id])
@@ -296,12 +525,16 @@ public sealed class GameSession
         return entries.OrderBy(e => e.Item1).ToList();
     }
 
-    public static string LocationTypeName(LocationType type) => type switch
+    public static string LocationTypeName(LocationType type) => LocationTypeName(GameDatabase.Default, type);
+
+    public static string LocationTypeName(GameDatabase db, LocationType type) => type switch
     {
-        LocationType.City => "Ville",
-        LocationType.Dungeon => "Donjon",
-        _ => "Nature",
+        LocationType.City => db.T("loc.city"),
+        LocationType.Dungeon => db.T("loc.dungeon"),
+        _ => db.T("loc.wild"),
     };
+
+    public string LocationTypeLabel(LocationType type) => LocationTypeName(Db, type);
 
     // ------------------------------------------------------------------ Équipe
 
@@ -340,6 +573,7 @@ public sealed class GameSession
             ArmorId = ValidItem(def.StartingArmorId),
             RelicId = ValidItem(def.StartingRelicId),
             IsActive = ActiveParty.Count() < Config.MaxActiveParty,
+            Karma = def.BaseKarma ?? Db.Content.Karma.Default,
         };
         var stats = GetStats(c);
         c.CurrentHp = stats.MaxHp;
@@ -349,6 +583,19 @@ public sealed class GameSession
         DiscoverCharacter(characterId);
         foreach (var slot in Enum.GetValues<EquipSlot>())
             if (c.GetEquipped(slot) is { } id) DiscoverItem(id);
+        return true;
+    }
+
+    /// <summary>Retire un PJ de l'équipe (ses objets équipés retournent dans le sac). Le dernier PJ reste.</summary>
+    public bool Leave(string characterId)
+    {
+        var c = State.Party.FirstOrDefault(p => p.DefId == characterId);
+        if (c is null || State.Party.Count <= 1) return false;
+        foreach (var slot in Enum.GetValues<EquipSlot>()) Unequip(c, slot);
+        State.Party.Remove(c);
+        if (!State.Party.Any(p => p.IsActive)) State.Party[0].IsActive = true;
+        if (State.HeroId == characterId) State.HeroId = State.Party[0].DefId;
+        if (State.SpeakerId == characterId) State.SpeakerId = null;
         return true;
     }
 
@@ -518,16 +765,27 @@ public sealed class GameSession
         if (!InCity || State.Gold < CurrentLocation.InnPrice) return false;
         State.Gold -= CurrentLocation.InnPrice;
         HealAll();
+        AdvanceTime(Clock.MinutesUntilHour(Db.Content.Time.InnWakeHour));
         return true;
     }
 
-    public IEnumerable<NpcDef> VisibleNpcs => Db.NpcsAt(State.CurrentLocationId).Where(n => CheckAll(n.VisibleConditions));
+    /// <summary>Lieu où se trouve un PNJ : déplacement forcé par un effet, sinon premier placement valide, sinon son lieu habituel.</summary>
+    public string NpcLocation(NpcDef npc)
+    {
+        if (State.NpcLocations.TryGetValue(npc.Id, out var forced)) return forced;
+        return npc.Placements.FirstOrDefault(p => CheckAll(p.Conditions))?.LocationId ?? npc.LocationId;
+    }
 
-    /// <summary>Parler à un PNJ : fait avancer les quêtes puis renvoie le dialogue à jouer (selon l'avancement).</summary>
-    public string? Talk(string npcId)
+    public IEnumerable<NpcDef> VisibleNpcs =>
+        Db.Content.Npcs.Where(n => NpcLocation(n) == State.CurrentLocationId && CheckAll(n.VisibleConditions)).ToList();
+
+    /// <summary>Parler à un PNJ : fait avancer les quêtes puis renvoie le dialogue à jouer (selon l'avancement et qui parle).</summary>
+    public string? Talk(string npcId, string? speakerId = null)
     {
         if (!Db.Npcs.TryGetValue(npcId, out var npc)) return null;
+        if (speakerId is not null) SetSpeaker(speakerId);
         State.SeenNpcs.Add(npcId);
+        AdvanceTime(Db.Content.Time.TalkMinutes);
         UpdateQuests(ObjectiveType.TalkTo, npcId);
         var conditional = npc.ConditionalDialogues.FirstOrDefault(d => Db.Dialogues.ContainsKey(d.DialogueId) && CheckAll(d.Conditions));
         var id = conditional?.DialogueId ?? npc.DefaultDialogueId;
@@ -537,7 +795,15 @@ public sealed class GameSession
     // ------------------------------------------------------------------ Carte et voyage
 
     public IReadOnlyList<LocationDef> Destinations =>
-        CurrentLocation.ConnectedIds.Where(Db.Locations.ContainsKey).Select(id => Db.Locations[id]).ToList();
+        CurrentLocation.ConnectedIds.Where(Db.Locations.ContainsKey).Select(id => Db.Locations[id]).Where(IsVisible).ToList();
+
+    /// <summary>Le lieu apparaît sur la carte : révélé/caché par un effet, sinon selon ses conditions de visibilité.</summary>
+    public bool IsVisible(LocationDef loc)
+    {
+        if (loc.Id == State.CurrentLocationId || State.RevealedLocations.Contains(loc.Id)) return true;
+        if (State.HiddenLocations.Contains(loc.Id)) return false;
+        return CheckAll(loc.VisibleConditions);
+    }
 
     public bool CanEnter(LocationDef loc) => CheckAll(loc.AccessConditions);
 
@@ -563,11 +829,12 @@ public sealed class GameSession
 
     public TravelResult Travel(string destinationId)
     {
-        if (!CurrentLocation.ConnectedIds.Contains(destinationId) || !Db.Locations.TryGetValue(destinationId, out var dest))
+        if (!CurrentLocation.ConnectedIds.Contains(destinationId) || !Db.Locations.TryGetValue(destinationId, out var dest) || !IsVisible(dest))
             return new TravelResult(false, "Ce lieu n'est pas accessible d'ici.");
         if (!CanEnter(dest))
             return new TravelResult(false, dest.LockedMessage.Length > 0 ? dest.LockedMessage : "Le passage est bloqué.");
 
+        AdvanceTime(dest.TravelMinutes ?? Db.Content.Time.TravelMinutes);
         var firstVisit = MoveTo(dest);
 
         // 1. Combat fixe : déclenché automatiquement à la première arrivée, rejouable ensuite depuis la carte.
@@ -591,7 +858,11 @@ public sealed class GameSession
     private string? ValidDialogue(string? id) => id is not null && Db.Dialogues.ContainsKey(id) ? id : null;
 
     /// <summary>Chercher un combat dans la zone actuelle (bouton "Explorer").</summary>
-    public IReadOnlyList<string>? Explore() => PickEncounter(CurrentLocation);
+    public IReadOnlyList<string>? Explore()
+    {
+        AdvanceTime(Db.Content.Time.ExploreMinutes);
+        return PickEncounter(CurrentLocation);
+    }
 
     private IReadOnlyList<string>? RollEncounter(LocationDef loc) =>
         loc.RandomEncounters.Count > 0 && Rng.NextDouble() < loc.EncounterChance ? PickEncounter(loc) : null;
@@ -617,6 +888,7 @@ public sealed class GameSession
 
     public BattleRewards ApplyVictory(Battle battle)
     {
+        AdvanceTime(Db.Content.Time.BattleMinutes);
         var monsters = battle.Enemies.Select(e => e.Monster!).ToList();
         var xp = monsters.Sum(m => m.Xp);
         var gold = monsters.Sum(m => m.Gold);
@@ -644,6 +916,7 @@ public sealed class GameSession
     public DefeatResult ApplyDefeat()
     {
         if (Config.Defeat == DefeatRule.GameOver) return new DefeatResult(true, 0, null);
+        AdvanceTime(Db.Content.Time.BattleMinutes);
         var lost = State.Gold * Math.Clamp(Config.DefeatGoldLossPercent, 0, 100) / 100;
         State.Gold -= lost;
         State.CurrentLocationId = State.LastCityId;
@@ -653,10 +926,14 @@ public sealed class GameSession
 
     public void AfterFlee()
     {
+        AdvanceTime(Db.Content.Time.BattleMinutes);
         foreach (var c in ActiveParty.Where(c => c.CurrentHp <= 0)) c.CurrentHp = 1;
     }
 
     // ------------------------------------------------------------------ Dialogues
 
     public DialogueRunner StartDialogue(string dialogueId) => new(this, Db.Dialogues[dialogueId]);
+
+    /// <summary>Quêtes affichées au joueur (les quêtes secrètes sont cachées).</summary>
+    public IEnumerable<(QuestDef Quest, QuestProgress Progress)> VisibleQuestLog => QuestLog.Where(q => !q.Quest.Hidden);
 }

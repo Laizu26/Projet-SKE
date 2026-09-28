@@ -14,6 +14,7 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, NpcDef> Npcs { get; }
     public IReadOnlyDictionary<string, DialogueDef> Dialogues { get; }
     public IReadOnlyDictionary<string, QuestDef> Quests { get; }
+    public IReadOnlyDictionary<string, VariableDef> Variables { get; }
 
     public StartSettings Start => Content.Start;
     public BalanceSettings Balance => Content.Balance;
@@ -30,7 +31,11 @@ public sealed class GameDatabase
         Npcs = Index(content.Npcs, n => n.Id);
         Dialogues = Index(content.Dialogues, d => d.Id);
         Quests = Index(content.Quests, q => q.Id);
+        Variables = Index(content.Variables, v => v.Id);
     }
+
+    /// <summary>Texte de l'interface (renommable dans le mode développeur).</summary>
+    public string T(string key) => Vocabulary.Get(Content, key);
 
     private static Dictionary<string, T> Index<T>(IEnumerable<T> items, Func<T, string> key)
     {
@@ -66,6 +71,7 @@ public sealed class GameDatabase
         CheckIds(Content.Npcs.Select(x => x.Id), "PNJ");
         CheckIds(Content.Dialogues.Select(x => x.Id), "Dialogue");
         CheckIds(Content.Quests.Select(x => x.Id), "Quête");
+        CheckIds(Content.Variables.Select(x => x.Id), "Variable");
 
         foreach (var c in Content.Characters)
         {
@@ -98,6 +104,7 @@ public sealed class GameDatabase
             }
             Ref(Dialogues, l.FirstVisitDialogueId, w, "dialogue");
             CheckConditions(l.AccessConditions, w);
+            CheckConditions(l.VisibleConditions, w);
         }
         foreach (var n in Content.Npcs)
         {
@@ -106,6 +113,11 @@ public sealed class GameDatabase
             Check(!string.IsNullOrEmpty(n.LocationId), $"{w} : aucun lieu");
             Ref(Dialogues, n.DefaultDialogueId, w, "dialogue");
             CheckConditions(n.VisibleConditions, w);
+            foreach (var p in n.Placements)
+            {
+                Ref(Locations, p.LocationId, w, "lieu");
+                CheckConditions(p.Conditions, w);
+            }
             foreach (var cd in n.ConditionalDialogues)
             {
                 Ref(Dialogues, cd.DialogueId, w, "dialogue");
@@ -118,13 +130,27 @@ public sealed class GameDatabase
             Check(d.Nodes.Count > 0, $"{w} : aucune réplique");
             var ids = new HashSet<string>();
             foreach (var n in d.Nodes) Check(ids.Add(n.Id), $"{w} : réplique « {n.Id} » en double");
+            void Target(string? target)
+            {
+                if (string.IsNullOrEmpty(target)) return;
+                var (dialogueId, label) = SplitTarget(target);
+                if (dialogueId is null) { Check(ids.Contains(label), $"{w} : réplique « {label} » introuvable"); return; }
+                if (!Dialogues.TryGetValue(dialogueId, out var other)) { Check(false, $"{w} : dialogue « {dialogueId} » introuvable"); return; }
+                if (label.Length > 0) Check(other.Nodes.Any(n => n.Id == label), $"{w} : réplique « {target} » introuvable");
+            }
             foreach (var n in d.Nodes)
             {
-                if (n.NextId is { Length: > 0 } next) Check(ids.Contains(next), $"{w} : réplique « {next} » introuvable");
+                Target(n.NextId);
                 CheckActions(n.Actions, w);
+                foreach (var b in n.Branches)
+                {
+                    Target(b.NextId);
+                    CheckConditions(b.Conditions, w);
+                }
+                foreach (var v in n.Variants) CheckConditions(v.Conditions, w);
                 foreach (var ch in n.Choices)
                 {
-                    if (ch.NextId is { Length: > 0 } cn) Check(ids.Contains(cn), $"{w} : réplique « {cn} » introuvable");
+                    Target(ch.NextId);
                     CheckActions(ch.Actions, w);
                     CheckConditions(ch.Conditions, w);
                 }
@@ -176,7 +202,17 @@ public sealed class GameDatabase
                     case ConditionType.QuestActive or ConditionType.QuestCompleted or ConditionType.QuestNotStarted:
                         Ref(Quests, c.Arg, w, "quête"); break;
                     case ConditionType.HasItem: Ref(Items, c.Arg, w, "objet"); break;
-                    case ConditionType.InParty or ConditionType.NotInParty: Ref(Characters, c.Arg, w, "personnage"); break;
+                    case ConditionType.InParty or ConditionType.NotInParty or ConditionType.Speaker:
+                        Ref(Characters, c.Arg, w, "personnage"); break;
+                    case ConditionType.AtLocation or ConditionType.Visited: Ref(Locations, c.Arg, w, "lieu"); break;
+                    case ConditionType.MetNpc: Ref(Npcs, c.Arg, w, "PNJ"); break;
+                    case ConditionType.Karma when !c.Arg.StartsWith('@'): Ref(Characters, c.Arg, w, "personnage"); break;
+                    case ConditionType.Friendship:
+                        Check(c.Arg.StartsWith('@') || Npcs.ContainsKey(c.Arg) || Characters.ContainsKey(c.Arg), $"{w} : personnage « {c.Arg} » introuvable");
+                        break;
+                    case ConditionType.AnyOf or ConditionType.AllOf:
+                        if (c.Children is { } children) CheckConditions(children, w);
+                        break;
                 }
             }
         }
@@ -187,7 +223,14 @@ public sealed class GameDatabase
             {
                 switch (a.Type)
                 {
-                    case ActionType.Recruit: Ref(Characters, a.Arg, w, "personnage"); break;
+                    case ActionType.Recruit or ActionType.LeaveParty: Ref(Characters, a.Arg, w, "personnage"); break;
+                    case ActionType.RevealLocation or ActionType.HideLocation: Ref(Locations, a.Arg, w, "lieu"); break;
+                    case ActionType.MoveNpc:
+                        Ref(Npcs, a.Arg, w, "PNJ");
+                        Ref(Locations, a.Arg2, w, "lieu");
+                        break;
+                    case ActionType.AddKarma or ActionType.SetKarma when !a.Arg.StartsWith('@') && a.Arg.Length > 0:
+                        Ref(Characters, a.Arg, w, "personnage"); break;
                     case ActionType.GiveItem or ActionType.TakeItem: Ref(Items, a.Arg, w, "objet"); break;
                     case ActionType.StartQuest or ActionType.CompleteQuest: Ref(Quests, a.Arg, w, "quête"); break;
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
@@ -197,6 +240,13 @@ public sealed class GameDatabase
                 }
             }
         }
+    }
+
+    /// <summary>« etiquette » → (null, etiquette) ; « dialogue:etiquette » → (dialogue, etiquette).</summary>
+    public static (string? DialogueId, string Label) SplitTarget(string target)
+    {
+        var colon = target.IndexOf(':');
+        return colon < 0 ? (null, target) : (target[..colon], target[(colon + 1)..]);
     }
 
     public static string[] SplitIds(string text) =>

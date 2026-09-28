@@ -26,6 +26,15 @@ internal static class SampleContent
             Inventory = [new("potion", 3), new("ether", 1)],
             IntroDialogueId = "intro",
         },
+        World = new() { CountryName = "Valdor" },
+        Variables =
+        [
+            new()
+            {
+                Id = "reputation", Name = "Réputation", Visible = true, Min = -100, Max = 100,
+                Description = "Ce que les gens de Valdor pensent de l'équipe.",
+            },
+        ],
     };
 
     // ------------------------------------------------------------------ Compétences
@@ -158,6 +167,8 @@ internal static class SampleContent
     private static Condition IfQuestDone(string id) => new(ConditionType.QuestCompleted, id);
     private static GameAction Recruit(string id) => new(ActionType.Recruit, id);
     private static GameAction StartQuest(string id) => new(ActionType.StartQuest, id);
+    private static GameAction Karma(int amount, string who = "") => new(ActionType.AddKarma, who, amount);
+    private static GameAction Friendship(string who, int amount) => new(ActionType.AddFriendship, who, amount);
 
     // ------------------------------------------------------------------ Lieux
 
@@ -310,7 +321,7 @@ internal static class SampleContent
                 new() { Type = ObjectiveType.Defeat, TargetId = "loup", Count = 3 },
                 new() { Type = ObjectiveType.TalkTo, TargetId = "fermier_joss" },
             ],
-            Rewards = [new(ActionType.GiveGold, amount: 60), new(ActionType.GiveItem, "potion", 2)],
+            Rewards = [new(ActionType.GiveGold, amount: 60), new(ActionType.GiveItem, "potion", 2), new(ActionType.AddVariable, "reputation", 10)],
         },
         new()
         {
@@ -436,7 +447,19 @@ internal static class SampleContent
             Id = "rumeurs", Name = "Rumeurs de l'auberge",
             Nodes =
             [
-                Line("1", "Aubergiste", "On raconte qu'un bandit balafré tient le Col des Corbeaux. Personne ne passe sans payer.", "2"),
+                new()
+                {
+                    Id = "1", Speaker = "Aubergiste", NextId = "2",
+                    Text = "On raconte qu'un bandit balafré tient le Col des Corbeaux. Personne ne passe sans payer.",
+                    Variants =
+                    [
+                        new()
+                        {
+                            Conditions = [new(ConditionType.Speaker, "lyra")],
+                            Text = "Lyra ! Toujours le nez dans tes grimoires ? Méfie-toi du bandit balafré du Col des Corbeaux, il n'aime pas les mages.",
+                        },
+                    ],
+                },
                 Line("2", "Aubergiste", "Et dans la forêt, méfie-toi des araignées. Certaines portent de drôles de bijoux dans leur toile."),
             ],
         },
@@ -451,11 +474,22 @@ internal static class SampleContent
                     Text = "Les loups de la Route du Roi me volent mes moutons ! Tu pourrais en abattre trois ?",
                     Choices =
                     [
-                        new() { Text = "Compte sur moi.", NextId = "oui", Actions = [StartQuest("chasse_loups")] },
-                        new() { Text = "Désolé, pas le temps.", NextId = "non" },
+                        new() { Text = "Compte sur moi.", NextId = "oui", Actions = [StartQuest("chasse_loups"), Karma(3), Friendship("fermier_joss", 10)] },
+                        new() { Text = "Désolé, pas le temps.", NextId = "non", Actions = [Karma(-2), Friendship("fermier_joss", -5)] },
                     ],
                 },
-                Line("oui", "Fermier Joss", "Merci ! Reviens me voir quand ce sera fait."),
+                new()
+                {
+                    Id = "oui", Speaker = "Fermier Joss", Text = "Merci ! Reviens me voir quand ce sera fait.",
+                    Variants =
+                    [
+                        new()
+                        {
+                            Conditions = [new(ConditionType.Karma, amount: 15)],
+                            Text = "On m'avait dit que %pj% avait bon cœur. Merci, reviens me voir quand ce sera fait !",
+                        },
+                    ],
+                },
                 Line("non", "Fermier Joss", "Mes pauvres moutons..."),
             ],
         },

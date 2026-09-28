@@ -73,6 +73,10 @@ public sealed class CharacterDef
     public string? StartingRelicId { get; set; }
     /// <summary>Proposé sur l'écran de sélection de départ.</summary>
     public bool IsStarter { get; set; }
+    /// <summary>Karma de départ (vide = valeur par défaut des réglages de karma).</summary>
+    public int? BaseKarma { get; set; }
+    /// <summary>Amitié de départ envers les autres (vide = valeur par défaut des réglages d'amitié).</summary>
+    public int? BaseFriendship { get; set; }
 }
 
 public sealed class ItemDrop
@@ -143,6 +147,10 @@ public sealed class LocationDef
     /// <summary>Position sur la carte hexagonale du royaume (vide = placement automatique).</summary>
     public int? HexQ { get; set; }
     public int? HexR { get; set; }
+    /// <summary>Le lieu n'apparaît sur la carte que si ces conditions sont remplies (lieu secret, découvert plus tard).</summary>
+    public List<Condition> VisibleConditions { get; set; } = [];
+    /// <summary>Durée du voyage pour venir ici, en minutes (vide = durée par défaut des réglages du temps).</summary>
+    public int? TravelMinutes { get; set; }
 
     [JsonIgnore] public bool IsCity => Type == LocationType.City;
 }
@@ -154,11 +162,22 @@ public sealed class NpcDef
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string LocationId { get; set; } = "";
+    /// <summary>Emplois du temps / déplacements : le premier placement dont les conditions passent l'emporte sur le lieu habituel.</summary>
+    public List<NpcPlacement> Placements { get; set; } = [];
+    /// <summary>Amitié de départ envers l'équipe (vide = valeur par défaut des réglages d'amitié).</summary>
+    public int? BaseFriendship { get; set; }
     /// <summary>Le PNJ n'apparaît que si ces conditions sont remplies.</summary>
     public List<Condition> VisibleConditions { get; set; } = [];
     /// <summary>Dialogues selon l'avancement : le premier dont les conditions passent est joué.</summary>
     public List<NpcDialogue> ConditionalDialogues { get; set; } = [];
     public string? DefaultDialogueId { get; set; }
+}
+
+/// <summary>Le PNJ se trouve à ce lieu quand les conditions sont remplies (ex : la nuit, à l'auberge).</summary>
+public sealed class NpcPlacement
+{
+    public string LocationId { get; set; } = "";
+    public List<Condition> Conditions { get; set; } = [];
 }
 
 public sealed class NpcDialogue
@@ -170,11 +189,25 @@ public sealed class NpcDialogue
     public NpcDialogue(string dialogueId, params Condition[] conditions) { DialogueId = dialogueId; Conditions = [.. conditions]; }
 }
 
+/// <summary>
+/// Une condition (« si »). Elle peut être inversée (« sauf si »), comparer une valeur (variable, karma, amitié...)
+/// ou regrouper d'autres conditions (« au moins une de » / « toutes »), pour construire n'importe quelle logique.
+/// </summary>
 public sealed class Condition
 {
     public ConditionType Type { get; set; }
+    /// <summary>Identifiant visé (flag, quête, objet, PJ, variable, lieu, nom de période...).</summary>
     public string Arg { get; set; } = "";
+    /// <summary>Second identifiant : pour l'amitié, envers qui (« @equipe », « @parle » ou un PJ).</summary>
+    public string Arg2 { get; set; } = "";
     public int Amount { get; set; } = 1;
+    /// <summary>Seconde valeur : heure de fin pour « entre deux heures ».</summary>
+    public int Amount2 { get; set; }
+    public CompareOp Op { get; set; } = CompareOp.AtLeast;
+    /// <summary>Inverse la condition (« sauf si »).</summary>
+    public bool Negate { get; set; }
+    /// <summary>Sous-conditions des groupes « au moins une de » et « toutes ».</summary>
+    public List<Condition>? Children { get; set; }
 
     public Condition() { }
     public Condition(ConditionType type, string arg = "", int amount = 1) { Type = type; Arg = arg; Amount = amount; }
@@ -185,6 +218,8 @@ public sealed class GameAction
     public ActionType Type { get; set; }
     /// <summary>Identifiant visé (flag, objet, personnage, quête, lieu, ou monstres séparés par des virgules).</summary>
     public string Arg { get; set; } = "";
+    /// <summary>Second argument : envers qui (amitié), lieu (déplacer un PNJ), texte (message).</summary>
+    public string Arg2 { get; set; } = "";
     public int Amount { get; set; } = 1;
 
     public GameAction() { }
@@ -198,6 +233,27 @@ public sealed class DialogueChoice
     public List<GameAction> Actions { get; set; } = [];
     /// <summary>Le choix n'est proposé que si ces conditions sont remplies.</summary>
     public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Si les conditions ne sont pas remplies : afficher le choix grisé (au lieu de le cacher).</summary>
+    public bool ShowLocked { get; set; }
+    /// <summary>Texte affiché sous un choix grisé (ex : « Karma trop bas »).</summary>
+    public string LockedText { get; set; } = "";
+}
+
+/// <summary>Aiguillage : après la réplique, va à NextId si les conditions sont remplies (le premier qui passe gagne).</summary>
+public sealed class DialogueBranch
+{
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Réplique visée : « etiquette », « dialogue:etiquette » (autre dialogue) ou vide (fin).</summary>
+    public string? NextId { get; set; }
+}
+
+/// <summary>Autre version d'une réplique, jouée à la place si les conditions sont remplies.</summary>
+public sealed class TextVariant
+{
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Vide = même personnage que la réplique d'origine.</summary>
+    public string Speaker { get; set; } = "";
+    public string Text { get; set; } = "";
 }
 
 public sealed class DialogueNode
@@ -205,10 +261,17 @@ public sealed class DialogueNode
     public string Id { get; set; } = "";
     public string Speaker { get; set; } = "";
     public string Text { get; set; } = "";
-    /// <summary>Nœud suivant quand il n'y a pas de choix. Null = fin du dialogue.</summary>
+    /// <summary>
+    /// Nœud suivant quand il n'y a pas de choix. Null = fin du dialogue.
+    /// « dialogue:etiquette » continue dans un autre dialogue (les histoires peuvent se croiser).
+    /// </summary>
     public string? NextId { get; set; }
     public List<DialogueChoice> Choices { get; set; } = [];
     public List<GameAction> Actions { get; set; } = [];
+    /// <summary>Aiguillages testés avant NextId (le premier qui passe gagne).</summary>
+    public List<DialogueBranch> Branches { get; set; } = [];
+    /// <summary>Versions alternatives du texte selon la situation (karma, amitié, qui parle, heure...).</summary>
+    public List<TextVariant> Variants { get; set; } = [];
 }
 
 public sealed class DialogueDef
@@ -243,6 +306,8 @@ public sealed class QuestDef
     public string Description { get; set; } = "";
     public List<QuestObjective> Objectives { get; set; } = [];
     public List<GameAction> Rewards { get; set; } = [];
+    /// <summary>Quête secrète : n'apparaît pas dans le journal des quêtes.</summary>
+    public bool Hidden { get; set; }
 }
 
 public sealed class ItemStack
@@ -282,6 +347,95 @@ public sealed class BalanceSettings
     public int DamageVariancePercent { get; set; } = 10;
 }
 
+/// <summary>Variable libre du scénario (réputation, dette, compteur...), modifiable par les effets et testable par les conditions.</summary>
+public sealed class VariableDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    public int Initial { get; set; }
+    public int? Min { get; set; }
+    public int? Max { get; set; }
+    /// <summary>Affichée au joueur dans le campement.</summary>
+    public bool Visible { get; set; }
+}
+
+/// <summary>Palier nommé d'une échelle (ex : karma ≥ 50 → « Héroïque »).</summary>
+public sealed class ScaleTier
+{
+    public string Name { get; set; } = "";
+    public int Min { get; set; }
+
+    public ScaleTier() { }
+    public ScaleTier(string name, int min) { Name = name; Min = min; }
+}
+
+/// <summary>Réglages d'une échelle de valeur (karma, amitié).</summary>
+public sealed class ScaleSettings
+{
+    public bool Enabled { get; set; } = true;
+    public string Name { get; set; } = "";
+    public int Default { get; set; }
+    public int Min { get; set; } = -100;
+    public int Max { get; set; } = 100;
+    /// <summary>Afficher la valeur au joueur (sinon elle reste cachée mais agit quand même).</summary>
+    public bool Visible { get; set; } = true;
+    public List<ScaleTier> Tiers { get; set; } = [];
+
+    /// <summary>Nom du palier atteint par une valeur (le plus haut dont le minimum est atteint).</summary>
+    public string TierName(int value) =>
+        Tiers.Where(t => value >= t.Min).OrderByDescending(t => t.Min).FirstOrDefault()?.Name ?? "";
+}
+
+/// <summary>Moment de la journée (« Aube » à partir de 5 h...).</summary>
+public sealed class DayPeriod
+{
+    public string Name { get; set; } = "";
+    public int FromHour { get; set; }
+
+    public DayPeriod() { }
+    public DayPeriod(string name, int fromHour) { Name = name; FromHour = fromHour; }
+}
+
+/// <summary>Échelle de temps et calendrier du monde.</summary>
+public sealed class TimeSettings
+{
+    public bool Enabled { get; set; } = true;
+    public int HoursPerDay { get; set; } = 24;
+    public int DaysPerMonth { get; set; } = 30;
+    /// <summary>Noms des jours de la semaine (vide = pas de semaine). La longueur fixe la durée de la semaine.</summary>
+    public List<string> WeekDays { get; set; } = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+    /// <summary>Noms des mois (vide = pas de mois). La longueur fixe la durée de l'année.</summary>
+    public List<string> Months { get; set; } =
+        ["Givrelune", "Neigelune", "Pluielune", "Germelune", "Fleurlune", "Soleillune",
+         "Moissonlune", "Blondelune", "Vendangelune", "Brumelune", "Ventlune", "Sombrelune"];
+    public List<DayPeriod> Periods { get; set; } =
+        [new("Nuit", 0), new("Aube", 5), new("Matin", 8), new("Après-midi", 12), new("Crépuscule", 18), new("Nuit", 21)];
+    /// <summary>Libellé de l'année (ex : « An »), et année de départ.</summary>
+    public string YearLabel { get; set; } = "An";
+    public int StartYear { get; set; } = 1;
+    /// <summary>Jour de départ (1 = premier jour du calendrier) et heure de départ.</summary>
+    public int StartDay { get; set; } = 1;
+    public int StartHour { get; set; } = 8;
+    /// <summary>Durées en minutes.</summary>
+    public int TravelMinutes { get; set; } = 240;
+    public int ExploreMinutes { get; set; } = 60;
+    public int BattleMinutes { get; set; } = 20;
+    public int TalkMinutes { get; set; } = 10;
+    /// <summary>Heure du réveil après une nuit à l'auberge.</summary>
+    public int InnWakeHour { get; set; } = 7;
+}
+
+/// <summary>Le monde : noms, monnaie et tout le vocabulaire affiché (rien n'est figé).</summary>
+public sealed class WorldSettings
+{
+    public string CountryName { get; set; } = "Royaume";
+    /// <summary>Quand l'équipe compte plusieurs PJ : demander lequel parle au PNJ.</summary>
+    public bool AskSpeaker { get; set; } = true;
+    /// <summary>Textes de l'interface remplacés (clé → texte). Voir <see cref="Data.Vocabulary"/>.</summary>
+    public Dictionary<string, string> Texts { get; set; } = [];
+}
+
 /// <summary>Tout le contenu d'un jeu : c'est ce fichier que l'éditeur exporte.</summary>
 public sealed class GameContent
 {
@@ -297,4 +451,17 @@ public sealed class GameContent
     public List<QuestDef> Quests { get; set; } = [];
     public StartSettings Start { get; set; } = new();
     public BalanceSettings Balance { get; set; } = new();
+    public WorldSettings World { get; set; } = new();
+    public TimeSettings Time { get; set; } = new();
+    public ScaleSettings Karma { get; set; } = new()
+    {
+        Name = "Karma",
+        Tiers = [new("Infâme", -100), new("Mauvais", -50), new("Douteux", -15), new("Neutre", -14), new("Bon", 15), new("Vertueux", 50), new("Héroïque", 90)],
+    };
+    public ScaleSettings Friendship { get; set; } = new()
+    {
+        Name = "Amitié",
+        Tiers = [new("Ennemi", -100), new("Hostile", -50), new("Méfiant", -15), new("Neutre", -14), new("Amical", 15), new("Ami", 50), new("Inséparable", 90)],
+    };
+    public List<VariableDef> Variables { get; set; } = [];
 }

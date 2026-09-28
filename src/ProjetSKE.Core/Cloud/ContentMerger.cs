@@ -49,6 +49,11 @@ public static class ContentMerger
             Start = MergeValue("Départ", "start", @base.Start, local.Start, remote.Start, ctx.StartSettings, conflicts),
             Balance = MergeValue("Équilibrage", "balance", @base.Balance, local.Balance, remote.Balance, ctx.BalanceSettings, conflicts),
             Title = MergeValue("Titre", "title", @base.Title, local.Title, remote.Title, ctx.String, conflicts),
+            World = MergeValue("Monde", "world", @base.World, local.World, remote.World, ctx.WorldSettings, conflicts),
+            Time = MergeValue("Temps", "time", @base.Time, local.Time, remote.Time, ctx.TimeSettings, conflicts),
+            Karma = MergeValue("Karma", "karma", @base.Karma, local.Karma, remote.Karma, ctx.ScaleSettings, conflicts),
+            Friendship = MergeValue("Amitié", "friendship", @base.Friendship, local.Friendship, remote.Friendship, ctx.ScaleSettings, conflicts),
+            Variables = MergeList("Variable", @base.Variables, local.Variables, remote.Variables, x => x.Id, x => x.Name, ctx.VariableDef, conflicts),
         };
         var hasLocalChanges = ContentSerializer.ToJson(merged) != ContentSerializer.ToJson(remote);
         return new MergeResult(merged, conflicts, hasLocalChanges);
@@ -156,6 +161,17 @@ public static class ContentMerger
             case "Équilibrage":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.BalanceSettings) is { } balance) { content.Balance = balance; return true; }
                 return false;
+            case "Variable": return Put(content.Variables, ctx.VariableDef, x => x.Id);
+            case "Monde":
+                if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.WorldSettings) is { } world) { content.World = world; return true; }
+                return false;
+            case "Temps":
+                if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.TimeSettings) is { } time) { content.Time = time; return true; }
+                return false;
+            case "Karma" or "Amitié":
+                if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.ScaleSettings) is not { } scale) return false;
+                if (conflict.Kind == "Karma") content.Karma = scale; else content.Friendship = scale;
+                return true;
             case "Titre":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.String) is { } title) { content.Title = title; return true; }
                 return false;

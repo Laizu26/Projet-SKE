@@ -20,6 +20,12 @@ public enum ActionType
 {
     SetFlag, ClearFlag, Recruit, GiveItem, TakeItem, GiveGold, TakeGold, GiveXp,
     StartBattle, StartQuest, CompleteQuest, HealParty, Teleport,
+    // Variables, karma, amitié
+    SetVariable, AddVariable, AddKarma, SetKarma, AddFriendship, SetFriendship,
+    // Temps
+    AdvanceTime, WaitUntilHour,
+    // Divers
+    ShowMessage, LeaveParty, MoveNpc, RevealLocation, HideLocation,
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
@@ -27,7 +33,20 @@ public enum ConditionType
 {
     FlagSet, FlagNotSet, QuestNotStarted, QuestActive, QuestCompleted,
     HasItem, InParty, NotInParty, GoldAtLeast, LevelAtLeast,
+    // Valeurs
+    Variable, Karma, Friendship, Gold, Level, PartySize,
+    // Qui parle
+    Speaker,
+    // Temps
+    HourBetween, Day, Period, WeekDay, Month,
+    // Monde
+    AtLocation, Visited, MetNpc, Chance,
+    // Groupes de conditions
+    AnyOf, AllOf,
 }
+
+/// <summary>Comparaison d'une valeur (variable, karma, amitié, jour...).</summary>
+public enum CompareOp { AtLeast, AtMost, Equal, NotEqual, Greater, Less }
 
 public enum ObjectiveType { TalkTo, Defeat, Reach, Bring }
 

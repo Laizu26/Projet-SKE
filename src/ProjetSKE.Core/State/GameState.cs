@@ -27,6 +27,8 @@ public sealed class CharacterState
     public string? WeaponId { get; set; }
     public string? ArmorId { get; set; }
     public string? RelicId { get; set; }
+    /// <summary>Karma propre à ce personnage (évolue avec ses choix).</summary>
+    public int Karma { get; set; }
 
     public string? GetEquipped(EquipSlot slot) => slot switch
     {
@@ -57,7 +59,10 @@ public sealed class QuestProgress
 
 public sealed class GameState
 {
-    public int Version { get; set; } = 1;
+    /// <summary>Version du format : 2 = temps, karma, amitié, variables.</summary>
+    public const int CurrentVersion = 2;
+
+    public int Version { get; set; } = CurrentVersion;
     public string HeroId { get; set; } = "";
     public List<CharacterState> Party { get; set; } = [];
     /// <summary>Sac commun : id d'objet → quantité.</summary>
@@ -75,6 +80,19 @@ public sealed class GameState
     /// <summary>Avancement des quêtes commencées : id de quête → progression.</summary>
     public Dictionary<string, QuestProgress> Quests { get; set; } = [];
     public string Journal { get; set; } = "";
+    /// <summary>Temps écoulé depuis le début du calendrier, en minutes.</summary>
+    public long Minutes { get; set; }
+    /// <summary>Variables du scénario : id → valeur.</summary>
+    public Dictionary<string, int> Variables { get; set; } = [];
+    /// <summary>Amitiés : « qui>envers qui » → valeur (voir GameSession.GetFriendship).</summary>
+    public Dictionary<string, int> Relations { get; set; } = [];
+    /// <summary>PJ qui parle aux PNJ (vide = le héros).</summary>
+    public string? SpeakerId { get; set; }
+    /// <summary>PNJ déplacés par un effet : id du PNJ → lieu.</summary>
+    public Dictionary<string, string> NpcLocations { get; set; } = [];
+    /// <summary>Lieux révélés ou cachés par un effet (prioritaires sur leurs conditions de visibilité).</summary>
+    public HashSet<string> RevealedLocations { get; set; } = [];
+    public HashSet<string> HiddenLocations { get; set; } = [];
     public GameConfig Config { get; set; } = new();
     public DateTime SavedAt { get; set; }
 }
