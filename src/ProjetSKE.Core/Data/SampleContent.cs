@@ -271,7 +271,7 @@ internal static class SampleContent
         },
         new()
         {
-            Id = "tobin", Name = "Tobin", Class = "Voleur", Title = "Voleur des bois",
+            Id = "tobin", Name = "Tobin", Class = "Voleur", Title = "Voleur des bois", IsStarter = true, StartId = "exile",
             Description = "Détrousseur de la forêt de Sombrebois, plus bavard que dangereux.",
             BaseStats = new(MaxHp: 85, MaxMana: 20, Attack: 12, Defense: 6, Magic: 3, Speed: 16),
             GrowthPerLevel = new(MaxHp: 9, MaxMana: 2, Attack: 2, Defense: 1, Magic: 0, Speed: 2),

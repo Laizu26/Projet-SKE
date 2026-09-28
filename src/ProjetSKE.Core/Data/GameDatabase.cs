@@ -24,9 +24,20 @@ public sealed class GameDatabase
 
     public StartSettings StartById(string? id) => Starts.FirstOrDefault(s => s.Id == id) ?? Content.Start;
 
-    /// <summary>Départs possibles pour un héros.</summary>
-    public IReadOnlyList<StartSettings> StartsFor(string heroId) =>
-        Starts.Where(s => s.HeroIds.Count == 0 || s.HeroIds.Contains(heroId)).ToList();
+    /// <summary>
+    /// Départ d'un héros : celui choisi sur sa fiche, sinon (anciens contenus) un autre départ qui le cite,
+    /// sinon le départ principal. Le joueur ne choisit pas : le départ dépend du personnage.
+    /// </summary>
+    public StartSettings StartFor(string heroId)
+    {
+        if (Characters.TryGetValue(heroId, out var hero) && !string.IsNullOrEmpty(hero.StartId)
+            && Starts.FirstOrDefault(s => s.Id == hero.StartId) is { } chosen)
+            return chosen;
+        return Content.ExtraStarts.FirstOrDefault(s => s.HeroIds.Contains(heroId)) ?? Content.Start;
+    }
+
+    /// <summary>Héros proposés qui commencent par ce départ.</summary>
+    public IEnumerable<CharacterDef> HeroesOf(StartSettings start) => Starters.Where(c => StartFor(c.Id) == start);
     public BalanceSettings Balance => Content.Balance;
 
     public GameDatabase(GameContent content)
@@ -138,6 +149,7 @@ public sealed class GameDatabase
             Ref(Items, c.StartingArmorId, w, "armure");
             Ref(Items, c.StartingRelicId, w, "relique");
             Check(c.Skills.Any(s => s.Level <= 1), $"{w} : aucune compétence au niveau 1");
+            if (!string.IsNullOrEmpty(c.StartId)) Check(Starts.Any(s => s.Id == c.StartId), $"{w} : départ « {c.StartId} » introuvable");
             CheckLines(c.BattleLines, w);
         }
         foreach (var m in Content.Monsters)

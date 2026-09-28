@@ -123,6 +123,8 @@ public sealed class CharacterDef
     public string? StartingRelicId { get; set; }
     /// <summary>Proposé sur l'écran de sélection de départ.</summary>
     public bool IsStarter { get; set; }
+    /// <summary>Départ de partie de ce héros (vide = départ principal).</summary>
+    public string? StartId { get; set; }
     /// <summary>Karma de départ (vide = valeur par défaut des réglages de karma).</summary>
     public int? BaseKarma { get; set; }
     /// <summary>Amitié de départ envers les autres (vide = valeur par défaut des réglages d'amitié).</summary>
@@ -451,7 +453,7 @@ public sealed class StartSettings
     public string Id { get; set; } = "principal";
     public string Name { get; set; } = "Départ principal";
     public string Description { get; set; } = "";
-    /// <summary>Héros qui peuvent prendre ce départ (vide = tous les héros proposés).</summary>
+    /// <summary>Ancien réglage : héros liés à ce départ (remplacé par le départ choisi sur chaque héros, gardé pour les anciens contenus).</summary>
     public List<string> HeroIds { get; set; } = [];
     public string LocationId { get; set; } = "";
     public int Gold { get; set; } = 100;

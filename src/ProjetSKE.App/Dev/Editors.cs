@@ -108,7 +108,10 @@ public sealed class CharacterEditor : EditorPage
         f.TextField("Classe (ex : Chevalier, Mage)", _x.Class, v => _x.Class = v);
         f.TextField("Titre (ex : le Chevalier errant)", _x.Title, v => _x.Title = v);
         f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
-        f.BoolField("Proposé au départ", _x.IsStarter, v => _x.IsStarter = v);
+        f.BoolField("Proposé au départ", _x.IsStarter, v => _x.IsStarter = v, rerender: true);
+        if (_x.IsStarter)
+            f.RefField("Départ de partie (aucun = départ principal)", _x.StartId,
+                new[] { DevState.Draft.Start }.Concat(DevState.Draft.ExtraStarts).Select(s => (s.Id, s.Name)), v => _x.StartId = v);
         f.StatsField("Stats de base (niveau 1)", _x.BaseStats);
         f.StatsField("Gain par niveau", _x.GrowthPerLevel);
         f.Header("Équipement de départ");
@@ -592,22 +595,27 @@ public sealed class StartsPage : EditorPage
     {
         var c = DevState.Draft;
         f.TextField("Titre du jeu", c.Title, v => c.Title = v);
-        f.Header("Héros proposés");
+        f.Header("Héros proposés et leur départ");
+        f.Note("Le joueur ne choisit pas son départ : il dépend du héros (origine, prologue, lieu, équipement, monde de départ).");
+        var starts = new[] { c.Start }.Concat(c.ExtraStarts).ToList();
         foreach (var ch in c.Characters)
         {
             var character = ch;
-            f.BoolField(ch.Name, ch.IsStarter, v => character.IsStarter = v);
+            f.BoolField(ch.Name, ch.IsStarter, v => character.IsStarter = v, rerender: true);
+            if (ch.IsStarter)
+                f.RefField("Départ de " + ch.Name, ch.StartId, starts.Select(s => (s.Id, s.Name)), v => character.StartId = v);
         }
         f.Header("Départs");
-        f.Note("Avec plusieurs départs, le joueur choisit le sien après son héros (origine, prologue, lieu, équipement, monde de départ).");
-        foreach (var start in new[] { c.Start }.Concat(c.ExtraStarts))
+        var db = new GameDatabase(c);
+        foreach (var start in starts)
         {
             var st = start;
             var main = st == c.Start;
+            var heroes = db.HeroesOf(st).Select(h => h.Name).ToList();
             f.Add(Panel(Row(
                 Stack(Txt(st.Name + (main ? "  (principal)" : ""), 15, Theme.Text, bold: true),
                     Muted($"{st.Id} · {DevState.Locations.FirstOrDefault(l => l.Id == st.LocationId).Name ?? st.LocationId}"
-                        + (st.HeroIds.Count > 0 ? $" · {st.HeroIds.Count} héros" : " · tous les héros"))),
+                        + (heroes.Count > 0 ? " · " + string.Join(", ", heroes) : " · aucun héros"))),
                 Form.SmallButton("Modifier", () => SkeApp.GoTo(new StartEditor(st, main))))));
         }
         f.Add(Btn("+ Nouveau départ", async () =>
@@ -646,8 +654,8 @@ public sealed class StartEditor : EditorPage
         var s = _s;
         f.Note("Identifiant : " + s.Id + (_main ? " (départ principal)" : ""));
         f.TextField("Nom", s.Name, v => s.Name = v);
-        f.TextField("Description (écran de choix)", s.Description, v => s.Description = v, multiline: true);
-        f.IdList("Réservé à ces héros (vide = tous)", s.HeroIds, DevState.Characters);
+        f.TextField("Description (écran des héros)", s.Description, v => s.Description = v, multiline: true);
+        f.Note("Quels héros commencent ici : se règle sur la fiche de chaque héros (ou dans la liste des départs).");
         f.RefField("Lieu de départ", s.LocationId, DevState.Locations, v => s.LocationId = v ?? "", allowNone: false);
         f.IntField("Or de départ", s.Gold, v => s.Gold = v);
         f.RefField("Dialogue d'introduction", s.IntroDialogueId, DevState.Dialogues, v => s.IntroDialogueId = v);

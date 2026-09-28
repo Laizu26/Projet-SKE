@@ -36,7 +36,7 @@ Reprise de *Service Impérial* : fond parchemin, bandeaux en pierre sombre souli
 | Écran | Contenu |
 |---|---|
 | **Titre** | Nouvelle partie, charger une partie, 3 emplacements de sauvegarde |
-| **Sélection** | Choix du héros, puis du **départ** quand il y en a plusieurs (origine, lieu, équipement, compagnons, monde de départ) |
+| **Sélection** | Choix du héros ; son **départ** (origine, lieu, équipement, compagnons, monde de départ) dépend de lui et est annoncé sur sa carte |
 | **Camp** | Un cercle autour d'un feu animé, avec six parties : **Équipe** (les combattants assis autour du feu ; fiche : stats, niveau, XP, karma, compétences, équipement), **Persos** (les habitants répartis en cercles par grade, le chef au centre ; vue liste possible), **Gestion** (hiérarchie, qui fait quelle tâche, journal du camp), **Ressources** (trésor, stocks du camp consommés chaque jour, valeurs du scénario), **Sac** et **Lieux** (bâtiments à construire avec des ressources et de l'or). Re-toucher l'onglet ramène autour du feu |
 | **Carte** | Vue du lieu actuel (ville : auberge, boutique, habitants ; nature : explorer, combat fixe), puis vue du pays avec la liste des destinations |
 | **Quêtes** | Onglet masqué par défaut (activable dans Monde et textes) : quêtes en cours et terminées. Les quêtes avancent quand même, avec des messages à l'écran |
@@ -82,7 +82,7 @@ Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
 
 | Catégorie | Ce qu'on règle |
 |---|---|
-| **PJ** | Nom, classe, description, portrait, stats de base et gain par niveau, compétences, équipement de départ, karma et amitié de départ, répliques de combat, « proposé au départ » |
+| **PJ** | Nom, classe, description, portrait, stats de base et gain par niveau, compétences, équipement de départ, karma et amitié de départ, répliques de combat, « proposé au départ » et son départ de partie |
 | **PNJ** | Nom, portrait, lieu habituel, emploi du temps (placements sous conditions : heure, jour, flag…), amitié de départ, vie au camp et grade, dialogue par défaut, dialogues selon la situation (y compris selon le PJ qui parle), conditions d'apparition |
 | **Histoire** | Dialogues en **formulaire** ou en **texte** : répliques, variantes selon la situation, aiguillages, sauts vers un autre dialogue (les histoires se croisent), choix (cachés ou grisés), conditions, effets |
 | **Quêtes** | Quête simple (objectifs dans l'ordre, récompenses) ou **quête à étapes** : chaque étape a son récit, ses objectifs, des effets sur le monde en y entrant, et des **chemins sous conditions** vers d'autres étapes, jusqu'à plusieurs **fins** (réussies ou échouées). Démarrage par un effet ou automatique sous condition |
@@ -90,7 +90,7 @@ Sur l'écran titre, touche **Développeur** puis entre le code **1234**.
 | **Monstres** | Stats, compétences, XP, or, butin (avec probabilités), boss, portrait, répliques de combat |
 | **Compétences** | Physique / magique / soin / effets seuls / résurrection, cible, coût en PM et en PV, recharge, puissance et montant fixe, élément, nombre de coups, précision, critiques, vol de vie, **effets durables** (poison, régénération, étourdissement, bonus ou malus de stat, bouclier, purification) avec durée et chance, texte du journal. Monstres et PJ ont des **faiblesses et résistances** aux éléments |
 | **Lieux et carte** | Type, liens entre lieux, lieu secret (visible sous condition), durée du voyage, boutique, auberge, rencontres aléatoires, combat fixe (dialogues avant / après victoire / après défaite, répliques), accès sous condition, dialogue de première visite |
-| **Départs** | Plusieurs départs possibles : nom, description, héros autorisés, lieu, or, objets, compagnons, date, dialogue d'introduction, effets au lancement (flags, variables, karma, quêtes…) |
+| **Départs** | Plusieurs départs possibles : nom, description, lieu, or, objets, compagnons, date, dialogue d'introduction, effets au lancement (flags, variables, karma, quêtes…) |
 | **Équilibrage** | XP par niveau, niveau max, prix de revente, formules de dégâts et de soin |
 | **Monde et textes** | Nom du pays, choix du PJ qui parle, et **tous les textes de l'interface** (onglets, monnaie, PV/PM, actions de combat, types de lieu…) |
 | **Temps et calendrier** | Heure et jour de départ, heures par jour, jours de la semaine, mois, moments de la journée, durées (voyage, exploration, combat, discussion, réveil à l'auberge) |

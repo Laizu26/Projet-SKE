@@ -522,7 +522,9 @@ public class StoryTests
     public void Starts_AreListedAndApplied()
     {
         var db = GameDatabase.Default;
-        Assert.Equal(["principal", "exile"], db.StartsFor("aldric").Select(s => s.Id).ToArray());
+        Assert.Equal(["principal", "exile"], db.Starts.Select(s => s.Id).ToArray());
+        Assert.Equal("principal", db.StartFor("aldric").Id);
+        Assert.Equal("exile", db.StartFor("tobin").Id);
 
         var s = NewGame("exile");
         Assert.Equal("foret_sombrebois", s.State.CurrentLocationId);
@@ -536,11 +538,22 @@ public class StoryTests
     }
 
     [Fact]
-    public void Starts_CanBeRestrictedToSomeHeroes()
+    public void Starts_DependOnTheHero()
     {
+        // Sans départ précisé, la partie commence au départ du héros.
+        var tobin = GameSession.NewGame(GameDatabase.Default, "tobin", new Random(1));
+        Assert.Equal("exile", tobin.State.StartId);
+        Assert.Equal("foret_sombrebois", tobin.State.CurrentLocationId);
+        Assert.Equal("principal", GameSession.NewGame(GameDatabase.Default, "aldric", new Random(1)).State.StartId);
+
+        // Départ inconnu : départ principal. Ancien réglage (héros cités par le départ) : encore compris.
         var content = ContentSerializer.Clone(GameDatabase.Default.Content);
-        content.ExtraStarts[0].HeroIds = ["lyra"];
-        Assert.DoesNotContain(new GameDatabase(content).StartsFor("aldric"), st => st.Id == "exile");
+        content.Characters.First(c => c.Id == "tobin").StartId = "disparu";
+        content.ExtraStarts[0].HeroIds = ["aldric"];
+        var db = new GameDatabase(content);
+        Assert.Equal("principal", db.StartFor("tobin").Id);
+        Assert.Equal("exile", db.StartFor("aldric").Id);
+        Assert.Contains(db.Validate(), e => e.Contains("disparu"));
     }
 
     private static void TravelTo(GameSession s, params string[] path)

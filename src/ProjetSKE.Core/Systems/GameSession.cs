@@ -37,10 +37,10 @@ public sealed partial class GameSession
 
     public static GameSession NewGame(GameDatabase db, string heroId, Random? rng = null) => NewGame(db, heroId, null, rng);
 
-    /// <summary>Nouvelle partie avec un départ donné (null = départ principal).</summary>
+    /// <summary>Nouvelle partie avec un départ donné (null = le départ du héros).</summary>
     public static GameSession NewGame(GameDatabase db, string heroId, string? startId, Random? rng = null)
     {
-        var start = db.StartById(startId);
+        var start = startId is null ? db.StartFor(heroId) : db.StartById(startId);
         var time = db.Content.Time;
         var minutes = GameClock.StartMinutes(new TimeSettings
         {

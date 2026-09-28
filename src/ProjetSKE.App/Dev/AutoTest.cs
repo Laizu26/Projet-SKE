@@ -204,11 +204,11 @@ public static class AutoTest
             {
                 if (DevState.Draft.Quests.FirstOrDefault(q => q.IsStaged) is { } quest) SkeApp.GoTo(new QuestStageEditor(quest, quest.Stages[1]));
             });
-            await Step("choix du départ", () => SkeApp.GoTo(new StartSelectPage(0, db, starter.Id)));
             await Step("partie avec un autre départ", () =>
             {
-                var other = db.StartsFor(starter.Id).LastOrDefault()?.Id;
-                var session = GameSession.NewGame(db, starter.Id, other);
+                // Le héros dont le départ n'est pas le principal (sinon le premier).
+                var hero = db.Starters.FirstOrDefault(h => db.StartFor(h.Id) != db.Start) ?? starter;
+                var session = GameSession.NewGame(db, hero.Id, null);
                 var game = new GamePage(session, -1, playIntro: true);
                 SkeApp.GoTo(game);
                 game.SwitchTab(GameTab.Quests);
