@@ -546,7 +546,50 @@ public sealed class CampTaskDef
     public List<CampOutcome> Outcomes { get; set; } = [];
 }
 
-/// <summary>Réglages du campement : hiérarchie et tâches.</summary>
+/// <summary>Ressource stockée au camp (nourriture, bois...), produite par les tâches et consommée chaque jour.</summary>
+public sealed class CampResourceDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    /// <summary>Icône (mot-clé, comme les tâches : chasse, bois, cuisine...).</summary>
+    public string Icon { get; set; } = "cuisine";
+    public int Initial { get; set; }
+    /// <summary>Stock maximum (0 = illimité).</summary>
+    public int Max { get; set; }
+    /// <summary>Quantité consommée chaque jour par habitant du camp (0 = aucune).</summary>
+    public int DailyPerMember { get; set; }
+    /// <summary>En cas de pénurie : amitié perdue par chaque habitant, pour chaque jour sans cette ressource.</summary>
+    public int ShortageFriendshipLoss { get; set; } = 2;
+}
+
+/// <summary>Coût d'une construction en ressources du camp.</summary>
+public sealed class ResourceCost
+{
+    public string ResourceId { get; set; } = "";
+    public int Amount { get; set; } = 1;
+
+    public ResourceCost() { }
+    public ResourceCost(string resourceId, int amount) { ResourceId = resourceId; Amount = amount; }
+}
+
+/// <summary>Lieu du camp (bâtiment, zone) à construire : il peut débloquer des tâches et changer le monde.</summary>
+public sealed class CampBuildingDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Icon { get; set; } = "construction";
+    public int GoldCost { get; set; }
+    public List<ResourceCost> Costs { get; set; } = [];
+    /// <summary>Constructible seulement si ces conditions sont remplies.</summary>
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Effets une fois construit (flags, variables, lieux révélés...).</summary>
+    public List<GameAction> OnBuilt { get; set; } = [];
+    /// <summary>Déjà construit au début de la partie.</summary>
+    public bool BuiltAtStart { get; set; }
+}
+
+/// <summary>Réglages du campement : hiérarchie, tâches, ressources et lieux.</summary>
 public sealed class CampSettings
 {
     public bool Enabled { get; set; } = true;
@@ -554,6 +597,8 @@ public sealed class CampSettings
     public string LeaderTitle { get; set; } = "Chef";
     public List<CampRankDef> Ranks { get; set; } = [];
     public List<CampTaskDef> Tasks { get; set; } = [];
+    public List<CampResourceDef> Resources { get; set; } = [];
+    public List<CampBuildingDef> Buildings { get; set; } = [];
 }
 
 /// <summary>Variable libre du scénario (réputation, dette, compteur...), modifiable par les effets et testable par les conditions.</summary>

@@ -89,7 +89,11 @@ internal static class SampleContent
                 Description = "Rapporter de quoi manger.",
                 Outcomes =
                 [
-                    new() { Weight = 3, Text = "%membre% rapporte du gibier.", Actions = [new(ActionType.GiveItem, "gibier", 1)] },
+                    new()
+                    {
+                        Weight = 3, Text = "%membre% rapporte du gibier.",
+                        Actions = [new(ActionType.GiveItem, "gibier", 1), new(ActionType.AddCampResource, "nourriture", 3)],
+                    },
                     new() { Weight = 2, Text = "%membre% rentre bredouille." },
                     new() { Weight = 1, Text = "%membre% a trouvé une vieille bourse dans les bois.", Actions = [new(ActionType.GiveGold, amount: 15)] },
                 ],
@@ -101,7 +105,29 @@ internal static class SampleContent
                 Outcomes =
                 [
                     new() { Weight = 3, Text = "%membre% revient avec des herbes.", Actions = [new(ActionType.GiveItem, "herbes", 1)] },
-                    new() { Weight = 2, Text = "%membre% n'a rien trouvé d'utile." },
+                    new() { Weight = 2, Text = "%membre% ramène des baies.", Actions = [new(ActionType.AddCampResource, "nourriture", 1)] },
+                    new() { Weight = 1, Text = "%membre% n'a rien trouvé d'utile." },
+                ],
+            },
+            new()
+            {
+                Id = "bucheronnage", Name = "Bûcheronnage", Icon = "bois", DurationMinutes = 240,
+                Description = "Couper du bois pour le feu et les constructions.",
+                Outcomes =
+                [
+                    new() { Weight = 4, Text = "%membre% rapporte une brassée de bois.", Actions = [new(ActionType.AddCampResource, "bois", 3)] },
+                    new() { Weight = 1, Text = "%membre% s'est blessé avec la hache.", Actions = [new(ActionType.AddCampResource, "bois", 1), new(ActionType.AddFriendship, "@membre", -1)] },
+                ],
+            },
+            new()
+            {
+                Id = "forge", Name = "Forge", Icon = "forge", DurationMinutes = 480, MinRankLevel = 1, MaxWorkers = 1,
+                Description = "Forger des armes pour le camp (il faut un atelier).",
+                Conditions = [new(ConditionType.CampBuilt, "atelier")],
+                Outcomes =
+                [
+                    new() { Weight = 2, Text = "%membre% vend quelques lames.", Actions = [new(ActionType.AddCampResource, "bois", -2), new(ActionType.GiveGold, amount: 25)] },
+                    new() { Weight = 1, Text = "%membre% a raté sa trempe." },
                 ],
             },
             new()
@@ -115,6 +141,27 @@ internal static class SampleContent
                 Id = "repos", Name = "Veillée", Icon = "repos", DurationMinutes = 600,
                 Description = "Partager le feu et les histoires.",
                 Outcomes = [new() { Text = "%membre% raconte des histoires au coin du feu.", Actions = [new(ActionType.AddFriendship, "@membre", 2)] }],
+            },
+        ],
+        Resources =
+        [
+            new() { Id = "nourriture", Name = "Nourriture", Icon = "cuisine", Initial = 10, Max = 60, DailyPerMember = 1, ShortageFriendshipLoss = 3 },
+            new() { Id = "bois", Name = "Bois", Icon = "bois", Initial = 5, Max = 80 },
+        ],
+        Buildings =
+        [
+            new()
+            {
+                Id = "palissade", Name = "Palissade", Icon = "garde",
+                Description = "Une enceinte de pieux : le camp est plus sûr et sa réputation grandit.",
+                Costs = [new("bois", 15)],
+                OnBuilt = [new(ActionType.AddVariable, "reputation", 3)],
+            },
+            new()
+            {
+                Id = "atelier", Name = "Atelier", Icon = "forge", GoldCost = 30,
+                Description = "Un établi et une enclume : débloque la tâche « Forge ».",
+                Costs = [new("bois", 10)],
             },
         ],
     };

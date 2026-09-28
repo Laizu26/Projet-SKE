@@ -207,7 +207,7 @@ public static class DevState
         if (c.Arg.Length > 0) text += " " + c.Arg;
         if (c.Arg2.Length > 0) text += " › " + c.Arg2;
         if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Friendship or ConditionType.Gold
-            or ConditionType.Level or ConditionType.PartySize or ConditionType.Day or ConditionType.CampRank)
+            or ConditionType.Level or ConditionType.PartySize or ConditionType.Day or ConditionType.CampRank or ConditionType.CampResource)
             text += " " + Name(c.Op).Split(' ').Last().Trim('(', ')') + " " + c.Amount;
         if (c.Type is ConditionType.AnyOf or ConditionType.AllOf) text += $" ({c.Children?.Count ?? 0})";
         return (c.Negate ? "sauf " : "") + text;
@@ -215,6 +215,8 @@ public static class DevState
 
     public static IEnumerable<(string Id, string Name)> CampRanks => Draft.Camp.Ranks.OrderByDescending(r => r.Level).Select(x => (x.Id, $"{x.Name} (niveau {x.Level})"));
     public static IEnumerable<(string Id, string Name)> CampTasks => Draft.Camp.Tasks.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> CampResources => Draft.Camp.Resources.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> CampBuildings => Draft.Camp.Buildings.Select(x => (x.Id, x.Name));
 
     /// <summary>Membre du camp : celui qui fait la tâche (dans un résultat de tâche), un PNJ ou un PJ.</summary>
     public static IEnumerable<(string Id, string Name)> CampWho =>
@@ -274,6 +276,8 @@ public static class DevState
         ActionType.LeaveCamp => "Camp : quitter",
         ActionType.SetCampRank => "Camp : changer de grade",
         ActionType.SetCampTask => "Camp : affecter à une tâche",
+        ActionType.AddCampResource => "Camp : ressource (ajouter / retirer)",
+        ActionType.BuildCampBuilding => "Camp : construire un lieu (gratuit)",
         ActionType.SetQuestStage => "Quête : aller à l'étape",
         _ => "Quête : échouer",
     };
@@ -332,6 +336,8 @@ public static class DevState
         ConditionType.CampMember => "Camp : est membre",
         ConditionType.CampRank => "Camp : grade (niveau)",
         ConditionType.CampTask => "Camp : fait la tâche",
+        ConditionType.CampResource => "Camp : ressource (stock)",
+        ConditionType.CampBuilt => "Camp : lieu construit",
         ConditionType.QuestAtStage => "Quête à l'étape",
         ConditionType.QuestStageReached => "Quête : étape déjà passée",
         ConditionType.QuestEnding => "Quête finie par",

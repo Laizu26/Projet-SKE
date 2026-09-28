@@ -103,6 +103,98 @@ public sealed partial class GameSession
             }
             if (m.NextAt <= State.Minutes) m.NextAt = State.Minutes + duration;
         }
+        ConsumeDaily();
+    }
+
+    // ------------------------------------------------------------------ Ressources
+
+    public CampResourceDef? CampResource(string id) => CampRules.Resources.FirstOrDefault(r => r.Id == id);
+
+    public int GetCampResource(string id) =>
+        State.CampResources.TryGetValue(id, out var v) ? v : CampResource(id)?.Initial ?? 0;
+
+    /// <summary>Ajoute (ou retire, si négatif) une ressource, dans les limites 0 → max.</summary>
+    public void AddCampResource(string id, int amount)
+    {
+        if (CampResource(id) is not { } def) return;
+        var value = Math.Max(0, GetCampResource(id) + amount);
+        if (def.Max > 0) value = Math.Min(def.Max, value);
+        State.CampResources[id] = value;
+    }
+
+    /// <summary>Consommation par jour de toutes les ressources (habitants × quantité par habitant).</summary>
+    public int DailyNeed(CampResourceDef r) => r.DailyPerMember * State.Camp.Count;
+
+    /// <summary>Chaque nouveau jour, les habitants consomment ; une pénurie fait baisser leur amitié.</summary>
+    private void ConsumeDaily()
+    {
+        var today = Clock.Day;
+        if (State.CampLastDay <= 0) State.CampLastDay = today;
+        var days = Math.Min(30, today - State.CampLastDay);
+        if (days <= 0) return;
+        State.CampLastDay = today;
+        if (State.Camp.Count == 0) return;
+        foreach (var r in CampRules.Resources.Where(r => r.DailyPerMember > 0))
+        {
+            var need = DailyNeed(r) * days;
+            var have = GetCampResource(r.Id);
+            State.CampResources[r.Id] = Math.Max(0, have - need);
+            if (have >= need) continue;
+            // Jours sans assez de ressource (arrondi au jour entamé).
+            var missingDays = Math.Max(1, (int)Math.Ceiling((need - have) / (double)Math.Max(1, DailyNeed(r))));
+            var loss = r.ShortageFriendshipLoss * missingDays;
+            if (loss > 0)
+                foreach (var m in State.Camp)
+                    SetFriendship(m.Id, "", GetFriendship(m.Id) - loss);
+            AddCampLog($"{Clock.TimeText} · Pénurie de {r.Name.ToLowerInvariant()} ({need - have} manquant){(loss > 0 ? $" — le moral baisse (-{loss})" : "")}");
+        }
+    }
+
+    // ------------------------------------------------------------------ Lieux du camp
+
+    public bool IsBuilt(string id) => State.CampBuildings.Contains(id);
+
+    /// <summary>Pourquoi un lieu ne peut pas être construit (null = il peut).</summary>
+    public string? CannotBuild(CampBuildingDef b)
+    {
+        if (IsBuilt(b.Id)) return "Déjà construit";
+        if (!CheckAll(b.Conditions)) return "Pas disponible pour l'instant";
+        if (State.Gold < b.GoldCost) return $"Il manque {b.GoldCost - State.Gold} {Db.T("money")}";
+        foreach (var cost in b.Costs)
+        {
+            var have = GetCampResource(cost.ResourceId);
+            if (have < cost.Amount)
+                return $"Il manque {cost.Amount - have} {CampResource(cost.ResourceId)?.Name.ToLowerInvariant() ?? cost.ResourceId}";
+        }
+        return null;
+    }
+
+    /// <summary>Construit un lieu du camp en payant son coût ; applique ses effets.</summary>
+    public bool Build(string id)
+    {
+        if (CampRules.Buildings.FirstOrDefault(b => b.Id == id) is not { } b || CannotBuild(b) is not null) return false;
+        State.Gold -= b.GoldCost;
+        foreach (var cost in b.Costs) AddCampResource(cost.ResourceId, -cost.Amount);
+        MarkBuilt(id);
+        Notifications.Add($"Construit : {b.Name}");
+        return true;
+    }
+
+    /// <summary>Marque un lieu comme construit (sans payer) et applique ses effets.</summary>
+    private bool MarkBuilt(string id)
+    {
+        if (CampRules.Buildings.FirstOrDefault(b => b.Id == id) is not { } b || !State.CampBuildings.Add(id)) return false;
+        AddCampLog($"{Clock.TimeText} · {b.Name} est construit.");
+        foreach (var action in b.OnBuilt.Where(a => a.Type != ActionType.StartBattle && a.Type != ActionType.BuildCampBuilding))
+            Execute(action);
+        UpdateQuests();
+        return true;
+    }
+
+    private void AddCampLog(string line)
+    {
+        State.CampLog.Add(line);
+        if (State.CampLog.Count > CampLogSize) State.CampLog.RemoveRange(0, State.CampLog.Count - CampLogSize);
     }
 
     private void Resolve(CampMemberState m, CampTaskDef task)
@@ -122,8 +214,7 @@ public sealed partial class GameSession
             Notifications.RemoveRange(before, Notifications.Count - before);
             var line = $"{new GameClock(State.Minutes, Db.Content.Time).TimeText} · {task.Name} — {FormatText(outcome.Text)}";
             if (effects.Count > 0) line += $" ({string.Join(", ", effects)})";
-            State.CampLog.Add(line);
-            if (State.CampLog.Count > CampLogSize) State.CampLog.RemoveRange(0, State.CampLog.Count - CampLogSize);
+            AddCampLog(line);
         }
         finally
         {

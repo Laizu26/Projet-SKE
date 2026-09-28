@@ -1,4 +1,5 @@
 using ProjetSKE.App.Pages;
+using ProjetSKE.App.Views;
 using ProjetSKE.Core.Systems;
 
 namespace ProjetSKE.App.Dev;
@@ -148,10 +149,25 @@ public static class AutoTest
                 world = new GamePage(session, -1, playIntro: false);
                 SkeApp.GoTo(world);
             }, 2500);
-            await Step("camp : les gens", () => { world!.CampShowPeople = true; world.SwitchTab(GameTab.Camp); });
+            await Step("camp : autour du feu", () => { world!.CampSection = CampSection.Hub; world.SwitchTab(GameTab.Camp); }, 1500);
+            foreach (var section in Enum.GetValues<CampSection>())
+                await Step("camp : " + section, () => { world!.CampSection = section; world.Render(); });
+            await Step("camp : persos en liste", () => { world!.CampSection = CampSection.People; world.CampPeopleAsList = true; world.Render(); });
+            await Step("camp : construire", () =>
+            {
+                var s = world!.Session;
+                s.State.Gold += 500;
+                foreach (var r in s.CampRules.Resources) s.AddCampResource(r.Id, 1000);
+                foreach (var b in s.CampRules.Buildings) s.Build(b.Id);
+                world.CampSection = CampSection.Places;
+                world.Render();
+            });
+            await Step("camp : équipe, fiche", () => { world!.CampSection = CampSection.Team; world.SelectedCharacter = 0; world.Render(); });
             await Step("camp : fiche d'un membre", () =>
             {
-                world!.SelectedCampMember = world.Session.CampMembers.FirstOrDefault()?.Id;
+                world!.SelectedCharacter = null;
+                world.CampSection = CampSection.People;
+                world.SelectedCampMember = world.Session.CampMembers.FirstOrDefault()?.Id;
                 world.Render();
             });
             await Step("parler : choix de qui parle", () =>
@@ -168,6 +184,10 @@ public static class AutoTest
             await Step("éditeur : karma", () => SkeApp.GoTo(new ScaleEditor(karma: true)));
             await Step("éditeur : campement", () => SkeApp.GoTo(new CampEditor()));
             await Step("éditeur : tâche", () => SkeApp.GoTo(new CampTaskEditor(DevState.Draft.Camp.Tasks[0])));
+            await Step("éditeur : lieu du camp", () =>
+            {
+                if (DevState.Draft.Camp.Buildings.Count > 0) SkeApp.GoTo(new CampBuildingEditor(DevState.Draft.Camp.Buildings[0]));
+            });
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
             await Step("éditeur : monstre", () => SkeApp.GoTo(new MonsterEditor(DevState.Draft.Monsters.Last())));
             await Step("éditeur : dialogue", () => SkeApp.GoTo(new DialogueEditor(DevState.Draft.Dialogues.First(d => d.Nodes.Any(n => n.Variants.Count > 0)))), 2000);
@@ -191,7 +211,6 @@ public static class AutoTest
                 var session = GameSession.NewGame(db, starter.Id, other);
                 var game = new GamePage(session, -1, playIntro: true);
                 SkeApp.GoTo(game);
-                game.CampShowPeople = false;
                 game.SwitchTab(GameTab.Quests);
             }, 2500);
             await Step("éditeur : image", () =>

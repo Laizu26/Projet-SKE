@@ -117,6 +117,16 @@ public sealed class GameDatabase
                 CheckActions(o.Actions, w);
             }
         }
+        CheckIds(camp.Resources.Select(r => r.Id), "Ressource du camp");
+        CheckIds(camp.Buildings.Select(b => b.Id), "Lieu du camp");
+        foreach (var b in camp.Buildings)
+        {
+            var w = $"Lieu du camp {b.Id}";
+            foreach (var cost in b.Costs)
+                Check(camp.Resources.Any(r => r.Id == cost.ResourceId), $"{w} : ressource « {cost.ResourceId} » introuvable");
+            CheckConditions(b.Conditions, w);
+            CheckActions(b.OnBuilt, w);
+        }
         foreach (var p in Content.Portraits)
             Check(p.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase), $"Image {p.Id} : le lien doit commencer par https://");
 
@@ -300,6 +310,10 @@ public sealed class GameDatabase
                         if (c.Arg2.Length > 0 && Quests.TryGetValue(c.Arg, out var cq))
                             Check(cq.Stages.Any(st => st.Id == c.Arg2), $"{w} : étape « {c.Arg2} » introuvable dans la quête {c.Arg}");
                         break;
+                    case ConditionType.CampResource:
+                        Check(Content.Camp.Resources.Any(r => r.Id == c.Arg), $"{w} : ressource « {c.Arg} » introuvable"); break;
+                    case ConditionType.CampBuilt:
+                        Check(Content.Camp.Buildings.Any(b => b.Id == c.Arg), $"{w} : lieu du camp « {c.Arg} » introuvable"); break;
                     case ConditionType.AnyOf or ConditionType.AllOf:
                         if (c.Children is { } children) CheckConditions(children, w);
                         break;
@@ -338,6 +352,10 @@ public sealed class GameDatabase
                             Check(aq.Stages.Any(st => st.Id == a.Arg2), $"{w} : étape « {a.Arg2} » introuvable dans la quête {a.Arg}");
                         break;
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
+                    case ActionType.AddCampResource:
+                        Check(Content.Camp.Resources.Any(r => r.Id == a.Arg), $"{w} : ressource « {a.Arg} » introuvable"); break;
+                    case ActionType.BuildCampBuilding:
+                        Check(Content.Camp.Buildings.Any(b => b.Id == a.Arg), $"{w} : lieu du camp « {a.Arg} » introuvable"); break;
                     case ActionType.StartBattle:
                         foreach (var id in SplitIds(a.Arg)) Ref(Monsters, id, w, "monstre");
                         break;

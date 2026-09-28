@@ -63,6 +63,9 @@ public sealed partial class GameSession
         session.Recruit(heroId);
         foreach (var companion in start.Companions) session.Recruit(companion);
         foreach (var npc in db.Content.Npcs.Where(n => n.StartsInCamp)) session.JoinCamp(npc.Id, npc.StartRankId);
+        foreach (var r in db.Content.Camp.Resources) state.CampResources[r.Id] = r.Initial;
+        foreach (var b in db.Content.Camp.Buildings.Where(b => b.BuiltAtStart)) state.CampBuildings.Add(b.Id);
+        state.CampLastDay = session.Clock.Day;
         session.DiscoverLocation(state.CurrentLocationId);
         foreach (var action in start.Actions.Where(a => a.Type != ActionType.StartBattle)) session.Execute(action);
         session.UpdateQuests();
@@ -92,6 +95,12 @@ public sealed partial class GameSession
             if (!Db.Content.Camp.Ranks.Any(r => r.Id == m.RankId)) m.RankId = Db.Content.Camp.Ranks.OrderBy(r => r.Level).FirstOrDefault()?.Id ?? "";
             if (m.TaskId is { } t && !Db.Content.Camp.Tasks.Any(x => x.Id == t)) m.TaskId = null;
         }
+        // Ressources ajoutées dans l'éditeur après le début de la partie : stock initial.
+        foreach (var r in Db.Content.Camp.Resources) State.CampResources.TryAdd(r.Id, r.Initial);
+        foreach (var id in State.CampResources.Keys.Where(id => !Db.Content.Camp.Resources.Any(r => r.Id == id)).ToList())
+            State.CampResources.Remove(id);
+        State.CampBuildings.RemoveWhere(id => !Db.Content.Camp.Buildings.Any(b => b.Id == id));
+        if (State.CampLastDay <= 0) State.CampLastDay = Clock.Day;
         State.Party.RemoveAll(c => !Db.Characters.ContainsKey(c.DefId));
         foreach (var c in State.Party)
         {
@@ -155,6 +164,8 @@ public sealed partial class GameSession
         ConditionType.CampMember => CampMember(ResolveWho(c.Arg)) is not null,
         ConditionType.CampRank => CampMember(ResolveWho(c.Arg)) is not null && Compare(RankLevel(ResolveWho(c.Arg)), c.Op, c.Amount),
         ConditionType.CampTask => CampMember(ResolveWho(c.Arg))?.TaskId == c.Arg2,
+        ConditionType.CampResource => Compare(GetCampResource(c.Arg), c.Op, c.Amount),
+        ConditionType.CampBuilt => State.CampBuildings.Contains(c.Arg),
         ConditionType.QuestAtStage => QuestProgressOf(c.Arg) is { Status: QuestStatus.Active } p && p.StageId == c.Arg2,
         ConditionType.QuestStageReached => QuestProgressOf(c.Arg)?.Path.Contains(c.Arg2) == true,
         ConditionType.QuestEnding => QuestProgressOf(c.Arg)?.EndingId is { } ending && (c.Arg2.Length == 0 || ending == c.Arg2),
@@ -306,6 +317,19 @@ public sealed partial class GameSession
                 break;
             case ActionType.SetCampTask:
                 SetCampTask(ResolveWho(a.Arg), a.Arg2);
+                break;
+            case ActionType.AddCampResource:
+            {
+                var before = GetCampResource(a.Arg);
+                AddCampResource(a.Arg, a.Amount);
+                var gained = GetCampResource(a.Arg) - before;
+                if (gained != 0 && CampRules.Resources.FirstOrDefault(r => r.Id == a.Arg) is { } res)
+                    Notifications.Add($"{res.Name} {Signed(gained)}");
+                break;
+            }
+            case ActionType.BuildCampBuilding:
+                if (MarkBuilt(a.Arg) && CampRules.Buildings.FirstOrDefault(b => b.Id == a.Arg) is { } built)
+                    Notifications.Add($"Construit : {built.Name}");
                 break;
             case ActionType.SetQuestStage:
                 GoToStage(a.Arg, a.Arg2);

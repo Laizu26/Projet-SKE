@@ -313,6 +313,70 @@ public sealed class CampEditor : EditorPage
             DevState.Touch();
             SkeApp.GoTo(new CampTaskEditor(task));
         }));
+
+        f.Header($"Ressources ({camp.Resources.Count})");
+        f.Note("Stocks du camp (nourriture, bois...). Les tâches les remplissent (effet « Camp : ressource ») ; "
+            + "chaque jour, chaque habitant consomme sa part. En cas de pénurie, l'amitié des habitants baisse.");
+        f.ObjectList("Ressources", camp.Resources, () => new CampResourceDef { Id = DevState.NewId("ressource", camp.Resources.Select(r => r.Id)), Name = "Nouvelle ressource" }, (rf, r, _) =>
+        {
+            rf.Note("Identifiant : " + r.Id);
+            rf.TextField("Nom", r.Name, v => r.Name = v);
+            rf.RefField("Icône", r.Icon, Views.CampIcons.All.Select(i => (i.Key, i.Key)), v => r.Icon = v ?? "cuisine", allowNone: false);
+            rf.IntField("Stock au départ", r.Initial, v => r.Initial = v);
+            rf.IntField("Stock max (0 = illimité)", r.Max, v => r.Max = v);
+            rf.IntField("Consommé par habitant et par jour", r.DailyPerMember, v => r.DailyPerMember = v);
+            rf.IntField("Pénurie : amitié perdue par jour", r.ShortageFriendshipLoss, v => r.ShortageFriendshipLoss = v);
+        }, "+ Ressource");
+
+        f.Header($"Lieux à construire ({camp.Buildings.Count})");
+        foreach (var building in camp.Buildings)
+        {
+            var b = building;
+            var parts = b.Costs.Select(c => $"{c.Amount} {c.ResourceId}").ToList();
+            if (b.GoldCost > 0) parts.Add($"{b.GoldCost} or");
+            var costs = string.Join(", ", parts);
+            f.Add(Panel(Row(
+                Stack(Txt(b.Name, 15, Theme.Text, bold: true), Muted($"{b.Id} · {(costs.Length > 0 ? costs : "gratuit")}")),
+                Form.SmallButton("Modifier", () => SkeApp.GoTo(new CampBuildingEditor(b))))));
+        }
+        f.Add(Btn("+ Nouveau lieu", async () =>
+        {
+            var name = await DisplayPromptAsync("Nouveau lieu du camp", "Nom :", "Créer", "Annuler");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var b = new CampBuildingDef { Id = DevState.NewId(name, camp.Buildings.Select(x => x.Id)), Name = name.Trim() };
+            camp.Buildings.Add(b);
+            DevState.Touch();
+            SkeApp.GoTo(new CampBuildingEditor(b));
+        }));
+    }
+}
+
+public sealed class CampBuildingEditor : EditorPage
+{
+    private readonly CampBuildingDef _x;
+    public CampBuildingEditor(CampBuildingDef x) { _x = x; Render(); }
+    protected override string PageTitle => "Lieu du camp : " + _x.Name;
+    protected override void GoBack() => SkeApp.GoTo(new CampEditor());
+    protected override Action Delete => () => DevState.Draft.Camp.Buildings.Remove(_x);
+
+    protected override void Build(Form f)
+    {
+        var resources = DevState.Draft.Camp.Resources;
+        f.Note("Identifiant : " + _x.Id + " (condition « Camp : lieu construit », effet « Camp : construire »)");
+        f.TextField("Nom", _x.Name, v => _x.Name = v);
+        f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
+        f.RefField("Icône", _x.Icon, Views.CampIcons.All.Select(i => (i.Key, i.Key)), v => _x.Icon = v ?? "construction", allowNone: false);
+        f.IntField("Coût en or", _x.GoldCost, v => _x.GoldCost = v);
+        f.ObjectList("Coût en ressources", _x.Costs, () => new ResourceCost(resources.FirstOrDefault()?.Id ?? "", 5), (cf, c, _) =>
+        {
+            cf.RefField("Ressource", c.ResourceId, resources.Select(r => (r.Id, r.Name)), v => c.ResourceId = v ?? "", allowNone: false);
+            cf.IntField("Quantité", c.Amount, v => c.Amount = v);
+        }, "+ Ressource");
+        f.BoolField("Déjà construit au début", _x.BuiltAtStart, v => _x.BuiltAtStart = v);
+        f.Conditions("Constructible seulement si", _x.Conditions);
+        f.Note("Une fois construit : effets appliqués une fois (variable, lieu révélé, PNJ qui rejoint le camp...). "
+            + "Pour débloquer une tâche, mettre la condition « Camp : lieu construit » sur la tâche.");
+        f.Actions("Effets une fois construit", _x.OnBuilt);
     }
 }
 

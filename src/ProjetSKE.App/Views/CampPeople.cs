@@ -27,6 +27,7 @@ public static class CampIcons
 /// </summary>
 public static class CampPeople
 {
+    /// <summary>Gestion : hiérarchie, répartition des tâches, et journal du camp.</summary>
     public static void Build(VerticalStackLayout stack, GamePage page)
     {
         var s = page.Session;
@@ -35,10 +36,61 @@ public static class CampPeople
             BuildMember(stack, page, selected);
             return;
         }
-
-        var rules = s.CampRules;
         if (!s.Db.Content.Time.Enabled)
             stack.Add(IconRow(Icon(Ico.Hourglass, 14, Theme.Stone500), Muted("Le temps est arrêté : les tâches n'avancent pas.")));
+        Hierarchy(stack, page);
+        Tasks(stack, page);
+        Available(stack, page);
+        Log(stack, page);
+    }
+
+    /// <summary>Persos en liste (quand ils sont trop nombreux pour les cercles, ou au choix).</summary>
+    public static void BuildList(VerticalStackLayout stack, GamePage page)
+    {
+        Hierarchy(stack, page);
+        Available(stack, page);
+    }
+
+    /// <summary>Qui fait quoi : chaque tâche débloquée et ses membres, puis ceux au repos.</summary>
+    private static void Tasks(VerticalStackLayout stack, GamePage page)
+    {
+        var s = page.Session;
+        var tasks = s.CampRules.Tasks.Where(t => s.CheckAll(t.Conditions) || s.CampMembers.Any(m => m.TaskId == t.Id)).ToList();
+        if (tasks.Count == 0) return;
+        stack.Add(Section("Tâches"));
+        var list = new VerticalStackLayout { Spacing = 8 };
+        foreach (var task in tasks)
+        {
+            var workers = s.CampMembers.Where(m => m.TaskId == task.Id).Select(m => s.CharacterName(m.Id)).ToList();
+            var count = task.MaxWorkers > 0 ? $"{workers.Count}/{task.MaxWorkers}" : workers.Count.ToString();
+            list.Add(IconRow(Icon(CampIcons.Get(task.Icon), 16, workers.Count > 0 ? Theme.Gold700 : Theme.Stone400),
+                new VerticalStackLayout
+                {
+                    Spacing = 1,
+                    Children =
+                    {
+                        Txt(task.Name, 14, Theme.Stone900, bold: true),
+                        Txt(workers.Count > 0 ? string.Join(", ", workers) : "Personne", 12, workers.Count > 0 ? Theme.Stone700 : Theme.Stone400),
+                    },
+                }, Badge(count, workers.Count > 0 ? Theme.Gold700 : Theme.Stone500)));
+        }
+        var idle = s.CampMembers.Where(m => m.TaskId is null).Select(m => s.CharacterName(m.Id)).ToList();
+        if (idle.Count > 0)
+            list.Add(IconRow(Icon(Ico.Moon, 16, Theme.Stone400), new VerticalStackLayout
+            {
+                Spacing = 1,
+                Children = { Txt(s.Db.T("camp.rest"), 14, Theme.Stone900, bold: true), Txt(string.Join(", ", idle), 12, Theme.Stone500) },
+            }, Badge(idle.Count.ToString(), Theme.Stone500)));
+        list.Add(Muted("Touchez un membre dans la hiérarchie pour changer sa tâche.", 11));
+        var card = Card(list);
+        card.Padding = new Thickness(12, 10);
+        stack.Add(card);
+    }
+
+    private static void Hierarchy(VerticalStackLayout stack, GamePage page)
+    {
+        var s = page.Session;
+        var rules = s.CampRules;
 
         // Le chef : le héros.
         var hero = s.State.Party.FirstOrDefault(c => c.DefId == s.State.HeroId);
@@ -70,7 +122,11 @@ public static class CampPeople
             stack.Add(Section("Sans grade"));
             foreach (var m in unranked) stack.Add(MemberCard(page, m));
         }
+    }
 
+    private static void Available(VerticalStackLayout stack, GamePage page)
+    {
+        var s = page.Session;
         // PJ en réserve pas encore au camp.
         var available = s.State.Party.Where(c => !c.IsActive && s.CampMember(c.DefId) is null && c.DefId != s.State.HeroId).ToList();
         if (available.Count > 0)
@@ -84,7 +140,11 @@ public static class CampPeople
                     Btn("Intégrer au camp", () => { s.JoinCamp(cid); page.Render(); }))));
             }
         }
+    }
 
+    private static void Log(VerticalStackLayout stack, GamePage page)
+    {
+        var s = page.Session;
         // Journal du camp.
         stack.Add(Section(s.Db.T("camp.log")));
         if (s.State.CampLog.Count == 0) stack.Add(Muted("Rien pour l'instant. Affectez les membres à des tâches, puis laissez passer le temps."));
@@ -100,7 +160,7 @@ public static class CampPeople
     }
 
     /// <summary>Portrait (banque d'images) si le PNJ/PJ en a un, sinon pastille avec l'initiale.</summary>
-    private static View Face(GamePage page, string id, string name, double size, Color color)
+    public static View Face(GamePage page, string id, string name, double size, Color color)
     {
         var db = page.Session.Db;
         var portraitId = db.Npcs.TryGetValue(id, out var npc) ? npc.PortraitId : db.Characters.TryGetValue(id, out var pc) ? pc.PortraitId : null;
@@ -161,7 +221,8 @@ public static class CampPeople
         var s = page.Session;
         var name = s.CharacterName(m.Id);
         var id = m.Id;
-        stack.Add(Pill("◂  " + s.Db.T("camp.people"), () => { page.SelectedCampMember = null; page.Render(); }));
+        stack.Add(Pill("◂  " + s.Db.T(page.CampSection == CampSection.People ? "camp.people" : "camp.manage"),
+            () => { page.SelectedCampMember = null; page.Render(); }));
 
         var description = s.Db.Npcs.TryGetValue(id, out var npc) ? npc.Description : s.Db.Characters.TryGetValue(id, out var pc) ? pc.Description : "";
         var head = new VerticalStackLayout

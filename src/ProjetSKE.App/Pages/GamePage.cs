@@ -19,8 +19,10 @@ public sealed class GamePage : ContentPage
 
     // Mémoire de navigation des onglets (conservée entre deux rafraîchissements).
     public GameTab Tab { get; private set; } = GameTab.Map;
-    public bool CampShowBag { get; set; }
-    public bool CampShowPeople { get; set; }
+    /// <summary>Campement : le cercle autour du feu (Hub), ou l'une de ses parties.</summary>
+    public CampSection CampSection { get; set; } = CampSection.Hub;
+    /// <summary>Persos : liste classique au lieu des cercles.</summary>
+    public bool CampPeopleAsList { get; set; }
     public string? SelectedCampMember { get; set; }
     public int? SelectedCharacter { get; set; }
     /// <summary>Carte : true = vue du royaume, false = vue du lieu actuel.</summary>
@@ -301,6 +303,13 @@ public sealed class GamePage : ContentPage
 
     public void SwitchTab(GameTab tab)
     {
+        // Re-toucher l'onglet du camp ramène autour du feu.
+        if (tab == GameTab.Camp && Tab == GameTab.Camp)
+        {
+            CampSection = CampSection.Hub;
+            SelectedCharacter = null;
+            SelectedCampMember = null;
+        }
         Tab = tab;
         AutoSave();
         Render();

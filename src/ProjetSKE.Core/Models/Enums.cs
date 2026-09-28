@@ -34,7 +34,7 @@ public enum ActionType
     // Divers
     ShowMessage, LeaveParty, MoveNpc, RevealLocation, HideLocation,
     // Campement
-    JoinCamp, LeaveCamp, SetCampRank, SetCampTask,
+    JoinCamp, LeaveCamp, SetCampRank, SetCampTask, AddCampResource, BuildCampBuilding,
     // Quêtes à étapes
     SetQuestStage, FailQuest,
 }
@@ -53,7 +53,7 @@ public enum ConditionType
     // Monde
     AtLocation, Visited, MetNpc, Chance,
     // Campement
-    CampMember, CampRank, CampTask,
+    CampMember, CampRank, CampTask, CampResource, CampBuilt,
     // Quêtes à étapes
     QuestAtStage, QuestStageReached, QuestEnding, QuestFailed,
     // Groupes de conditions

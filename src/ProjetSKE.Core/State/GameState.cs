@@ -111,6 +111,11 @@ public sealed class GameState
     public HashSet<string> RevealedLocations { get; set; } = [];
     public HashSet<string> HiddenLocations { get; set; } = [];
     public List<CampMemberState> Camp { get; set; } = [];
+    /// <summary>Stocks du camp : id de ressource → quantité.</summary>
+    public Dictionary<string, int> CampResources { get; set; } = [];
+    public HashSet<string> CampBuildings { get; set; } = [];
+    /// <summary>Dernier jour où la consommation quotidienne a été comptée.</summary>
+    public int CampLastDay { get; set; }
     /// <summary>Journal du campement (derniers événements, le plus récent à la fin).</summary>
     public List<string> CampLog { get; set; } = [];
     public GameConfig Config { get; set; } = new();

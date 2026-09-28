@@ -420,6 +420,82 @@ public class CampTests
         Assert.Equal(15, s.GetFriendship("mara"));
         Assert.Contains("Merci, Aldric", d.Text);
     }
+
+    [Fact]
+    public void Resources_StartWithInitialStockAndAreConsumedDaily()
+    {
+        var s = NewGame();
+        Assert.Equal(10, s.GetCampResource("nourriture"));
+        var residents = s.State.Camp.Count;
+        s.AdvanceTime(s.Db.Content.Time.HoursPerDay * 60);
+        Assert.Equal(10 - residents, s.GetCampResource("nourriture"));
+        Assert.Equal(5, s.GetCampResource("bois")); // pas de consommation
+    }
+
+    [Fact]
+    public void Resources_ShortageLowersFriendship()
+    {
+        var s = NewGame();
+        s.AddCampResource("nourriture", -100);
+        Assert.Equal(0, s.GetCampResource("nourriture"));
+        var before = s.GetFriendship("bran");
+        s.AdvanceTime(s.Db.Content.Time.HoursPerDay * 60);
+        Assert.Equal(before - 3, s.GetFriendship("bran"));
+        Assert.Contains(s.State.CampLog, l => l.Contains("Pénurie"));
+    }
+
+    [Fact]
+    public void Resources_AreCappedAndUsableInScripts()
+    {
+        var s = NewGame();
+        s.Execute(new GameAction(ActionType.AddCampResource, "bois", 500));
+        Assert.Equal(80, s.GetCampResource("bois"));
+        Assert.True(s.Check(new Condition(ConditionType.CampResource, "bois", 80)));
+    }
+
+    [Fact]
+    public void Buildings_CostResourcesAndUnlockTasks()
+    {
+        var s = NewGame();
+        var atelier = s.CampRules.Buildings.First(b => b.Id == "atelier");
+        Assert.NotNull(s.CannotBuild(atelier)); // pas assez de bois
+        Assert.False(s.Build("atelier"));
+
+        s.AddCampResource("bois", 20);
+        s.State.Gold = 100;
+        Assert.Null(s.CannotBuild(atelier));
+        Assert.True(s.Build("atelier"));
+        Assert.Equal(15, s.GetCampResource("bois"));
+        Assert.Equal(70, s.State.Gold);
+        Assert.True(s.Check(new Condition(ConditionType.CampBuilt, "atelier")));
+        Assert.False(s.Build("atelier"));
+        Assert.True(s.SetCampTask("bran", "forge"));
+    }
+
+    [Fact]
+    public void Buildings_ApplyTheirEffects()
+    {
+        var s = NewGame();
+        var before = s.GetVariable("reputation");
+        s.Execute(new GameAction(ActionType.BuildCampBuilding, "palissade"));
+        Assert.True(s.IsBuilt("palissade"));
+        Assert.Equal(before + 3, s.GetVariable("reputation"));
+        Assert.Equal(5, s.GetCampResource("bois")); // construit par un effet : gratuit
+    }
+
+    [Fact]
+    public void Script_ParsesResourceWords()
+    {
+        var script = "Bran: Du bois ! [ressource bois 4] [construit palissade]\n> Et ? {ressource bois >= 4} {construit palissade}";
+        var nodes = DialogueScript.Parse(script, out var errors);
+        Assert.Empty(errors);
+        var node = nodes[0];
+        Assert.Contains(node.Actions, a => a.Type == ActionType.AddCampResource && a.Arg == "bois" && a.Amount == 4);
+        Assert.Contains(node.Actions, a => a.Type == ActionType.BuildCampBuilding && a.Arg == "palissade");
+        var conds = node.Choices[0].Conditions;
+        Assert.Contains(conds, c => c.Type == ConditionType.CampResource && c.Amount == 4);
+        Assert.Contains(conds, c => c.Type == ConditionType.CampBuilt && c.Arg == "palissade");
+    }
 }
 
 public class DifferenceTests

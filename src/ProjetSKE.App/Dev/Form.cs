@@ -96,13 +96,24 @@ public sealed class Form
         return view;
     }
 
+    /// <summary>
+    /// Nombre à virgule (1,25 ou 1.25). Clavier texte : le clavier chiffres d'Android ne propose pas toujours
+    /// de séparateur décimal. Une saisie invalide est signalée en rouge et n'est pas enregistrée.
+    /// </summary>
     public View DoubleField(string label, double value, Action<double> set, bool add = true)
     {
-        var entry = MakeEntry(value.ToString(CultureInfo.InvariantCulture), Keyboard.Numeric);
+        var entry = MakeEntry(value.ToString(CultureInfo.GetCultureInfo("fr-FR")), Keyboard.Default);
+        entry.Placeholder = "ex : 1,25";
         entry.TextChanged += (_, e) =>
         {
-            var text = (e.NewTextValue ?? "").Replace(',', '.');
-            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)) { set(v); Changed(); }
+            var text = (e.NewTextValue ?? "").Trim().Replace(',', '.').Replace(" ", "");
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
+            {
+                entry.TextColor = Theme.Text;
+                set(v);
+                Changed();
+            }
+            else if (text.Length > 0 && text != "-" && text != ".") entry.TextColor = Theme.Danger;
         };
         var view = Labeled(label, entry);
         if (add) Root.Add(view);
@@ -372,6 +383,13 @@ public sealed class Form
                 RefField("Qui", c.Arg, DevState.CampWho, v => c.Arg = v ?? "", allowNone: false);
                 RefField("Tâche", c.Arg2, DevState.CampTasks, v => c.Arg2 = v ?? "", allowNone: false);
                 break;
+            case ConditionType.CampResource:
+                RefField("Ressource", c.Arg, DevState.CampResources, v => c.Arg = v ?? "", allowNone: false);
+                Compare(c, "Stock");
+                break;
+            case ConditionType.CampBuilt:
+                RefField("Lieu du camp", c.Arg, DevState.CampBuildings, v => c.Arg = v ?? "", allowNone: false);
+                break;
             case ConditionType.QuestAtStage or ConditionType.QuestStageReached or ConditionType.QuestEnding:
                 RefField("Quête", c.Arg, DevState.StagedQuests, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true);
                 RefField(c.Type == ConditionType.QuestEnding ? "Fin (aucune = n'importe quelle fin)" : "Étape", c.Arg2,
@@ -465,6 +483,13 @@ public sealed class Form
             case ActionType.SetCampTask:
                 RefField("Qui", a.Arg, DevState.CampWho, v => a.Arg = v ?? "", allowNone: false);
                 RefField("Tâche (aucune = repos)", a.Arg2, DevState.CampTasks, v => a.Arg2 = v ?? "");
+                break;
+            case ActionType.AddCampResource:
+                RefField("Ressource", a.Arg, DevState.CampResources, v => a.Arg = v ?? "", allowNone: false);
+                IntField("Ajouter (négatif = retirer)", a.Amount, v => a.Amount = v);
+                break;
+            case ActionType.BuildCampBuilding:
+                RefField("Lieu du camp", a.Arg, DevState.CampBuildings, v => a.Arg = v ?? "", allowNone: false);
                 break;
             case ActionType.MoveNpc:
                 RefField("PNJ", a.Arg, DevState.Npcs, v => a.Arg = v ?? "", allowNone: false);
