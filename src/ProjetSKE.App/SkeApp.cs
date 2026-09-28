@@ -67,7 +67,9 @@ public class SkeApp : Application
             else
                 Dev.CloudSync.StartAuto(Dispatcher);
         }
-        var window = new Window(new TitlePage()) { Title = "Projet SKE" };
+        var title = new TitlePage();
+        Ui.Responsive.Apply(title);
+        var window = new Window(title) { Title = "Projet SKE" };
 #if WINDOWS
         // Sur PC : une fenêtre aux proportions d'un téléphone (le jeu est pensé en portrait), redimensionnable.
         window.Width = 480;
@@ -81,6 +83,7 @@ public class SkeApp : Application
     /// <summary>Remplace l'écran affiché (pas de pile de navigation : style menus de jeu).</summary>
     public static void GoTo(Page page)
     {
+        Ui.Responsive.Apply(page);
         if (Current?.Windows.Count > 0) Current.Windows[0].Page = page;
     }
 

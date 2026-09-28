@@ -18,6 +18,10 @@ Règles, sans exception :
 - Une version n'est publiée (Release GitHub : `ProjetSKE.apk` + `ProjetSKE-Windows.zip`) que si **les deux**
   compilent et passent le test (`.github/workflows/build-apk.yml`, job `release` : `needs: [build, emulator-test, windows]`).
 
+- Les écrans s'adaptent à la largeur : sur grand écran, le contenu reste dans une colonne centrée
+  (`Ui/Responsive.cs`, appliqué à toutes les pages par `SkeApp.GoTo`). Toute interaction doit marcher au toucher
+  ET à la souris (pas de geste seul : ajouter des boutons, comme les flèches du choix des héros).
+
 ## Vérifier avant de pousser
 
 - Tests du moteur : `dotnet test tests/ProjetSKE.Core.Tests`

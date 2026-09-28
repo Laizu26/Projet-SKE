@@ -62,7 +62,34 @@ public sealed class CharacterSelectPage : ContentPage
         };
         root.Add(header, 0, 0);
         root.Add(carousel, 0, 1);
-        var footer = new VerticalStackLayout { Spacing = 2, Children = { dots } };
+        // Flèches (souris sur PC, ou toucher) en plus du glissement.
+        View Arrow(string glyph, int step)
+        {
+            var arrow = new Border
+            {
+                WidthRequest = 40, HeightRequest = 40, BackgroundColor = Theme.Stone900, Stroke = Theme.Gold600, StrokeThickness = 1,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 20 },
+                Content = Icon(glyph, 18, Theme.Gold500),
+            };
+            return OnTap(arrow, () =>
+            {
+                var next = Math.Clamp(carousel.Position + step, 0, heroes.Count - 1);
+                if (next != carousel.Position) carousel.Position = next;
+            });
+        }
+        var dotsRow = new Grid
+        {
+            ColumnSpacing = 14,
+            HorizontalOptions = LayoutOptions.Center,
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto) },
+        };
+        dots.Margin = new Thickness(0);
+        dots.VerticalOptions = LayoutOptions.Center;
+        dotsRow.Add(Arrow(Ico.ArrowLeft, -1), 0, 0);
+        dotsRow.Add(dots, 1, 0);
+        dotsRow.Add(Arrow(Ico.ArrowRight, 1), 2, 0);
+        dotsRow.IsVisible = heroes.Count > 1;
+        var footer = new VerticalStackLayout { Spacing = 8, Padding = new Thickness(0, 4, 0, 18), Children = { dotsRow } };
         if (heroes.Count > 1)
         {
             var hint = Caps("Glisse pour voir les autres héros", 9, Theme.Stone500);
