@@ -68,7 +68,11 @@ L'application compare son numéro de compilation à la dernière Release :
 
 L'APK est téléchargé puis l'installateur d'Android s'ouvre (la première fois, Android demande d'autoriser l'application à installer des applis). Les parties, le contenu et le brouillon du mode développeur sont gardés.
 
-Il faut que le dépôt soit **public** : l'application lit les Releases sans identifiant.
+Réglages GitHub nécessaires (une seule fois) :
+
+- dépôt **public** : l'application lit les Releases sans identifiant ;
+- **Settings → Actions → General → Workflow permissions → Read and write permissions** : pour que la compilation publie les Releases ;
+- secret **`SKE_KEYSTORE_PASS`** (Settings → Secrets and variables → Actions) : mot de passe de la clé de signature (voir `signing/LISEZMOI.md`).
 
 ## Mode développeur
 
