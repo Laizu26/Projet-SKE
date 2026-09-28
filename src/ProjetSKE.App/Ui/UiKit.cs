@@ -278,7 +278,7 @@ public static class UiKit
     /// <summary>Rend n'importe quel élément cliquable.</summary>
     public static T OnTap<T>(T view, Action action) where T : View
     {
-        view.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(action) });
+        view.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(() => { Interactive.Flash(view); action(); }) });
         Interactive.Attach(view);
         return view;
     }

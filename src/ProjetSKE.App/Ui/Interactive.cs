@@ -67,10 +67,15 @@ public static class Interactive
             }
         }
 
+#if WINDOWS
+        // Survol : seulement avec une souris (PC). Sur téléphone, un détecteur de pointeur sur un bouton
+        // capterait les touchers et empêcherait le clic.
         var pointer = new PointerGestureRecognizer();
         pointer.PointerEntered += (_, _) => { Save(); rest.Hovered = true; Apply(); };
         pointer.PointerExited += (_, _) => { rest.Hovered = false; Apply(); };
         button.GestureRecognizers.Add(pointer);
+#endif
+        // Appui (souris ou doigt) : événements natifs du bouton, sans rien intercepter.
         button.Pressed += (_, _) => { Save(); rest.Pressed = true; Apply(); };
         button.Released += (_, _) => { rest.Pressed = false; Apply(); };
     }
@@ -111,11 +116,38 @@ public static class Interactive
             }
         }
 
+#if WINDOWS
         var pointer = new PointerGestureRecognizer();
         pointer.PointerEntered += (_, _) => { Save(); rest.Hovered = true; Apply(); };
         pointer.PointerExited += (_, _) => { rest.Hovered = false; rest.Pressed = false; Apply(); };
         pointer.PointerPressed += (_, _) => { Save(); rest.Pressed = true; Apply(); };
         pointer.PointerReleased += (_, _) => { rest.Pressed = false; Apply(); };
         view.GestureRecognizers.Add(pointer);
+#endif
+    }
+
+    /// <summary>
+    /// Éclat doré bref au toucher d'un élément cliquable (appelé par <see cref="UiKit.OnTap{T}"/> avant l'action).
+    /// Sur téléphone, c'est le seul retour visuel (pas de survol) ; sur PC l'appui est déjà doré.
+    /// </summary>
+    public static async void Flash(View view)
+    {
+#if !WINDOWS
+        if (view is Button) return; // les boutons ont déjà leur appui doré
+        var before = view.BackgroundColor;
+        var border = view as Border;
+        var stroke = border?.Stroke;
+        try
+        {
+            view.BackgroundColor = Tint(before, 0.85f);
+            if (border is not null) border.Stroke = PressGold;
+            await Task.Delay(140);
+        }
+        catch (Exception) { }
+        view.BackgroundColor = before;
+        if (border is not null) border.Stroke = stroke;
+#else
+        await Task.CompletedTask;
+#endif
     }
 }
