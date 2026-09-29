@@ -772,6 +772,15 @@ public sealed class LocationEditor : EditorPage
         f.BoolField("Boutique (onglet Boutique)", _x.HasShop, v => _x.Shop = v, rerender: true);
         if (_x.HasShop) f.IdList("Articles de la boutique", _x.ShopItemIds, DevState.Items());
 
+        f.Header("Terrain d'entraînement");
+        f.BoolField("Terrain d'entraînement (combats sans risque)", _x.Training, v => _x.Training = v, rerender: true);
+        if (_x.Training)
+        {
+            f.Note($"On choisit son adversaire. Sans risque : PV/PM rendus, pas de défaite, {DevState.Draft.Balance.TrainingXpPercent} % de l'XP "
+                + "(réglable dans « Équilibrage »), ni or ni butin.");
+            f.IdList("Adversaires d'entraînement", _x.TrainingOpponentIds, DevState.Monsters);
+        }
+
         // Portes de donjon : dans n'importe quel lieu, sous-lieux compris.
         f.Header("Portes de donjon");
         f.IdList("Donjons accessibles d'ici", _x.DungeonIds, DevState.Dungeons);
@@ -957,6 +966,7 @@ public sealed class BalanceEditor : EditorPage
         f.Header("Progression");
         f.IntField("XP par niveau (XP requise = valeur × niveau)", b.XpPerLevel, v => b.XpPerLevel = v);
         f.IntField("Niveau maximum", b.MaxLevel, v => b.MaxLevel = v);
+        f.IntField("XP à l'entraînement (% d'un vrai combat)", b.TrainingXpPercent, v => b.TrainingXpPercent = Math.Max(0, v));
         f.Header("Économie");
         f.IntField("Prix de revente (% du prix d'achat)", b.SellPercent, v => b.SellPercent = v);
         f.Header("Combat");

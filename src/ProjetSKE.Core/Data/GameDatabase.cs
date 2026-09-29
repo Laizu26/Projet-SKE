@@ -184,6 +184,8 @@ public sealed class GameDatabase
         }
         foreach (var l in Content.Locations)
             foreach (var id in l.DungeonIds) Ref(Dungeons, id, $"Lieu « {l.Name} »", "donjon");
+        foreach (var l in Content.Locations)
+            foreach (var id in l.TrainingOpponentIds) Ref(Monsters, id, $"Lieu « {l.Name} » (entraînement)", "adversaire");
         CheckIds(Content.Events.Select(x => x.Id), "Événement");
         foreach (var e in Content.Events)
         {

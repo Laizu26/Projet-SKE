@@ -518,6 +518,70 @@ public sealed class GamePage : ContentPage
         }));
     }
 
+    // ------------------------------------------------------------------ Entraînement
+
+    /// <summary>Terrain d'entraînement : choisir son adversaire (combat sans risque).</summary>
+    public void ShowTraining()
+    {
+        var opponents = Session.TrainingOpponents;
+        if (opponents.Count == 0)
+        {
+            Notify("Personne pour s'entraîner ici.");
+            Render();
+            return;
+        }
+        var list = new VerticalStackLayout { Spacing = 8 };
+        foreach (var m in opponents)
+        {
+            var id = m.Id;
+            var info = new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center };
+            info.Add(Txt(m.Name, 15, Night.Stone100, bold: true));
+            info.Add(Caps($"PV {m.Stats.MaxHp} · ATQ {m.Stats.Attack} · DEF {m.Stats.Defense}", 8, Night.Stone400));
+            var card = Card(IconRow(Emblem(Ico.Swords, 40, Theme.AvatarColor(id)), info), Night.Stone800, Night.Stone700, 12);
+            card.Padding = new Thickness(12, 10);
+            list.Add(OnTap(card, () => StartTraining(id)));
+        }
+        var panel = new Border
+        {
+            BackgroundColor = Night.Stone900,
+            Stroke = Theme.Gold600,
+            StrokeThickness = 1.5,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
+            Padding = new Thickness(16, 18),
+            Margin = new Thickness(20),
+            VerticalOptions = LayoutOptions.Center,
+            Content = new VerticalStackLayout
+            {
+                Spacing = 12,
+                Children =
+                {
+                    IconCaps(Ico.Swords, "Terrain d'entraînement", Theme.Gold500, 10),
+                    new Label { Text = "Contre qui ?", FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100 },
+                    new Label
+                    {
+                        Text = $"Sans risque : PV et PM rendus après, pas de défaite, {Session.Balance.TrainingXpPercent} % de l'XP, ni or ni butin.",
+                        FontSize = 12, TextColor = Night.Stone400,
+                    },
+                    list,
+                    Btn("Annuler", () => { HideOverlay(); Render(); }),
+                },
+            },
+        };
+        ShowOverlay(new ScrollView { Content = panel });
+    }
+
+    public void StartTraining(string opponentId)
+    {
+        HideOverlay();
+        var battle = Session.StartTraining([opponentId]);
+        ShowOverlay(new BattleView(this, battle, () =>
+        {
+            HideOverlay();
+            AutoSave();
+            Render();
+        }));
+    }
+
     // ------------------------------------------------------------------ Donjons
 
     /// <summary>Passe la porte d'un donjon : la carte laisse place à la suite des étapes.</summary>

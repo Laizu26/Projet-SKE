@@ -200,6 +200,9 @@ public static class AutoTest
                 ],
             });
             content.Locations.First(l => l.Id == content.Start.LocationId).DungeonIds.Add("autotest_donjon");
+            var trainingGround = content.Locations.First(l => l.Id == content.Start.LocationId);
+            trainingGround.Training = true;
+            trainingGround.TrainingOpponentIds = [content.Monsters[0].Id];
             var testDb = new Core.Data.GameDatabase(content);
             GamePage? world = null;
             await Step("partie avec portraits", () =>
@@ -298,6 +301,13 @@ public static class AutoTest
                 if (world.OverlayContent is DialogueView view)
                     view.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(1200), () => view.PeekFirstChoice());
             }, 2500);
+            await Step("entraînement : choix de l'adversaire", () =>
+            {
+                world!.Session.State.CurrentLocationId = testDb.Content.Start.LocationId;
+                world.SwitchTab(GameTab.Map);
+                world.ShowTraining();
+            });
+            await Step("entraînement : combat sans risque", () => world!.StartTraining(testDb.Content.Monsters[0].Id), 2000);
             await Step("donjon : porte sur la carte du lieu", () =>
             {
                 world!.Session.State.CurrentLocationId = testDb.Content.Start.LocationId;

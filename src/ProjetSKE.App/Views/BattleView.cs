@@ -72,7 +72,7 @@ public sealed class BattleView : ContentView
             Children =
             {
                 Icon(Ico.Swords, 16, Theme.Gold500),
-                new Label { Text = _page.T("battle.title").ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100, CharacterSpacing = 4 },
+                new Label { Text = (_battle.IsTraining ? "Entraînement" : _page.T("battle.title")).ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100, CharacterSpacing = 4 },
             },
         }, 0, 0);
         header.Add(Caps($"Tour {_battle.Round}", 10, Night.Stone500), 1, 0);
@@ -88,7 +88,7 @@ public sealed class BattleView : ContentView
         foreach (var c in _battle.Allies.Concat(_battle.Enemies)) _shown[c] = (c.Hp, c.Mana);
 
         // L'écran se fissure avec les PV du héros, et éclate à la défaite.
-        _page.UpdateCracks(HeroPercent());
+        if (!_battle.IsTraining) _page.UpdateCracks(HeroPercent()); // entraînement : pas de fissures
         if (_shatter && !_shatterStarted)
         {
             _shatterStarted = true;
@@ -449,7 +449,7 @@ public sealed class BattleView : ContentView
             case BattleOutcome.Victory:
             {
                 var r = session.ApplyVictory(_battle);
-                var lines = new List<string> { $"+{r.Xp} {_page.T("xp")}   ·   +{r.Gold} {_page.T("money")}" };
+                var lines = new List<string> { _battle.IsTraining ? $"Entraînement : +{r.Xp} {_page.T("xp")}" : $"+{r.Xp} {_page.T("xp")}   ·   +{r.Gold} {_page.T("money")}" };
                 if (r.ItemIds.Count > 0)
                     lines.Add("Butin : " + string.Join(", ", r.ItemIds.Select(id => session.Db.Items[id].Name)));
                 lines.AddRange(r.LevelUps);
@@ -460,7 +460,14 @@ public sealed class BattleView : ContentView
             }
             case BattleOutcome.Defeat:
             {
-                var d = session.ApplyDefeat();
+                var d = session.ApplyDefeat(_battle);
+                if (_battle.IsTraining)
+                {
+                    // Entraînement perdu : aucune conséquence.
+                    _resultTitle = "ENTRAÎNEMENT PERDU";
+                    _resultText = "Personne n'est blessé : l'équipe se relève, prête à recommencer.";
+                    break;
+                }
                 _gameOver = d.IsGameOver;
                 var cracks = session.Db.Content.World.Cracks;
                 _shatter = cracks.Enabled || _gameOver;
@@ -471,9 +478,9 @@ public sealed class BattleView : ContentView
                 break;
             }
             default:
-                session.AfterFlee();
-                _resultTitle = "FUITE";
-                _resultText = "Vous avez pris la fuite.";
+                session.AfterFlee(_battle);
+                _resultTitle = _battle.IsTraining ? "ENTRAÎNEMENT ARRÊTÉ" : "FUITE";
+                _resultText = _battle.IsTraining ? "Fin de l'entraînement : chacun se remet." : "Vous avez pris la fuite.";
                 break;
         }
     }

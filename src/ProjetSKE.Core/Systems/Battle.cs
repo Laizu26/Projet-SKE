@@ -115,7 +115,16 @@ public sealed class Battle
 
     public bool IsPlayerTurn => Outcome == BattleOutcome.Ongoing && CurrentActor is { IsAlly: true };
     public bool HasBoss => Enemies.Any(e => e.IsBoss);
-    public bool CanFlee => _session.Config.Flee != FleeRule.Never && !HasBoss;
+    public bool CanFlee => IsTraining || (_session.Config.Flee != FleeRule.Never && !HasBoss);
+
+    /// <summary>
+    /// Combat d'entraînement : sans risque. PV et PM reviennent à leur état d'avant, pas de défaite (ni game over),
+    /// pas d'or ni de butin, XP réduite (réglage d'équilibrage), et on peut toujours arrêter.
+    /// </summary>
+    public bool IsTraining { get; init; }
+
+    /// <summary>PV et PM de l'équipe avant un entraînement (rendus à la fin).</summary>
+    internal List<(CharacterState Character, int Hp, int Mana)> Before { get; } = [];
 
     internal Battle(GameSession session, IReadOnlyList<string> monsterIds, string? fixedBattleId)
     {

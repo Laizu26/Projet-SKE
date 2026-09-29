@@ -295,6 +295,9 @@ public sealed class LocationDef
     public bool? Shop { get; set; }
     /// <summary>Portes de donjon dans ce lieu.</summary>
     public List<string> DungeonIds { get; set; } = [];
+    /// <summary>Terrain d'entraînement : combats sans risque contre ces adversaires.</summary>
+    public bool Training { get; set; }
+    public List<string> TrainingOpponentIds { get; set; } = [];
     public List<EncounterGroup> RandomEncounters { get; set; } = [];
     /// <summary>Probabilité (0 à 1) d'une rencontre aléatoire en arrivant ici.</summary>
     public double EncounterChance { get; set; }
@@ -668,6 +671,8 @@ public sealed class BalanceSettings
     public int MaxLevel { get; set; } = 99;
     /// <summary>Prix de revente en % du prix d'achat.</summary>
     public int SellPercent { get; set; } = 50;
+    /// <summary>XP gagnée à l'entraînement, en % de celle d'un vrai combat (0 = aucune).</summary>
+    public int TrainingXpPercent { get; set; } = 50;
     /// <summary>Dégâts physiques = ATQ × puissance − DEF × ce facteur.</summary>
     public double PhysicalDefenseFactor { get; set; } = 0.5;
     /// <summary>Dégâts magiques = MAG × puissance × ce multiplicateur − DEF × facteur magique.</summary>

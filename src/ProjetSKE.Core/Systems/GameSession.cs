@@ -1650,9 +1650,42 @@ public sealed partial class GameSession
     public Battle StartBattle(IReadOnlyList<string> monsterIds, string? fixedBattleId = null) =>
         new(this, monsterIds.Where(Db.Monsters.ContainsKey).ToList(), fixedBattleId);
 
+    /// <summary>Adversaires du terrain d'entraînement du lieu actuel (vide = pas de terrain).</summary>
+    public IReadOnlyList<MonsterDef> TrainingOpponents =>
+        CurrentLocation.Training ? CurrentLocation.TrainingOpponentIds.Where(Db.Monsters.ContainsKey).Select(id => Db.Monsters[id]).ToList() : [];
+
+    /// <summary>Combat d'entraînement (sans risque) : voir <see cref="Battle.IsTraining"/>.</summary>
+    public Battle StartTraining(IReadOnlyList<string> opponentIds)
+    {
+        var before = ActiveParty.Select(c => (c, c.CurrentHp, c.CurrentMana)).ToList();
+        var battle = new Battle(this, opponentIds.Where(Db.Monsters.ContainsKey).ToList(), null) { IsTraining = true };
+        battle.Before.AddRange(before);
+        return battle;
+    }
+
+    /// <summary>Fin d'un entraînement : chacun retrouve ses PV et PM d'avant.</summary>
+    private void EndTraining(Battle battle)
+    {
+        foreach (var (c, hp, mana) in battle.Before)
+        {
+            c.CurrentHp = hp;
+            c.CurrentMana = mana;
+        }
+    }
+
     public BattleRewards ApplyVictory(Battle battle)
     {
         AdvanceTime(Db.Content.Time.BattleMinutes);
+        if (battle.IsTraining)
+        {
+            // Entraînement : XP réduite seulement (ni or, ni butin, ni quête), puis chacun se remet.
+            var trainingXp = battle.Enemies.Sum(e => e.Monster!.Xp) * Math.Clamp(Balance.TrainingXpPercent, 0, 1000) / 100;
+            var ups = new List<string>();
+            foreach (var c in ActiveParty)
+                if (GiveXp(c, trainingXp) > 0) ups.Add($"{DefOf(c).Name} passe niveau {c.Level} !");
+            EndTraining(battle);
+            return new BattleRewards(trainingXp, 0, [], ups);
+        }
         var monsters = battle.Enemies.Select(e => e.Monster!).ToList();
         // Passifs de l'équipe : bonus d'XP et d'or en %.
         var xp = monsters.Sum(m => m.Xp);
@@ -1681,6 +1714,15 @@ public sealed partial class GameSession
         return new BattleRewards(xp, gold, items, levelUps);
     }
 
+    /// <summary>Défaite ; un entraînement perdu n'a aucune conséquence (on se relève, rien n'est perdu).</summary>
+    public DefeatResult ApplyDefeat(Battle battle)
+    {
+        if (!battle.IsTraining) return ApplyDefeat();
+        AdvanceTime(Db.Content.Time.BattleMinutes);
+        EndTraining(battle);
+        return new DefeatResult(false, 0, null);
+    }
+
     public DefeatResult ApplyDefeat()
     {
         if (Config.Defeat == DefeatRule.GameOver) return new DefeatResult(true, 0, null);
@@ -1691,6 +1733,14 @@ public sealed partial class GameSession
         State.Dungeon = null; // vaincu : on est ramené hors du donjon
         HealAll();
         return new DefeatResult(false, lost, State.LastCityId);
+    }
+
+    /// <summary>Fuite ; arrêter un entraînement remet chacun en l'état d'avant.</summary>
+    public void AfterFlee(Battle battle)
+    {
+        if (!battle.IsTraining) { AfterFlee(); return; }
+        AdvanceTime(Db.Content.Time.BattleMinutes);
+        EndTraining(battle);
     }
 
     public void AfterFlee()

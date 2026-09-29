@@ -319,6 +319,9 @@ public sealed class MapView : ContentView
                 $"Quitter {loc.Name} : retour à la carte ({country}).", Theme.Stone600, $"Sortir de {loc.Name}",
                 () => { _page.MapShowCountry = true; _page.Render(); }));
         }
+        if (loc.Training && S.TrainingOpponents.Count > 0)
+            list.Add(new Building("training", Ico.Swords, "Terrain d'entraînement", "Combats sans risque pour s'exercer.", Theme.Blue600,
+                "S'entraîner", _page.ShowTraining));
         // Portes de donjon (dans n'importe quel lieu, sous-lieux compris).
         foreach (var d in S.DungeonsHere)
         {
