@@ -160,10 +160,12 @@ public static class Updates
             if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
             System.IO.Compression.ZipFile.ExtractToDirectory(zip, staging);
         });
-        // Le jeu est dans le dossier « ProjetSKE » du .zip (ou directement à la racine, pour les anciennes versions).
-        var source = File.Exists(Path.Combine(staging, "ProjetSKE.App.exe")) ? staging
-            : Directory.GetDirectories(staging).FirstOrDefault(d => File.Exists(Path.Combine(d, "ProjetSKE.App.exe")))
-              ?? throw new IOException("le fichier téléchargé ne contient pas le jeu (ProjetSKE.App.exe)");
+        // Le jeu est dans ProjetSKE\fichiers du .zip (ou plus haut, pour les anciennes versions) : on prend le dossier
+        // de ProjetSKE.App.exe le moins profond, et on le recopie sur le dossier du jeu installé (le lanceur, à côté, ne bouge pas).
+        var found = Directory.GetFiles(staging, "ProjetSKE.App.exe", SearchOption.AllDirectories)
+            .OrderBy(f => f.Count(c => c == Path.DirectorySeparatorChar)).FirstOrDefault()
+            ?? throw new IOException("le fichier téléchargé ne contient pas le jeu (ProjetSKE.App.exe)");
+        var source = Path.GetDirectoryName(found)!;
         Trace("décompressée : " + source);
         var appDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
         var exe = Environment.ProcessPath ?? Path.Combine(appDir, "ProjetSKE.App.exe");

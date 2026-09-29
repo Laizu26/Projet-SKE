@@ -7,7 +7,7 @@ RPG en C# (.NET MAUI), **sur téléphone Android et sur PC Windows** : une seule
 Chaque version publiée se trouve dans les **Releases** du dépôt GitHub (colonne de droite, « Releases »), avec deux fichiers :
 
 - **ProjetSKE.apk** : pour le téléphone. Ouvre-le et autorise l'installation d'applications de sources inconnues.
-- **ProjetSKE-Windows.zip** : pour le PC. Décompresse-le où tu veux (par exemple dans `Documents`) : tout arrive dans un seul dossier **ProjetSKE**. Ouvre-le et lance **ProjetSKE.App.exe** (les mises à jour se font ensuite dans l'appli). Si Windows affiche « Windows a protégé votre ordinateur », clique sur **Informations complémentaires** puis **Exécuter quand même** (l'appli n'est pas signée par un éditeur connu).
+- **ProjetSKE-Windows.zip** : pour le PC. Décompresse-le où tu veux (par exemple dans `Documents`) : tout arrive dans un seul dossier **ProjetSKE**, qui contient seulement **Projet SKE.exe** (à lancer ; tu peux en faire un raccourci sur le bureau) et le dossier **fichiers** (le jeu, à ne pas toucher). Les mises à jour se font ensuite dans l'appli. Si Windows affiche « Windows a protégé votre ordinateur », clique sur **Informations complémentaires** puis **Exécuter quand même** (l'appli n'est pas signée par un éditeur connu).
 
 Ensuite, les deux se mettent à jour tout seuls depuis l'écran titre. Sur PC, le jeu se ferme, remplace ses fichiers et se relance. Les parties et le contenu sont gardés (ils sont dans le dossier de l'utilisateur, pas dans celui du jeu).
 
