@@ -60,6 +60,7 @@ public static class ContentMerger
             Variables = MergeList("Variable", @base.Variables, local.Variables, remote.Variables, x => x.Id, x => x.Name, ctx.VariableDef, conflicts),
             Powers = MergeList("Pouvoir", @base.Powers, local.Powers, remote.Powers, x => x.Id, x => x.Name, ctx.PowerDef, conflicts),
             Passives = MergeList("Passif", @base.Passives, local.Passives, remote.Passives, x => x.Id, x => x.Name, ctx.PassiveDef, conflicts),
+            Dungeons = MergeList("Donjon", @base.Dungeons, local.Dungeons, remote.Dungeons, x => x.Id, x => x.Name, ctx.DungeonDef, conflicts),
             Events = MergeList("Événement", @base.Events, local.Events, remote.Events, x => x.Id, x => x.Name, ctx.CalendarEventDef, conflicts),
             Gauges = MergeList("Jauge", @base.Gauges, local.Gauges, remote.Gauges, x => x.Id, x => x.Name, ctx.CharacterGaugeDef, conflicts),
             Tutorial = MergeValue("Prologue", "tutorial", @base.Tutorial, local.Tutorial, remote.Tutorial, ctx.TutorialSettings, conflicts),
@@ -225,6 +226,7 @@ public static class ContentMerger
             case "Jauge": return Put(content.Gauges, ctx.CharacterGaugeDef, x => x.Id);
             case "Passif": return Put(content.Passives, ctx.PassiveDef, x => x.Id);
             case "Événement": return Put(content.Events, ctx.CalendarEventDef, x => x.Id);
+            case "Donjon": return Put(content.Dungeons, ctx.DungeonDef, x => x.Id);
             case "Pouvoir": return Put(content.Powers, ctx.PowerDef, x => x.Id);
             case "Prologue":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.TutorialSettings) is { } tutorial) { content.Tutorial = tutorial; return true; }
@@ -275,7 +277,8 @@ public static class ContentMerger
             + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings) + Value(a.Love, b.Love, ctx.ScaleSettings)
             + Value(a.Camp, b.Camp, ctx.CampSettings)
             + Lists(a.Gauges, b.Gauges, x => x.Id, ctx.CharacterGaugeDef) + Lists(a.Passives, b.Passives, x => x.Id, ctx.PassiveDef)
-            + Lists(a.Powers, b.Powers, x => x.Id, ctx.PowerDef) + Lists(a.Events, b.Events, x => x.Id, ctx.CalendarEventDef) + Value(a.Tutorial, b.Tutorial, ctx.TutorialSettings);
+            + Lists(a.Powers, b.Powers, x => x.Id, ctx.PowerDef) + Lists(a.Events, b.Events, x => x.Id, ctx.CalendarEventDef)
+            + Lists(a.Dungeons, b.Dungeons, x => x.Id, ctx.DungeonDef) + Value(a.Tutorial, b.Tutorial, ctx.TutorialSettings);
     }
 
     /// <summary>Résumé lisible d'un contenu (pour l'historique).</summary>

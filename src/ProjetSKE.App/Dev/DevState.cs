@@ -233,6 +233,7 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Events => Draft.Events.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> Dungeons => Draft.Dungeons.Select(x => (x.Id, x.Name));
 
     /// <summary>Choix d'un dialogue, pour la condition « A choisi » : « réplique:choix ».</summary>
     public static IEnumerable<(string Id, string Name)> ChoicesOf(string dialogueId) =>
@@ -403,6 +404,7 @@ public static class DevState
         ConditionType.WeekDay => "Jour de la semaine",
         ConditionType.Month => "Mois",
         ConditionType.EventActive => "Événement en cours (calendrier)",
+        ConditionType.DungeonDone => "Donjon terminé",
         ConditionType.AtLocation => "Se trouve à un lieu",
         ConditionType.Visited => "A déjà visité un lieu",
         ConditionType.MetNpc => "A déjà parlé à un PNJ",
@@ -450,6 +452,13 @@ public static class DevState
         SkillKind.Heal => "Soin (MAG)",
         SkillKind.Status => "Effets seulement (bonus, poison...)",
         _ => "Résurrection (allié K.O.)",
+    };
+
+    public static string Name(DungeonStepType t) => t switch
+    {
+        DungeonStepType.Battle => "Combat",
+        DungeonStepType.Dialogue => "Dialogue",
+        _ => "Effets (trésor, repos...)",
     };
 
     public static string Name(EffectType t) => t switch

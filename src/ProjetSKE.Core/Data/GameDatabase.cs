@@ -13,6 +13,7 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, CharacterGaugeDef> Gauges { get; }
     public IReadOnlyDictionary<string, PassiveDef> Passives { get; }
     public IReadOnlyDictionary<string, CalendarEventDef> Events { get; }
+    public IReadOnlyDictionary<string, DungeonDef> Dungeons { get; }
     public IReadOnlyDictionary<string, PowerDef> Powers { get; }
 
     /// <summary>Compétences d'un pouvoir, par niveau d'apprentissage.</summary>
@@ -90,6 +91,7 @@ public sealed class GameDatabase
         Gauges = Index(content.Gauges, g => g.Id);
         Passives = Index(content.Passives, p => p.Id);
         Events = Index(content.Events, e => e.Id);
+        Dungeons = Index(content.Dungeons, d => d.Id);
         Powers = Index(content.Powers, p => p.Id);
     }
 
@@ -159,6 +161,29 @@ public sealed class GameDatabase
         CheckIds(Content.Monsters.Select(x => x.Id), "Monstre");
         CheckIds(Content.Gauges.Select(x => x.Id), "Jauge");
         CheckIds(Content.Passives.Select(x => x.Id), "Passif");
+        CheckIds(Content.Dungeons.Select(x => x.Id), "Donjon");
+        foreach (var d in Content.Dungeons)
+        {
+            var w = $"Donjon « {d.Name} »";
+            Check(d.Steps.Count > 0, $"{w} : aucune étape");
+            CheckConditions(d.Conditions, w);
+            CheckActions(d.CompleteActions, w);
+            for (var i = 0; i < d.Steps.Count; i++)
+            {
+                var st = d.Steps[i];
+                var ws = $"{w}, étape {i + 1}";
+                if (st.Type == DungeonStepType.Battle)
+                {
+                    Check(st.MonsterIds.Count > 0, $"{ws} : combat sans adversaire");
+                    foreach (var id in st.MonsterIds) Ref(Monsters, id, ws, "monstre");
+                }
+                if (st.Type == DungeonStepType.Dialogue) Check(st.DialogueId is { } did && Dialogues.ContainsKey(did), $"{ws} : dialogue « {st.DialogueId} » introuvable");
+                CheckConditions(st.Conditions, ws);
+                CheckActions(st.Actions, ws);
+            }
+        }
+        foreach (var l in Content.Locations)
+            foreach (var id in l.DungeonIds) Ref(Dungeons, id, $"Lieu « {l.Name} »", "donjon");
         CheckIds(Content.Events.Select(x => x.Id), "Événement");
         foreach (var e in Content.Events)
         {
@@ -451,6 +476,7 @@ public sealed class GameDatabase
                     case ConditionType.AtLocation or ConditionType.Visited: Ref(Locations, c.Arg, w, "lieu"); break;
                     case ConditionType.MetNpc: Ref(Npcs, c.Arg, w, "PNJ"); break;
                     case ConditionType.EventActive: Ref(Events, c.Arg, w, "événement"); break;
+                    case ConditionType.DungeonDone: Ref(Dungeons, c.Arg, w, "donjon"); break;
                     case ConditionType.Karma when !c.Arg.StartsWith('@'): Ref(Characters, c.Arg, w, "personnage"); break;
                     case ConditionType.HasPower:
                         Check(Powers.ContainsKey(c.Arg2), $"{w} : pouvoir « {c.Arg2} » introuvable");

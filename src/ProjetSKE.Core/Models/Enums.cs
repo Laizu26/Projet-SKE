@@ -128,7 +128,12 @@ public enum ConditionType
     EventActive,
     // Amour (comme l'amitié)
     Love,
+    // Donjon terminé
+    DungeonDone,
 }
+
+/// <summary>Type d'étape d'un donjon.</summary>
+public enum DungeonStepType { Battle, Dialogue, Effects }
 
 /// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>
 public enum DialogueStyle { Classic, Cinematic }

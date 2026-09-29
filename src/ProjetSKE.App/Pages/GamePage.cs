@@ -292,7 +292,8 @@ public sealed class GamePage : ContentPage
             GameTab.Shop => new ShopView(this),
             GameTab.Journal => new JournalView(this),
             GameTab.Menu => new MenuView(this),
-            _ => new MapView(this),
+            // Dans un donjon : pas de carte, seulement la suite des étapes.
+            _ => Session.State.Dungeon is not null ? new DungeonView(this) : new MapView(this),
         };
         // Même écran qu'avant (ex : on ouvre un emplacement d'équipement) : on garde la position de défilement.
         // Nouvel écran (autre onglet, autre fiche...) : on repart du haut.
@@ -487,12 +488,13 @@ public sealed class GamePage : ContentPage
             HideOverlay();
             AutoSave();
             Render();
-            if (runner.PendingBattle is { } monsters) StartBattle(monsters);
+            // Un combat lancé par le dialogue passe avant la suite (qui attend la fin du combat).
+            if (runner.PendingBattle is { } monsters) StartBattle(monsters, onEnd: onEnd is null ? null : _ => onEnd());
             else onEnd?.Invoke();
         }));
     }
 
-    public void StartBattle(IReadOnlyList<string> monsterIds, string? fixedBattleId = null)
+    public void StartBattle(IReadOnlyList<string> monsterIds, string? fixedBattleId = null, Action<BattleOutcome>? onEnd = null)
     {
         var battle = Session.StartBattle(monsterIds, fixedBattleId);
         ShowOverlay(new BattleView(this, battle, () =>
@@ -511,8 +513,71 @@ public sealed class GamePage : ContentPage
                 _ => null,
             };
             if (after is not null && !Session.Db.Dialogues.ContainsKey(after)) after = null;
-            if (after is not null) ShowDialogue(after);
+            if (after is not null) ShowDialogue(after, () => onEnd?.Invoke(battle.Outcome));
+            else onEnd?.Invoke(battle.Outcome);
         }));
+    }
+
+    // ------------------------------------------------------------------ Donjons
+
+    /// <summary>Passe la porte d'un donjon : la carte laisse place à la suite des étapes.</summary>
+    public void EnterDungeon(string dungeonId)
+    {
+        if (!Session.EnterDungeon(dungeonId))
+        {
+            Notify("La porte est fermée.");
+            Render();
+            return;
+        }
+        MapSelectedBuilding = null;
+        SwitchTab(GameTab.Map);
+        AutoSave();
+    }
+
+    /// <summary>Joue l'étape en cours du donjon : combat, dialogue ou effets ; puis on revient à la suite du donjon.</summary>
+    public void PlayDungeonStep()
+    {
+        if (Session.DungeonStep is not { } step) return;
+        switch (step.Type)
+        {
+            case Core.Models.DungeonStepType.Battle:
+                StartBattle(step.MonsterIds, onEnd: outcome =>
+                {
+                    if (outcome == BattleOutcome.Victory) DungeonStepDone();
+                    else if (outcome == BattleOutcome.Fled)
+                    {
+                        Session.LeaveDungeon();
+                        Notify("Tu t'es enfui du donjon.");
+                        AutoSave();
+                        Render();
+                    }
+                });
+                break;
+            case Core.Models.DungeonStepType.Dialogue:
+                ShowDialogue(step.DialogueId ?? "", DungeonStepDone);
+                break;
+            default:
+                DungeonStepDone();
+                break;
+        }
+    }
+
+    private void DungeonStepDone()
+    {
+        // Vaincu pendant l'étape (dialogue qui lance un combat perdu...) : le donjon est déjà quitté.
+        if (Session.State.Dungeon is null) { Render(); return; }
+        var name = Session.CurrentDungeon?.Name ?? "";
+        if (Session.CompleteDungeonStep()) Notify($"Donjon terminé : {name}");
+        AutoSave();
+        Render();
+    }
+
+    public void LeaveDungeon()
+    {
+        Session.LeaveDungeon();
+        Notify("Tu quittes le donjon.");
+        AutoSave();
+        Render();
     }
 
     /// <summary>

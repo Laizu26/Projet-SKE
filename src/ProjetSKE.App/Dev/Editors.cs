@@ -772,6 +772,11 @@ public sealed class LocationEditor : EditorPage
         f.BoolField("Boutique (onglet Boutique)", _x.HasShop, v => _x.Shop = v, rerender: true);
         if (_x.HasShop) f.IdList("Articles de la boutique", _x.ShopItemIds, DevState.Items());
 
+        // Portes de donjon : dans n'importe quel lieu, sous-lieux compris.
+        f.Header("Portes de donjon");
+        f.IdList("Donjons accessibles d'ici", _x.DungeonIds, DevState.Dungeons);
+        f.Add(Form.SmallButton("+ Nouveau donjon avec sa porte ici", () => SkeApp.GoTo(new DungeonEditor(DungeonLists.CreateIn(_x)))));
+
         f.Header("Combats");
         f.DoubleField("Chance de rencontre en arrivant (0 à 1)", _x.EncounterChance, v => _x.EncounterChance = v);
         f.ObjectList("Groupes de rencontre aléatoire", _x.RandomEncounters, () => new EncounterGroup(), (gf, g, _) =>

@@ -432,6 +432,10 @@ public sealed class Form
             case ConditionType.MetNpc:
                 RefField("PNJ", c.Arg, DevState.Npcs, v => c.Arg = v ?? "", allowNone: false);
                 break;
+            case ConditionType.DungeonDone:
+                RefField("Donjon", c.Arg, DevState.Dungeons, v => c.Arg = v ?? "", allowNone: false,
+                    emptyHint: "Aucun donjon : crée-en un dans « Donjons » (menu du mode dev).");
+                break;
             case ConditionType.EventActive:
                 RefField("Événement", c.Arg, DevState.Events, v => c.Arg = v ?? "", allowNone: false,
                     emptyHint: "Aucun événement : crée-en un dans le « Calendrier » (menu du mode dev).");

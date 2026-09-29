@@ -293,6 +293,8 @@ public sealed class LocationDef
     public bool? Inn { get; set; }
     /// <summary>Boutique dans ce lieu (null = réglage d'avant : oui pour une ville principale, non ailleurs).</summary>
     public bool? Shop { get; set; }
+    /// <summary>Portes de donjon dans ce lieu.</summary>
+    public List<string> DungeonIds { get; set; } = [];
     public List<EncounterGroup> RandomEncounters { get; set; } = [];
     /// <summary>Probabilité (0 à 1) d'une rencontre aléatoire en arrivant ici.</summary>
     public double EncounterChance { get; set; }
@@ -976,6 +978,43 @@ public sealed class GameContent
     public List<PowerDef> Powers { get; set; } = [];
     /// <summary>Événements du calendrier (fêtes, marchés, éclipses...), réglés dans le calendrier du mode développeur.</summary>
     public List<CalendarEventDef> Events { get; set; } = [];
+    /// <summary>Donjons : suites de combats et de dialogues, sans carte, entrés par une porte posée dans un lieu.</summary>
+    public List<DungeonDef> Dungeons { get; set; } = [];
+}
+
+/// <summary>
+/// Donjon : une succession d'étapes (combats, dialogues, effets) jouées dans l'ordre, sans carte.
+/// On y entre par une porte posée dans n'importe quel lieu (ou sous-lieu) : voir <see cref="LocationDef.DungeonIds"/>.
+/// </summary>
+public sealed class DungeonDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    /// <summary>La porte n'est ouverte que si ces conditions sont remplies (sinon elle est affichée fermée).</summary>
+    public List<Condition> Conditions { get; set; } = [];
+    public string LockedMessage { get; set; } = "";
+    /// <summary>On peut le refaire une fois terminé.</summary>
+    public bool Repeatable { get; set; }
+    public List<DungeonStep> Steps { get; set; } = [];
+    /// <summary>Effets quand le donjon est terminé (récompense, flag, quête...).</summary>
+    public List<GameAction> CompleteActions { get; set; } = [];
+}
+
+/// <summary>Étape d'un donjon.</summary>
+public sealed class DungeonStep
+{
+    /// <summary>Nom affiché (ex : « La crypte »).</summary>
+    public string Name { get; set; } = "";
+    public DungeonStepType Type { get; set; }
+    /// <summary>Combat : les adversaires (monstres ou PNJ combattants).</summary>
+    public List<string> MonsterIds { get; set; } = [];
+    /// <summary>Dialogue : celui qui est joué.</summary>
+    public string? DialogueId { get; set; }
+    /// <summary>Effets une fois l'étape réussie (ou, pour une étape « Effets », joués directement).</summary>
+    public List<GameAction> Actions { get; set; } = [];
+    /// <summary>L'étape n'a lieu que si ces conditions sont remplies (sinon elle est sautée).</summary>
+    public List<Condition> Conditions { get; set; } = [];
 }
 
 /// <summary>

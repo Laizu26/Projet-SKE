@@ -298,6 +298,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Nav($"Pouvoirs ({c.Powers.Count})", Editors.PowerList));
         stack.Add(Nav($"Passifs ({c.Passives.Count})", Editors.PassiveList));
         stack.Add(Nav($"Lieux et carte ({c.Locations.Count})", Editors.LocationList));
+        stack.Add(Nav($"Donjons ({c.Dungeons.Count})", DungeonLists.DungeonList));
         stack.Add(Nav($"Départs de partie ({1 + c.ExtraStarts.Count})", () => new StartsPage()));
         stack.Add(Nav("Prologue (tutoriel)" + (c.Tutorial.Enabled ? " · proposé" : " · désactivé"), () => new TutorialEditor()));
         stack.Add(Nav("Équilibrage", () => new BalanceEditor()));

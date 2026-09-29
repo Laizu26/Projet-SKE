@@ -188,6 +188,18 @@ public static class AutoTest
                 Url = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png",
             });
             foreach (var npc in content.Npcs) npc.PortraitId = "test";
+            // Donjon de test : une porte au lieu de départ (effets, dialogue, combat).
+            content.Dungeons.Add(new Core.Models.DungeonDef
+            {
+                Id = "autotest_donjon", Name = "Crypte (test)", Description = "Une suite d'épreuves sans carte.",
+                Steps =
+                [
+                    new() { Name = "Coffre", Type = Core.Models.DungeonStepType.Effects, Actions = [new(Core.Models.ActionType.GiveGold, "", 5)] },
+                    new() { Name = "Rencontre", Type = Core.Models.DungeonStepType.Dialogue, DialogueId = content.Dialogues[0].Id },
+                    new() { Name = "Gardien", Type = Core.Models.DungeonStepType.Battle, MonsterIds = [content.Monsters[0].Id] },
+                ],
+            });
+            content.Locations.First(l => l.Id == content.Start.LocationId).DungeonIds.Add("autotest_donjon");
             var testDb = new Core.Data.GameDatabase(content);
             GamePage? world = null;
             await Step("partie avec portraits", () =>
@@ -286,6 +298,18 @@ public static class AutoTest
                 if (world.OverlayContent is DialogueView view)
                     view.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(1200), () => view.PeekFirstChoice());
             }, 2500);
+            await Step("donjon : porte sur la carte du lieu", () =>
+            {
+                world!.Session.State.CurrentLocationId = testDb.Content.Start.LocationId;
+                world.SwitchTab(GameTab.Map);
+                world.MapShowCountry = false;
+                world.MapSelectedBuilding = "dungeon:autotest_donjon";
+                world.Render();
+            });
+            await Step("donjon : entrer (plus de carte, la suite des épreuves)", () => world!.EnterDungeon("autotest_donjon"));
+            await Step("donjon : épreuve « effets » (avancer)", () => world!.PlayDungeonStep());
+            await Step("donjon : épreuve « dialogue »", () => world!.PlayDungeonStep(), 2000);
+            await Step("donjon : quitter", () => world!.LeaveDungeon());
             await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
             // Prologue : interface verrouillée puis débloquée, combat limité, fin vers le choix du héros.
             Core.Data.GameDatabase? prologueDb = null;
@@ -340,6 +364,12 @@ public static class AutoTest
             await Step("éditeur : accueil", () => SkeApp.GoTo(new DevHomePage()));
             await Step("éditeur : monde", () => SkeApp.GoTo(new WorldEditor()));
             await Step("éditeur : temps", () => SkeApp.GoTo(new TimeEditor()));
+            await Step("éditeur : donjons", () => SkeApp.GoTo(DungeonLists.DungeonList()));
+            await Step("éditeur : donjon", () =>
+            {
+                var loc = DevState.Draft.Locations.FirstOrDefault(l => l.ParentId is not null) ?? DevState.Draft.Locations[0];
+                SkeApp.GoTo(new DungeonEditor(DevState.Draft.Dungeons.FirstOrDefault() ?? DungeonLists.CreateIn(loc)));
+            });
             await Step("éditeur : calendrier des événements", () =>
             {
                 if (DevState.Draft.Events.Count == 0)

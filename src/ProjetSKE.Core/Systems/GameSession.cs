@@ -201,6 +201,7 @@ public sealed partial class GameSession
         ConditionType.WeekDay => SameName(Clock.WeekDay, c.Arg),
         ConditionType.Month => SameName(Clock.Month, c.Arg),
         ConditionType.EventActive => IsEventActive(c.Arg),
+        ConditionType.DungeonDone => State.DungeonsDone.Contains(c.Arg),
         // Être dans une taverne de Havrefort, c'est aussi être à Havrefort.
         ConditionType.AtLocation => Db.IsWithin(State.CurrentLocationId, c.Arg),
         ConditionType.Visited => State.SeenLocations.Contains(c.Arg),
@@ -477,6 +478,63 @@ public sealed partial class GameSession
         UpdateCamp();
         UpdateEvents(before);
     }
+
+    // ------------------------------------------------------------------ Donjons
+
+    /// <summary>Portes de donjon du lieu actuel.</summary>
+    public IEnumerable<DungeonDef> DungeonsHere =>
+        CurrentLocation.DungeonIds.Where(Db.Dungeons.ContainsKey).Select(id => Db.Dungeons[id]);
+
+    /// <summary>La porte est ouverte : conditions remplies, et pas déjà terminé (sauf donjon qu'on peut refaire).</summary>
+    public bool CanEnterDungeon(DungeonDef d) =>
+        d.Steps.Count > 0 && CheckAll(d.Conditions) && (d.Repeatable || !State.DungeonsDone.Contains(d.Id));
+
+    public DungeonDef? CurrentDungeon => State.Dungeon is { } run ? Db.Dungeons.GetValueOrDefault(run.Id) : null;
+
+    /// <summary>Étape à jouer (null = pas dans un donjon).</summary>
+    public DungeonStep? DungeonStep =>
+        CurrentDungeon is { } d && State.Dungeon!.Step < d.Steps.Count ? d.Steps[State.Dungeon.Step] : null;
+
+    public bool EnterDungeon(string id)
+    {
+        if (!Db.Dungeons.TryGetValue(id, out var d) || !CanEnterDungeon(d)) return false;
+        State.Dungeon = new DungeonRun { Id = id, Step = 0 };
+        SkipDungeonSteps(); // toutes les étapes sautées : terminé tout de suite
+        return true;
+    }
+
+    /// <summary>Saute les étapes dont les conditions ne sont pas remplies ; termine le donjon après la dernière.</summary>
+    private void SkipDungeonSteps()
+    {
+        while (CurrentDungeon is { } d && State.Dungeon is { } run)
+        {
+            if (run.Step >= d.Steps.Count) { FinishDungeon(d); return; }
+            if (CheckAll(d.Steps[run.Step].Conditions)) return;
+            run.Step++;
+        }
+    }
+
+    /// <summary>L'étape en cours est réussie : ses effets, puis l'étape suivante (ou la fin). Renvoie true si le donjon est fini.</summary>
+    public bool CompleteDungeonStep()
+    {
+        if (DungeonStep is not { } step || State.Dungeon is not { } run) return false;
+        foreach (var action in step.Actions) Execute(action);
+        run.Step++;
+        SkipDungeonSteps();
+        UpdateQuests();
+        return State.Dungeon is null;
+    }
+
+    private void FinishDungeon(DungeonDef d)
+    {
+        State.Dungeon = null;
+        State.DungeonsDone.Add(d.Id);
+        Notifications.Add($"Donjon terminé : {d.Name}");
+        foreach (var action in d.CompleteActions) Execute(action);
+    }
+
+    /// <summary>Quitter le donjon (fuite, abandon) : la progression est perdue.</summary>
+    public void LeaveDungeon() => State.Dungeon = null;
 
     // ------------------------------------------------------------------ Événements du calendrier
 
@@ -1630,6 +1688,7 @@ public sealed partial class GameSession
         var lost = State.Gold * Math.Clamp(Config.DefeatGoldLossPercent, 0, 100) / 100;
         State.Gold -= lost;
         State.CurrentLocationId = State.LastCityId;
+        State.Dungeon = null; // vaincu : on est ramené hors du donjon
         HealAll();
         return new DefeatResult(false, lost, State.LastCityId);
     }

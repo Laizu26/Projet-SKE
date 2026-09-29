@@ -135,6 +135,10 @@ public sealed class GameState
     public Dictionary<string, int> Relations { get; set; } = [];
     /// <summary>Amour : « qui>envers qui » → valeur (voir GameSession.GetLove).</summary>
     public Dictionary<string, int> Love { get; set; } = [];
+    /// <summary>Donjon en cours (null = pas dans un donjon).</summary>
+    public DungeonRun? Dungeon { get; set; }
+    /// <summary>Donjons terminés.</summary>
+    public HashSet<string> DungeonsDone { get; set; } = [];
     /// <summary>PJ qui parle aux PNJ (vide = le héros).</summary>
     public string? SpeakerId { get; set; }
     /// <summary>PNJ déplacés par un effet : id du PNJ → lieu.</summary>
@@ -167,4 +171,11 @@ public sealed class GameState
     public List<string> CampLog { get; set; } = [];
     public GameConfig Config { get; set; } = new();
     public DateTime SavedAt { get; set; }
+}
+
+/// <summary>Progression dans un donjon : lequel, et l'étape en cours.</summary>
+public sealed class DungeonRun
+{
+    public string Id { get; set; } = "";
+    public int Step { get; set; }
 }

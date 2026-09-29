@@ -319,6 +319,17 @@ public sealed class MapView : ContentView
                 $"Quitter {loc.Name} : retour à la carte ({country}).", Theme.Stone600, $"Sortir de {loc.Name}",
                 () => { _page.MapShowCountry = true; _page.Render(); }));
         }
+        // Portes de donjon (dans n'importe quel lieu, sous-lieux compris).
+        foreach (var d in S.DungeonsHere)
+        {
+            var dungeonId = d.Id;
+            var open = S.CanEnterDungeon(d);
+            var done = S.State.DungeonsDone.Contains(d.Id);
+            var desc = !open ? (done && !d.Repeatable ? "Exploré." : d.LockedMessage.Length > 0 ? d.LockedMessage : "La porte est fermée.")
+                : d.Description.Length > 0 ? d.Description : $"{d.Steps.Count} épreuves.";
+            list.Add(new Building("dungeon:" + d.Id, open ? Ico.Castle : Ico.Lock, d.Name, desc, Theme.Purple600, open ? "Entrer dans le donjon" : "Fermé",
+                () => _page.EnterDungeon(dungeonId)));
+        }
         foreach (var npc in S.VisibleNpcs)
         {
             var npcId = npc.Id;
