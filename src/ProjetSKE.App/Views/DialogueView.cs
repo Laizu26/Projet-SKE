@@ -35,13 +35,39 @@ public sealed class DialogueView : ContentView
     private bool _entered;
     private string? _shownPortrait;
 
+    // Aperçu d'un choix trop long pour son bouton (survol souris ou appui long).
+    private readonly Label _peekText = new()
+    {
+        FontSize = 15, LineHeight = 1.3, TextColor = Theme.Stone100,
+        HorizontalTextAlignment = TextAlignment.Center, LineBreakMode = LineBreakMode.WordWrap,
+    };
+    private readonly Border _peek;
+
     public DialogueView(GameSession session, DialogueRunner runner, Action onEnd)
     {
         _session = session;
         _runner = runner;
         _onEnd = onEnd;
+        _peek = new Border
+        {
+            IsVisible = false,
+            Opacity = 0,
+            InputTransparent = true,
+            ZIndex = 50,
+            VerticalOptions = LayoutOptions.Start,
+            HorizontalOptions = LayoutOptions.Center,
+            MaximumWidthRequest = 560,
+            Margin = new Thickness(16, 90, 16, 0),
+            Padding = new Thickness(18, 14),
+            BackgroundColor = Color.FromArgb("#1C1917"),
+            Stroke = Color.FromArgb("#CA8A04"),
+            StrokeThickness = 1.5,
+            StrokeShape = new RoundRectangle { CornerRadius = 12 },
+            Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.6f, Radius = 18, Offset = new Point(0, 6) },
+            Content = _peekText,
+        };
         BackgroundColor = Colors.Transparent;
-        Content = new Grid { Children = { _dim, _barTop, _barBottom, _layer } };
+        Content = new Grid { Children = { _dim, _barTop, _barBottom, _layer, _peek } };
         Loaded += async (_, _) =>
         {
             if (_entered) return;
@@ -110,6 +136,56 @@ public sealed class DialogueView : ContentView
                 _barTop.TranslateTo(0, -bar, ms, Easing.CubicIn),
                 _barBottom.TranslateTo(0, bar, ms, Easing.CubicIn));
         }
+    }
+
+    /// <summary>Bouton de choix : si son texte est coupé, il s'affiche en entier au survol ou en restant appuyé.</summary>
+    private Button ChoiceButton(string label, string fullText, Action choose, bool enabled)
+    {
+        Interactive.Peek? peek = null;
+        var button = Btn(label, () =>
+        {
+            if (peek?.Consumed() == true) return;
+            ShowPeek(null);
+            choose();
+        }, enabled: enabled);
+        peek = Interactive.AttachPeek(button, () => IsCut(button), on => ShowPeek(on ? fullText : null));
+        return button;
+    }
+
+    /// <summary>Le texte (en capitales espacées) dépasse-t-il de la largeur du bouton ? Estimation prudente.</summary>
+    private static bool IsCut(Button button)
+    {
+        var text = button.Text ?? "";
+        var room = button.Width - button.Padding.HorizontalThickness - 8;
+        if (room <= 0) return text.Length > 30;
+        var perChar = button.FontSize * 0.7 + button.CharacterSpacing * button.FontSize / 16;
+        return text.Length * perChar > room * 0.92;
+    }
+
+    /// <summary>Affiche (texte) ou cache (null) l'aperçu du choix, en haut de l'écran.</summary>
+    public void ShowPeek(string? text)
+    {
+        _peek.AbortAnimation("FadeTo");
+        if (text is null)
+        {
+            _peek.IsVisible = false;
+            _peek.Opacity = 0;
+            return;
+        }
+        _peekText.Text = text;
+        _peekText.FontAttributes = FontAttributes.None;
+        _peek.Margin = new Thickness(16, Math.Max(40, Height * 0.11) + 24, 16, 0);
+        _peek.IsVisible = true;
+        _ = _peek.FadeTo(1, 140);
+    }
+
+    /// <summary>Test automatique : montre l'aperçu du premier choix affiché.</summary>
+    public bool PeekFirstChoice()
+    {
+        var options = _runner.Options;
+        if (options.Count == 0) return false;
+        ShowPeek(options[0].Text);
+        return true;
     }
 
     /// <summary>
@@ -186,12 +262,12 @@ public sealed class DialogueView : ContentView
                 {
                     var index = i;
                     var option = options[i];
-                    var choice = Btn((option.Enabled ? (option.Choice.Narration ? "✦  " : "›  ") : "✕  ") + option.Text, () =>
+                    var choice = ChoiceButton((option.Enabled ? (option.Choice.Narration ? "✦  " : "›  ") : "✕  ") + option.Text, option.Text, () =>
                     {
                         _history.Add((option.Choice.Narration ? "" : _session.CharacterName("@parle"), option.Text));
                         _runner.ChooseOption(index);
                         Render();
-                    }, enabled: option.Enabled);
+                    }, option.Enabled);
                     choice.BackgroundColor = Color.FromArgb("#1C1917");
                     choice.BorderColor = Color.FromArgb("#A16207");
                     choice.TextColor = Theme.Stone100;
@@ -239,6 +315,7 @@ public sealed class DialogueView : ContentView
     private void Render()
     {
         if (_ended) return;
+        ShowPeek(null);
         _notes.AddRange(_session.Notifications);
         _session.Notifications.Clear();
 
@@ -489,13 +566,13 @@ public sealed class DialogueView : ContentView
                     var option = options[i];
                     var narrative = option.Choice.Narration;
                     var marker = !option.Enabled ? "✕  " : narrative ? "✦  " : "›  ";
-                    var choice = Btn(marker + option.Text, () =>
+                    var choice = ChoiceButton(marker + option.Text, option.Text, () =>
                     {
                         // Le choix rejoint l'historique : action décrite (narration) ou réplique de celui qui parle.
                         _history.Add((narrative ? "" : _session.CharacterName("@parle"), option.Text));
                         _runner.ChooseOption(index);
                         Render();
-                    }, enabled: option.Enabled);
+                    }, option.Enabled);
                     choice.MinimumHeightRequest = 48;
                     if (narrative)
                     {

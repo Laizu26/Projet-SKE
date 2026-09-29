@@ -206,6 +206,15 @@ public static class AutoTest
                 foreach (var d in testDb.Content.Dialogues) d.Style = ProjetSKE.Core.Models.DialogueStyle.Classic;
                 world!.Render();
             });
+            await Step("choix trop long : aperçu en entier (survol / appui long)", () =>
+            {
+                var withChoices = testDb.Content.Dialogues.FirstOrDefault(d => d.Nodes.Count > 0 && d.Nodes[0].Choices.Count > 0);
+                if (withChoices is null) return;
+                withChoices.Nodes[0].Choices[0].Text = "Je te propose de partir dès l'aube avec toute la compagnie, de longer la rivière jusqu'au vieux moulin et d'attendre les autres là-bas";
+                world!.ShowDialogue(withChoices.Id);
+                if (world.OverlayContent is DialogueView view)
+                    view.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(1200), () => view.PeekFirstChoice());
+            }, 2500);
             await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
             foreach (var percent in new[] { 25, 10, 3 })
                 await Step($"écran fissuré ({percent} % PV)", () =>

@@ -397,6 +397,9 @@ public sealed class GamePage : ContentPage
 
     public bool OverlayVisible => _overlay.IsVisible;
 
+    /// <summary>Ce qui est affiché par-dessus (dialogue, combat...), pour le test automatique.</summary>
+    public View? OverlayContent => _overlay.Content;
+
     private void PlayPendingDialogue()
     {
         if (OverlayVisible || _endLayer.IsVisible) return; // on attendra la fin de ce qui est affiché

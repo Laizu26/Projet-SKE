@@ -127,6 +127,60 @@ public static class Interactive
     }
 
     /// <summary>
+    /// Aperçu d'un bouton dont le texte est coupé : au survol de la souris (PC) ou en restant appuyé
+    /// (téléphone, et PC aussi). <paramref name="show"/> reçoit true pour afficher, false pour cacher.
+    /// Le clic qui suit un appui long n'est pas compté (on regardait, on ne choisissait pas) :
+    /// l'action du bouton vérifie <see cref="Peek.Consumed"/>.
+    /// </summary>
+    public static Peek AttachPeek(Button button, Func<bool> wanted, Action<bool> show)
+    {
+        var peek = new Peek();
+        var generation = 0;
+#if WINDOWS
+        var pointer = new PointerGestureRecognizer();
+        pointer.PointerEntered += (_, _) => { if (wanted()) { peek.Hovering = true; show(true); } };
+        pointer.PointerExited += (_, _) =>
+        {
+            peek.Hovering = false;
+            if (!peek.Held) show(false);
+        };
+        button.GestureRecognizers.Add(pointer);
+#endif
+        button.Pressed += (_, _) =>
+        {
+            var mine = ++generation;
+            button.Dispatcher.StartTimer(TimeSpan.FromMilliseconds(450), () =>
+            {
+                if (mine == generation && button.IsPressed && wanted())
+                {
+                    peek.Held = true;
+                    show(true);
+                }
+                return false;
+            });
+        };
+        button.Released += (_, _) =>
+        {
+            generation++;
+            if (!peek.Held) return;
+            peek.Held = false;
+            peek.EndedAt = DateTime.UtcNow;
+            if (!peek.Hovering) show(false);
+        };
+        return peek;
+    }
+
+    public sealed class Peek
+    {
+        internal bool Held;
+        internal bool Hovering;
+        internal DateTime EndedAt = DateTime.MinValue;
+
+        /// <summary>Vrai si le clic vient de la fin d'un appui long : à ignorer.</summary>
+        public bool Consumed() => Held || (DateTime.UtcNow - EndedAt).TotalMilliseconds < 600;
+    }
+
+    /// <summary>
     /// Éclat doré bref au toucher d'un élément cliquable (appelé par <see cref="UiKit.OnTap{T}"/> avant l'action).
     /// Sur téléphone, c'est le seul retour visuel (pas de survol) ; sur PC l'appui est déjà doré.
     /// </summary>
