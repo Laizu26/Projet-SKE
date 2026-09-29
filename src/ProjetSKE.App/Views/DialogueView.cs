@@ -52,6 +52,8 @@ public sealed class DialogueView : ContentView
     {
         _session = session;
         _runner = runner;
+        // Le choix fait est joué (celui qui parle le dit, ou la narration le raconte) avant la suite.
+        _runner.EchoChoices = true;
         _onEnd = onEnd;
         _peek = new Border
         {
@@ -293,7 +295,6 @@ public sealed class DialogueView : ContentView
                     var option = options[i];
                     var choice = ChoiceButton((option.Enabled ? (option.Choice.Narration ? "✦  " : "›  ") : "✕  ") + option.Text, option.Text, () =>
                     {
-                        _history.Add((option.Choice.Narration ? "" : _session.CharacterName("@parle"), option.Text));
                         _runner.ChooseOption(index);
                         Render();
                     }, option.Enabled);
@@ -598,8 +599,7 @@ public sealed class DialogueView : ContentView
                     var marker = !option.Enabled ? "✕  " : narrative ? "✦  " : "›  ";
                     var choice = ChoiceButton(marker + option.Text, option.Text, () =>
                     {
-                        // Le choix rejoint l'historique : action décrite (narration) ou réplique de celui qui parle.
-                        _history.Add((narrative ? "" : _session.CharacterName("@parle"), option.Text));
+                        // Le choix est ensuite joué comme une réplique (il rejoint l'historique à ce moment-là).
                         _runner.ChooseOption(index);
                         Render();
                     }, option.Enabled);

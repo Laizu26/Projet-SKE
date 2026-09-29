@@ -86,7 +86,7 @@ public sealed class SlotPage : ContentPage
             StartTutorial(SkeApp.Db, slot);
             return;
         }
-        SkeApp.GoTo(new CharacterSelectPage(slot));
+        SkeApp.Open(() => new CharacterSelectPage(slot), "Choix du héros");
     }
 
     /// <summary>Lance le prologue ; à la fin (ou en le passant), on arrive à la sélection des héros de cet emplacement.</summary>

@@ -359,7 +359,7 @@ public sealed class GamePage : ContentPage
         if (_tutorialLeft || !Session.State.IsTutorial) return;
         if (!force && (OverlayVisible || _endLayer.IsVisible || Session.PendingDialogues.Count > 0)) return;
         _tutorialLeft = true;
-        SkeApp.GoTo(new CharacterSelectPage(Slot, Session.Db));
+        SkeApp.Open(() => new CharacterSelectPage(Slot, Session.Db), "Choix du héros");
     }
 
     private void BuildTabBar()

@@ -273,7 +273,7 @@ public sealed class DevHomePage : ContentPage
             Btn("Vérifier", () => { _errors = DevState.Validate(); _message = null; Render(); }),
             Btn("Enregistrer", Save)));
         stack.Add(Btn("Tester (partie de test)", () =>
-            SkeApp.GoTo(new CharacterSelectPage(-1, DevState.DraftDatabase()))));
+            SkeApp.Open(() => new CharacterSelectPage(-1, DevState.DraftDatabase()), "Partie de test")));
 
         if (_errors is not null)
         {

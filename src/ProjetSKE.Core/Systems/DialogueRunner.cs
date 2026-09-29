@@ -18,8 +18,22 @@ public sealed class DialogueRunner
 
     /// <summary>Dialogue en cours (change quand une réplique mène dans un autre dialogue).</summary>
     public DialogueDef Dialogue { get; private set; }
-    public DialogueNode? Current { get; private set; }
+    public DialogueNode? Current
+    {
+        get => _echo ?? _current;
+        private set => _current = value;
+    }
+    private DialogueNode? _current;
     public bool IsFinished => Current is null;
+
+    /// <summary>
+    /// Le choix fait est joué comme une réplique (celui qui parle le dit, ou la narration le raconte) avant la suite.
+    /// Activé par l'écran de dialogue ; sans lui, on passe directement à la suite.
+    /// </summary>
+    public bool EchoChoices { get; set; }
+
+    /// <summary>Réplique du choix qu'on vient de faire, affichée avant la suite (voir <see cref="EchoChoices"/>).</summary>
+    private DialogueNode? _echo;
 
     /// <summary>Monstres à combattre une fois le dialogue terminé (action "combat").</summary>
     public IReadOnlyList<string>? PendingBattle { get; private set; }
@@ -99,6 +113,14 @@ public sealed class DialogueRunner
             Step++;
             return;
         }
+        if (_echo is not null)
+        {
+            // Fin de la réplique du choix : place à la suite (déjà préparée quand le choix a été fait).
+            _echo = null;
+            _segment = 0;
+            Step++;
+            return;
+        }
         if (HasOptions) return;
         var branch = Current.Branches.FirstOrDefault(b => _session.CheckAll(b.Conditions));
         Enter(branch is not null ? branch.NextId : Current.NextId);
@@ -124,8 +146,17 @@ public sealed class DialogueRunner
     {
         // On retient le choix : la suite (ou une autre histoire, plus tard) peut en dépendre (« A choisi »).
         if (Current is { } node) _session.State.Choices.Add($"{Dialogue.Id}:{node.Id}:{node.ChoiceKey(choice)}");
+        // Le choix est dit (ou raconté) : on retient qui parle avant que la suite ne change quoi que ce soit.
+        var echoText = EchoChoices ? _session.FormatText(choice.Text).Trim() : "";
+        var echoSpeaker = choice.Narration ? "" : _session.CharacterName("@parle");
         Apply(choice.Actions);
         Enter(choice.NextId);
+        if (echoText.Length > 0)
+        {
+            _echo = new DialogueNode { Id = "~choix", Speaker = echoSpeaker, Text = echoText, NextId = _current?.Id };
+            _segment = 0;
+            Step++;
+        }
     }
 
     /// <summary>Va à une réplique : « etiquette » dans ce dialogue, « dialogue:etiquette » ou « dialogue: » (début) dans un autre.</summary>

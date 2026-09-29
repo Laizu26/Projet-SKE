@@ -87,8 +87,25 @@ public class SkeApp : Application
         if (Current?.Windows.Count > 0) Current.Windows[0].Page = page;
     }
 
-    /// <summary>Ouvre un écran ; si sa création échoue, affiche l'erreur au lieu de fermer le jeu.</summary>
+    /// <summary>
+    /// Ouvre un écran lourd : l'écran de chargement s'affiche tout de suite, puis l'écran est construit juste après
+    /// (l'écran précédent ne reste plus figé). Si sa création échoue, affiche l'erreur au lieu de fermer le jeu.
+    /// </summary>
     public static void Open(Func<Page> create, string context)
+    {
+        var dispatcher = Current?.Dispatcher;
+        // Test automatique : ouverture directe (ses étapes enchaînent sur l'écran ouvert).
+        if (dispatcher is null || Dev.AutoTest.Requested)
+        {
+            Build(create, context);
+            return;
+        }
+        GoTo(new LoadingPage(context));
+        // Laisse le temps à l'écran de chargement de s'afficher avant le gros du travail.
+        dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(60), () => Build(create, context));
+    }
+
+    private static void Build(Func<Page> create, string context)
     {
         try
         {

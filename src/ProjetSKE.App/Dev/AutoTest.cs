@@ -118,6 +118,7 @@ public static class AutoTest
             var db = SkeApp.Db;
             var starter = db.Starters.First();
 
+            await Step("écran de chargement", () => SkeApp.GoTo(new LoadingPage("Nouvelle partie")));
             await Step("écran de sélection", () => SkeApp.GoTo(new CharacterSelectPage(0)));
 
             GamePage? page = null;

@@ -89,31 +89,18 @@ public static class Interactive
             return;
         }
         var rest = States.GetValue(view, _ => new Rest());
-        var border = view as Border;
+        Glow? glow = null;
         void Save()
         {
             if (rest.Hovered || rest.Pressed) return;
-            rest.Background = view.BackgroundColor;
-            rest.Border = border?.Stroke is SolidColorBrush s ? s.Color : null;
+            glow = new Glow(view);
         }
         void Apply()
         {
-            if (!view.IsEnabled) return;
-            if (rest.Pressed)
-            {
-                view.BackgroundColor = Tint(rest.Background, 0.85f);
-                if (border is not null) border.Stroke = PressGold;
-            }
-            else if (rest.Hovered)
-            {
-                view.BackgroundColor = Tint(rest.Background, 0.16f);
-                if (border is not null) border.Stroke = HoverGold;
-            }
-            else
-            {
-                view.BackgroundColor = rest.Background;
-                if (border is not null && rest.Border is not null) border.Stroke = rest.Border;
-            }
+            if (!view.IsEnabled || glow is null) return;
+            if (rest.Pressed) glow.Show(0.85f, PressGold);
+            else if (rest.Hovered) glow.Show(0.16f, HoverGold);
+            else glow.Restore();
         }
 
 #if WINDOWS
@@ -124,6 +111,71 @@ public static class Interactive
         pointer.PointerReleased += (_, _) => { rest.Pressed = false; Apply(); };
         view.GestureRecognizers.Add(pointer);
 #endif
+    }
+
+    /// <summary>
+    /// Ce qui s'éclaire en doré quand on survole / touche un élément. Si l'élément est surtout une forme
+    /// (case hexagonale de la carte, rond du camp, visage d'un perso), c'est cette forme qui s'éclaire : sinon le fond
+    /// rectangulaire de l'élément apparaîtrait autour. Sinon (ligne de liste, carte), c'est le fond de l'élément.
+    /// </summary>
+    private sealed class Glow
+    {
+        private readonly VisualElement _target;
+        private readonly Color? _background;
+        private readonly Brush? _fill;
+        private readonly Brush? _stroke;
+
+        public Glow(View view)
+        {
+            _target = ShapeOf(view);
+            _background = _target.BackgroundColor;
+            _fill = (_target as Microsoft.Maui.Controls.Shapes.Shape)?.Fill;
+            _stroke = _target switch
+            {
+                Border b => b.Stroke,
+                Microsoft.Maui.Controls.Shapes.Shape s => s.Stroke,
+                _ => null,
+            };
+        }
+
+        public void Show(float amount, Color line)
+        {
+            switch (_target)
+            {
+                case Microsoft.Maui.Controls.Shapes.Shape shape:
+                    shape.Fill = Tint(_fill is SolidColorBrush f ? f.Color : null, amount);
+                    shape.Stroke = line;
+                    break;
+                case Border border:
+                    border.BackgroundColor = Tint(_background, amount);
+                    border.Stroke = line;
+                    break;
+                default:
+                    _target.BackgroundColor = Tint(_background, amount);
+                    break;
+            }
+        }
+
+        public void Restore()
+        {
+            _target.BackgroundColor = _background;
+            if (_target is Microsoft.Maui.Controls.Shapes.Shape shape) { shape.Fill = _fill; shape.Stroke = _stroke; }
+            if (_target is Border border) border.Stroke = _stroke;
+        }
+
+        /// <summary>La forme qui fait l'essentiel de l'élément (au moins 60 % de sa largeur), sinon l'élément lui-même.</summary>
+        private static VisualElement ShapeOf(View view)
+        {
+            if (view is Border) return view;
+            var width = view.Width;
+            foreach (var child in view.GetVisualTreeDescendants().OfType<VisualElement>())
+            {
+                if (child == view || child is not (Border or Microsoft.Maui.Controls.Shapes.Shape)) continue;
+                if (width <= 0 || child.Width >= width * 0.6) return child;
+                break; // la première forme est petite (icône d'une ligne) : on éclaire toute la ligne
+            }
+            return view;
+        }
     }
 
     /// <summary>
@@ -148,18 +200,14 @@ public static class Interactive
     {
 #if !WINDOWS
         if (view is Button) return; // les boutons ont déjà leur appui doré
-        var before = view.BackgroundColor;
-        var border = view as Border;
-        var stroke = border?.Stroke;
+        var glow = new Glow(view);
         try
         {
-            view.BackgroundColor = Tint(before, 0.85f);
-            if (border is not null) border.Stroke = PressGold;
+            glow.Show(0.85f, PressGold);
             await Task.Delay(140);
         }
         catch (Exception) { }
-        view.BackgroundColor = before;
-        if (border is not null) border.Stroke = stroke;
+        glow.Restore();
 #else
         await Task.CompletedTask;
 #endif

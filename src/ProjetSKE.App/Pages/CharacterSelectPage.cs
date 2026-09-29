@@ -22,46 +22,71 @@ public sealed class CharacterSelectPage : ContentPage
         header.Add(Pill("◂  Retour", () => SkeApp.GoTo(slot < 0 ? new Dev.DevHomePage() : (Page)new SlotPage(newGame: true))));
         header.Add(PageHeader(Ico.User, slot < 0 ? "Partie de test" : "Choisis ton héros", "D'autres te rejoindront en chemin"));
 
-        // Une carte par héros, qu'on fait glisser de gauche à droite (les voisines dépassent sur les bords).
+        // Une carte par héros, qu'on fait glisser de gauche à droite (ou flèches, sur PC).
+        // Chaque carte est construite une seule fois : glisser vite ne reconstruit rien (l'ancienne liste défilante
+        // recréait la carte à chaque passage et figeait l'écran).
         var heroes = db.Starters.ToList();
-        var carousel = new CarouselView
-        {
-            ItemsSource = heroes,
-            Loop = false,
-            PeekAreaInsets = new Thickness(heroes.Count > 1 ? 26 : 0, 0),
-            ItemsLayout = new LinearItemsLayout(ItemsLayoutOrientation.Horizontal)
-            {
-                SnapPointsType = SnapPointsType.MandatorySingle,
-                SnapPointsAlignment = SnapPointsAlignment.Center,
-                ItemSpacing = 8,
-            },
-            ItemTemplate = new DataTemplate(() =>
-            {
-                var host = new ContentView { Padding = new Thickness(4, 4, 4, 12) };
-                host.BindingContextChanged += (_, _) =>
-                {
-                    if (host.BindingContext is CharacterDef def) host.Content = new ScrollView { Content = HeroCard(slot, db, def) };
-                };
-                return host;
-            }),
-        };
+        var cards = heroes.Select(h => (View)new ScrollView { Content = HeroCard(slot, db, h), Padding = new Thickness(4, 4, 4, 12) }).ToList();
+        var stage = new Grid { Padding = new Thickness(14, 0), IsClippedToBounds = true };
+        var index = 0;
+        if (cards.Count > 0) stage.Add(cards[0]);
+
         var dots = new IndicatorView
         {
             IndicatorColor = Theme.Stone300,
             SelectedIndicatorColor = Theme.Gold500,
             IndicatorSize = 9,
             HorizontalOptions = LayoutOptions.Center,
-            Margin = new Thickness(0, 4, 0, 18),
+            ItemsSource = heroes,
             IsVisible = heroes.Count > 1,
         };
-        carousel.IndicatorView = dots;
+
+        void Show(int next)
+        {
+            next = Math.Clamp(next, 0, cards.Count - 1);
+            if (cards.Count == 0 || next == index) return;
+            var direction = next > index ? 1 : -1;
+            var from = cards[index];
+            var to = cards[next];
+            index = next;
+            dots.Position = next;
+            // Glissement rapide ; si on enchaîne, l'animation précédente s'arrête net (rien ne s'accumule).
+            foreach (var view in stage.Children.OfType<View>().ToList())
+            {
+                view.AbortAnimation("TranslateTo");
+                if (view != from) stage.Remove(view);
+            }
+            from.TranslationX = 0;
+            var width = Math.Max(stage.Width, 300);
+            to.TranslationX = direction * width;
+            stage.Add(to);
+            _ = from.TranslateTo(-direction * width, 0, 220, Easing.CubicOut).ContinueWith(_ =>
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (cards[index] != from) stage.Remove(from);
+                    from.TranslationX = 0;
+                }));
+            _ = to.TranslateTo(0, 0, 220, Easing.CubicOut);
+        }
+
+        // Glisser au doigt : la carte défile en hauteur, le geste horizontal change de héros.
+        foreach (var card in cards)
+        {
+            if (card is not ScrollView { Content: View inner }) continue;
+            var left = new SwipeGestureRecognizer { Direction = SwipeDirection.Left, Threshold = 40 };
+            left.Swiped += (_, _) => Show(index + 1);
+            var right = new SwipeGestureRecognizer { Direction = SwipeDirection.Right, Threshold = 40 };
+            right.Swiped += (_, _) => Show(index - 1);
+            inner.GestureRecognizers.Add(left);
+            inner.GestureRecognizers.Add(right);
+        }
 
         var root = new Grid
         {
             RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Auto) },
         };
         root.Add(header, 0, 0);
-        root.Add(carousel, 0, 1);
+        root.Add(stage, 0, 1);
         // Flèches (souris sur PC, ou toucher) en plus du glissement.
         View Arrow(string glyph, int step)
         {
@@ -71,11 +96,7 @@ public sealed class CharacterSelectPage : ContentPage
                 StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 20 },
                 Content = Icon(glyph, 18, Theme.Gold500),
             };
-            return OnTap(arrow, () =>
-            {
-                var next = Math.Clamp(carousel.Position + step, 0, heroes.Count - 1);
-                if (next != carousel.Position) carousel.Position = next;
-            });
+            return OnTap(arrow, () => Show(index + step));
         }
         var dotsRow = new Grid
         {
@@ -83,7 +104,6 @@ public sealed class CharacterSelectPage : ContentPage
             HorizontalOptions = LayoutOptions.Center,
             ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto) },
         };
-        dots.Margin = new Thickness(0);
         dots.VerticalOptions = LayoutOptions.Center;
         dotsRow.Add(Arrow(Ico.ArrowLeft, -1), 0, 0);
         dotsRow.Add(dots, 1, 0);
@@ -92,7 +112,7 @@ public sealed class CharacterSelectPage : ContentPage
         var footer = new VerticalStackLayout { Spacing = 8, Padding = new Thickness(0, 4, 0, 18), Children = { dotsRow } };
         if (heroes.Count > 1)
         {
-            var hint = Caps("Glisse pour voir les autres héros", 9, Theme.Stone500);
+            var hint = Caps("Glisse ou utilise les flèches pour voir les autres héros", 9, Theme.Stone500);
             hint.HorizontalTextAlignment = TextAlignment.Center;
             footer.Children.Insert(0, hint);
         }
