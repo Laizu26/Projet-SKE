@@ -419,17 +419,29 @@ public sealed class GamePage : ContentPage
             SelectedCampMember = null;
         }
         Tab = tab;
-        AutoSave();
-        Render();
+        Render(); // changer d'onglet ne change rien à la partie : pas de sauvegarde
+
     }
 
     /// <summary>Affiche un message court sous l'en-tête au prochain rafraîchissement.</summary>
     public void Notify(string message) => _pendingMessage = message;
 
+    private bool _saveQueued;
+
+    /// <summary>
+    /// Sauvegarde automatique. Une action en demande souvent plusieurs d'affilée (dialogue, combat, rafraîchissement) :
+    /// elles sont regroupées en une seule écriture, juste après l'action.
+    /// </summary>
     public void AutoSave()
     {
         // Le prologue n'est jamais sauvegardé (rien n'en est gardé dans la vraie partie).
-        if (!_saveDisabled && !IsTestGame && !Session.State.IsTutorial) SkeApp.Saves.Save(Slot, Session.State);
+        if (_saveDisabled || IsTestGame || Session.State.IsTutorial || _saveQueued) return;
+        _saveQueued = true;
+        Dispatcher.Dispatch(() =>
+        {
+            _saveQueued = false;
+            if (!_saveDisabled) SkeApp.Saves.Save(Slot, Session.State);
+        });
     }
 
     // ------------------------------------------------------------------ Couches par-dessus (histoire, combat)

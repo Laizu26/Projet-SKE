@@ -110,7 +110,7 @@ public sealed class CampRing : ContentView
                 { 0, 0.5, new Animation(v => glow.Opacity = v, 0.6, 1, Easing.SinInOut) },
                 { 0.5, 1, new Animation(v => glow.Opacity = v, 1, 0.6, Easing.SinInOut) },
             };
-            flicker.Commit(fire, "flicker", length: 1300, repeat: () => true);
+            flicker.Commit(fire, "flicker", length: 1300, repeat: () => fire.IsLoaded); // s'arrête dès qu'on quitte le camp
         };
         fire.Unloaded += (_, _) => fire.AbortAnimation("flicker");
     }

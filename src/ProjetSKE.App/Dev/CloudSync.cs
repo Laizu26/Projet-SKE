@@ -296,7 +296,15 @@ public static class CloudSync
             for (var attempt = 0; attempt < 4; attempt++)
             {
                 var local = SkeApp.Db.Content;
-                var remote = await Repository.PullAsync();
+                // Rien de changé ici et même version en ligne : on s'arrête là, sans télécharger le contenu.
+                // (Vérification toutes les 45 s pendant le jeu : elle doit rester presque gratuite.)
+                if (attempt == 0 && BaseUpdateTime is { Length: > 0 } known)
+                {
+                    var online = await Repository.PeekUpdateTimeAsync().ConfigureAwait(false);
+                    if (online == known && LocalUnchanged(local)) return Done($"À jour · révision {BaseRevision}.");
+                }
+                // Le reste (lecture, comparaison, fusion) se fait hors du fil de l'interface : pas d'à-coup en jeu.
+                var remote = await Repository.PullAsync().ConfigureAwait(false);
 
                 if (remote is null)
                 {
@@ -311,7 +319,7 @@ public static class CloudSync
                 }
 
                 var @base = LoadBase();
-                var localUnchanged = ContentSerializer.ToJson(local) == ContentSerializer.ToJson(@base);
+                var localUnchanged = LocalUnchanged(local);
                 if (localUnchanged && remote.UpdateTime == BaseUpdateTime)
                     return Done($"À jour · révision {remote.Revision} ({remote.UpdatedBy}).");
 
@@ -362,6 +370,21 @@ public static class CloudSync
             Lock.Release();
             MainThread.BeginInvokeOnMainThread(() => Changed?.Invoke());
         }
+    }
+
+    // Le contenu local n'est jamais modifié sur place (le mode dev en publie une nouvelle copie) :
+    // la comparaison avec la base est gardée tant que ni l'un ni l'autre ne change.
+    private static GameContent? _checkedLocal;
+    private static string? _checkedBaseTime;
+    private static bool _checkedUnchanged;
+
+    /// <summary>Le contenu local est identique à la dernière version synchronisée.</summary>
+    private static bool LocalUnchanged(GameContent local)
+    {
+        if (ReferenceEquals(local, _checkedLocal) && _checkedBaseTime == BaseUpdateTime) return _checkedUnchanged;
+        var unchanged = ContentSerializer.ToJson(local) == ContentSerializer.ToJson(LoadBase());
+        (_checkedLocal, _checkedBaseTime, _checkedUnchanged) = (local, BaseUpdateTime, unchanged);
+        return unchanged;
     }
 
     private static void Remember(string? updateTime, int revision)

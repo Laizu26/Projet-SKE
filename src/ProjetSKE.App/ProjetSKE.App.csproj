@@ -25,6 +25,14 @@
     <AndroidPackageFormat>apk</AndroidPackageFormat>
   </PropertyGroup>
 
+  <!--
+    Téléphone : seulement les processeurs utiles. arm64 = presque tous les téléphones depuis 2017 ; x64 = l'émulateur
+    du test automatique. Sans les vieux arm 32 bits et x86, l'APK est bien plus léger (mises à jour plus rapides).
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
   <!-- PC (Windows) : appli autonome, sans installateur (un dossier avec ProjetSKE.App.exe, dans un .zip). -->
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>

@@ -32,6 +32,12 @@ public interface IContentRepository
     Task<CloudSnapshot?> PullAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Version en ligne seulement (quelques octets, sans le contenu) : "" si rien n'est publié, null si inconnue.
+    /// Permet de ne télécharger le contenu que s'il a changé.
+    /// </summary>
+    Task<string?> PeekUpdateTimeAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
+
+    /// <summary>
     /// Publie le contenu. <paramref name="expectedUpdateTime"/> = version sur laquelle on a travaillé :
     /// si quelqu'un a publié entre-temps, renvoie <see cref="PushStatus.Conflict"/> (rien n'est écrasé).
     /// null = écraser sans vérifier (ou premier envoi si <paramref name="firstPublish"/>).
@@ -144,6 +150,19 @@ public sealed class FirestoreContentRepository : IContentRepository
         if (response.StatusCode == HttpStatusCode.NotFound && !IsMissingDatabase(body)) return null;
         if (!response.IsSuccessStatusCode) throw new HttpRequestException(Explain(response.StatusCode, body));
         return FirestoreFormat.ParseDocument(body);
+    }
+
+    public async Task<string?> PeekUpdateTimeAsync(CancellationToken ct = default)
+    {
+        // Seulement le champ « revision » : la réponse ne contient pas le contenu (qui peut peser des centaines de Ko).
+        using var request = new HttpRequestMessage(HttpMethod.Get, DocumentUrl + "&mask.fieldPaths=revision");
+        await AuthorizeAsync(request, ct);
+        using var response = await _http.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (response.StatusCode == HttpStatusCode.NotFound && !IsMissingDatabase(body)) return "";
+        if (!response.IsSuccessStatusCode) return null;
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.TryGetProperty("updateTime", out var ut) ? ut.GetString() : null;
     }
 
     public async Task<PushResult> PushAsync(GameContent content, string? expectedUpdateTime, int baseRevision, string author,

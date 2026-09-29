@@ -37,16 +37,24 @@ public sealed class DialogueRunner
     /// <summary>Change à chaque nouvelle bulle affichée (nouvelle réplique, ou bulle suivante de la même réplique).</summary>
     public int Step { get; private set; }
 
+    // Bulles calculées une fois par bulle affichée : l'effet « machine à écrire » les relit à chaque lettre.
+    private List<(string Speaker, string Text)>? _segments;
+    private DialogueNode? _segmentsNode;
+    private int _segmentsStep = -1;
+
     /// <summary>Bulles de la réplique jouée (première variante dont les conditions passent), balises remplacées.</summary>
     private List<(string Speaker, string Text)> Segments
     {
         get
         {
             if (Current is null) return [("", "")];
+            if (_segments is not null && ReferenceEquals(_segmentsNode, Current) && _segmentsStep == Step) return _segments;
             var variant = Current.Variants.FirstOrDefault(v => _session.CheckAll(v.Conditions));
             var speaker = variant is { Speaker.Length: > 0 } ? variant.Speaker : Current.Speaker;
-            return DialogueScript.Segments(speaker, variant?.Text ?? Current.Text)
+            _segments = DialogueScript.Segments(speaker, variant?.Text ?? Current.Text)
                 .Select(s => (_session.FormatText(s.Speaker), _session.FormatText(s.Text))).ToList();
+            (_segmentsNode, _segmentsStep) = (Current, Step);
+            return _segments;
         }
     }
 
