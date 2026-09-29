@@ -210,6 +210,11 @@ public sealed class GameDatabase
             foreach (var p in c.Passives) Ref(Passives, p.PassiveId, $"Personnage {c.Id}", "passif");
         foreach (var n in Content.Npcs)
             foreach (var id in n.PassiveIds) Ref(Passives, id, $"PNJ {n.Id}", "passif");
+        foreach (var p in Content.Passives)
+        {
+            if (p.ActivationDialogueId is { } a) Ref(Dialogues, a, $"Passif {p.Id}", "dialogue");
+            if (p.DeactivationDialogueId is { } d) Ref(Dialogues, d, $"Passif {p.Id}", "dialogue");
+        }
         foreach (var m in Content.Monsters)
             foreach (var id in m.PassiveIds) Ref(Passives, id, $"Monstre {m.Id}", "passif");
         foreach (var c in Content.Characters)

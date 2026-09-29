@@ -138,6 +138,12 @@ public sealed class PassiveDef
     /// <summary>Bonus d'XP et d'or gagnés en combat, en % (cumulés sur l'équipe).</summary>
     public int XpPercent { get; set; }
     public int GoldPercent { get; set; }
+    /// <summary>Dialogue joué quand le passif se met à agir sur un PJ du groupe (obtenu, ou ses conditions deviennent vraies).</summary>
+    public string? ActivationDialogueId { get; set; }
+    /// <summary>Dialogue joué quand il cesse d'agir (conditions plus remplies, ou passif perdu).</summary>
+    public string? DeactivationDialogueId { get; set; }
+    /// <summary>Le dialogue d'activation n'est joué qu'une fois par PJ (sinon à chaque fois).</summary>
+    public bool ActivationOnce { get; set; }
 }
 
 /// <summary>Passif d'un personnage, obtenu à un niveau.</summary>

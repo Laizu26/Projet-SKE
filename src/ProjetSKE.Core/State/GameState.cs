@@ -137,6 +137,10 @@ public sealed class GameState
     public Dictionary<string, int> Love { get; set; } = [];
     /// <summary>Donjon en cours (null = pas dans un donjon).</summary>
     public DungeonRun? Dungeon { get; set; }
+    /// <summary>Passifs qui agissaient au dernier passage (« pj:passif »), pour repérer ceux qui s'activent.</summary>
+    public HashSet<string> ActivePassiveLog { get; set; } = [];
+    /// <summary>Dialogues d'activation déjà joués (« pj:passif », pour « une seule fois »).</summary>
+    public HashSet<string> PassiveDialoguesPlayed { get; set; } = [];
     /// <summary>Donjons terminés.</summary>
     public HashSet<string> DungeonsDone { get; set; } = [];
     /// <summary>PJ qui parle aux PNJ (vide = le héros).</summary>

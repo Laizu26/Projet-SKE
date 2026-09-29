@@ -33,6 +33,8 @@ public sealed partial class GameSession
         State = state;
         Rng = rng ?? new Random();
         Sanitize();
+        // Sauvegarde chargée : on repart des passifs qui agissent maintenant (sans rejouer leurs dialogues).
+        CheckPassiveActivations(playDialogues: false);
     }
 
     public static GameSession NewGame(GameDatabase db, string heroId, Random? rng = null) => NewGame(db, heroId, null, rng);
@@ -76,7 +78,7 @@ public sealed partial class GameSession
             state.IsTutorial = true;
             state.LockedFeatures = [.. tutorial.LockedAtStart];
         }
-        var session = new GameSession(db, state, rng);
+        var session = new GameSession(db, state, rng) { _quietPassives = true };
         foreach (var stack in start.Inventory) session.AddItem(stack.ItemId, stack.Count);
         if (heroId.Length > 0) session.Recruit(heroId);
         foreach (var companion in start.Companions) session.Recruit(companion);
@@ -94,6 +96,9 @@ public sealed partial class GameSession
         // Événement déjà en cours au départ (ex : on commence un jour de fête).
         session.UpdateEvents(state.Minutes - 1);
         session.UpdateQuests();
+        // Passifs déjà là au départ : pas de dialogue d'activation.
+        session._quietPassives = false;
+        session.CheckPassiveActivations(playDialogues: false);
         session.Notifications.Clear();
         return session;
     }
@@ -479,6 +484,7 @@ public sealed partial class GameSession
         State.Minutes += minutes;
         UpdateCamp();
         UpdateEvents(before);
+        CheckPassiveActivations(); // passif « la nuit »...
     }
 
     // ------------------------------------------------------------------ Donjons
@@ -1052,6 +1058,42 @@ public sealed partial class GameSession
         {
             _updatingQuests = false;
         }
+        CheckPassiveActivations();
+    }
+
+    /// <summary>
+    /// Repère les passifs des PJ du groupe qui viennent de se mettre à agir (ou d'arrêter) et met leur dialogue
+    /// en file (joué dès que possible, avec ce PJ comme « celui qui parle »).
+    /// </summary>
+    // Création de la partie en cours : on ne joue pas encore les dialogues d'activation.
+    private bool _quietPassives;
+
+    public void CheckPassiveActivations(bool playDialogues = true)
+    {
+        if (_quietPassives) return;
+        var now = new HashSet<string>();
+        foreach (var c in State.Party)
+            foreach (var p in ActivePassives(c))
+                now.Add($"{c.DefId}:{p.Id}");
+        if (playDialogues)
+        {
+            foreach (var key in now.Where(k => !State.ActivePassiveLog.Contains(k)))
+                QueuePassiveDialogue(key, activated: true);
+            foreach (var key in State.ActivePassiveLog.Where(k => !now.Contains(k)))
+                QueuePassiveDialogue(key, activated: false);
+        }
+        State.ActivePassiveLog = now;
+    }
+
+    private void QueuePassiveDialogue(string key, bool activated)
+    {
+        var parts = key.Split(':', 2);
+        if (parts.Length < 2 || !Db.Passives.TryGetValue(parts[1], out var p)) return;
+        var dialogue = activated ? p.ActivationDialogueId : p.DeactivationDialogueId;
+        if (dialogue is null || !Db.Dialogues.ContainsKey(dialogue)) return;
+        if (activated && p.ActivationOnce && !State.PassiveDialoguesPlayed.Add(key)) return;
+        if (State.Party.Any(c => c.DefId == parts[0])) SetSpeaker(parts[0]);
+        PendingDialogues.Enqueue(dialogue);
     }
 
     /// <summary>Avance dans une liste d'objectifs. Renvoie true quand ils sont tous remplis.</summary>

@@ -552,6 +552,15 @@ public sealed class PassiveEditor : EditorPage
         f.Header("Récompenses");
         f.IntField("Bonus d'XP en combat (%)", _x.XpPercent, v => _x.XpPercent = v);
         f.IntField("Bonus d'or en combat (%)", _x.GoldPercent, v => _x.GoldPercent = v);
+
+        f.Header("Dialogues");
+        f.Note("Joués quand le passif se met à agir sur un PJ du groupe (il l'obtient, ou ses conditions deviennent vraies : "
+            + "Folie ≥ 50, la nuit...) ou quand il arrête. Ce PJ devient « celui qui parle » (%pj%). "
+            + "Vérifié hors combat (après chaque action, dialogue, déplacement, combat).");
+        f.RefField("Quand il s'active", _x.ActivationDialogueId, DevState.Dialogues, v => _x.ActivationDialogueId = v, rerender: true);
+        if (_x.ActivationDialogueId is not null)
+            f.BoolField("Une seule fois par PJ (sinon à chaque activation)", _x.ActivationOnce, v => _x.ActivationOnce = v);
+        f.RefField("Quand il cesse d'agir", _x.DeactivationDialogueId, DevState.Dialogues, v => _x.DeactivationDialogueId = v);
     }
 }
 
