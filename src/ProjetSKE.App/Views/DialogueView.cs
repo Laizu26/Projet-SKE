@@ -464,12 +464,13 @@ public sealed class DialogueView : ContentView
         if (chapter.Length > 0)
             titles.Add(new Label { Text = chapter.ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 2 });
         bar.Add(titles, 0, 0);
-        bar.Add(DarkPill(Ico.ScrollText, _showHistory ? "Fermer" : "Historique", () => { _showHistory = !_showHistory; Render(); }), 1, 0);
-        bar.Add(DarkPill(Ico.SkipForward, "Passer", Skip), 2, 0);
+        // Icônes seules (même taille qu'avant) : l'historique (une croix quand il est ouvert) et passer.
+        bar.Add(DarkPill(_showHistory ? Ico.X : Ico.ScrollText, () => { _showHistory = !_showHistory; Render(); }), 1, 0);
+        bar.Add(DarkPill(Ico.SkipForward, Skip), 2, 0);
         return bar;
     }
 
-    private static View DarkPill(string glyph, string text, Action onTap)
+    private static View DarkPill(string glyph, Action onTap)
     {
         var pill = new Border
         {
@@ -479,11 +480,7 @@ public sealed class DialogueView : ContentView
             StrokeShape = new RoundRectangle { CornerRadius = 16 },
             Padding = new Thickness(10, 7),
             VerticalOptions = LayoutOptions.Center,
-            Content = new HorizontalStackLayout
-            {
-                Spacing = 5,
-                Children = { Icon(glyph, 12, Theme.Gold500), Caps(text, 8, Theme.Stone300) },
-            },
+            Content = Icon(glyph, 12, Theme.Gold500),
         };
         return OnTap(pill, onTap);
     }
