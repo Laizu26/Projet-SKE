@@ -735,6 +735,9 @@ public sealed partial class GameSession
                     UpdateParts(quest, progress, eventType, eventTarget);
                     continue;
                 }
+                // Quête simple sans objectif : elle ne se termine que par l'effet « Quête : terminer »
+                // (sinon « aucun objectif » voudrait dire « tous remplis » et elle finirait dès son départ).
+                if (!quest.IsStaged && quest.Objectives.Count == 0) continue;
                 var consumed = false; // un même événement ne valide qu'un objectif par quête
                 for (var guard = 0; guard < 30 && progress.Status == QuestStatus.Active; guard++)
                 {

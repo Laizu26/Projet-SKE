@@ -255,3 +255,24 @@ public class DialogueStyleTests
         Assert.Equal(DialogueStyle.Cinematic, ContentSerializer.FromJson(json).Dialogues[0].Style);
     }
 }
+
+public class QuestWithoutObjectiveTests
+{
+    [Fact]
+    public void QuestWithoutObjective_StaysActiveUntilCompleteEffect()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Quests.Add(new QuestDef { Id = "libre", Name = "Sans objectif", Rewards = [new(ActionType.SetFlag, "libre_finie")] });
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+
+        s.Execute(new GameAction(ActionType.StartQuest, "libre"));
+        s.UpdateQuests();
+        s.UpdateQuests(ObjectiveType.TalkTo, "olric");
+        Assert.Equal(QuestStatus.Active, s.GetQuestStatus("libre"));
+        Assert.DoesNotContain("libre_finie", s.State.Flags);
+
+        s.Execute(new GameAction(ActionType.CompleteQuest, "libre"));
+        Assert.Equal(QuestStatus.Completed, s.GetQuestStatus("libre"));
+        Assert.Contains("libre_finie", s.State.Flags);
+    }
+}

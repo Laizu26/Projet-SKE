@@ -209,7 +209,7 @@ public sealed class QuestEditor : EditorPage
 
         if (_x.IsStaged) BuildStages(f);
         else if (_x.HasParts) BuildParts(f);
-        else f.Objectives("Objectifs (dans l'ordre)", _x.Objectives);
+        else f.Objectives("Objectifs (dans l'ordre ; aucun = la quête se termine seulement par l'effet « Quête : terminer »)", _x.Objectives);
 
         f.Actions(_x.IsStaged ? "Récompenses (toute fin réussie)" : _x.HasParts ? "Récompenses (quand la quête est réussie)" : "Récompenses", _x.Rewards);
     }
