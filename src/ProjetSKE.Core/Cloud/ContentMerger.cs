@@ -72,8 +72,53 @@ public static class ContentMerger
         var (jb, jl, jr) = (J(b), J(l), J(r));
         if (jl == jr || jl == jb) return r;          // pas de changement local, ou identique
         if (jr == jb) return l;                      // seul le local a changé
-        conflicts.Add(new MergeConflict { Kind = kind, Id = id, Name = kind, LocalJson = jl, When = DateTime.Now });
-        return r;
+        var (value, clash) = MergeFields(jb, jl, jr, info, r);
+        if (clash) conflicts.Add(new MergeConflict { Kind = kind, Id = id, Name = kind, LocalJson = jl, When = DateTime.Now });
+        return value;
+    }
+
+    /// <summary>
+    /// Fusion à trois voies d'un élément modifié des deux côtés, réglage par réglage (propriétés JSON, en descendant
+    /// dans les objets). Un réglage changé d'un seul côté est pris de ce côté ; changé des deux côtés différemment,
+    /// la version en ligne l'emporte (clash = true). Les listes sont prises en bloc.
+    /// </summary>
+    private static (T Value, bool Clash) MergeFields<T>(string jb, string jl, string jr, JsonTypeInfo<T> info, T fallback)
+    {
+        try
+        {
+            var clash = false;
+            var merged = MergeNode(System.Text.Json.Nodes.JsonNode.Parse(jb), System.Text.Json.Nodes.JsonNode.Parse(jl),
+                System.Text.Json.Nodes.JsonNode.Parse(jr), ref clash);
+            var value = merged is null ? default : JsonSerializer.Deserialize(merged.ToJsonString(), info);
+            return value is null ? (fallback, true) : (value, clash);
+        }
+        catch (Exception)
+        {
+            return (fallback, true);
+        }
+    }
+
+    private static System.Text.Json.Nodes.JsonNode? MergeNode(System.Text.Json.Nodes.JsonNode? b, System.Text.Json.Nodes.JsonNode? l,
+        System.Text.Json.Nodes.JsonNode? r, ref bool clash)
+    {
+        string S(System.Text.Json.Nodes.JsonNode? n) => n?.ToJsonString() ?? "null";
+        var (sb, sl, sr) = (S(b), S(l), S(r));
+        if (sl == sr || sl == sb) return r?.DeepClone();
+        if (sr == sb) return l?.DeepClone();
+        if (b is System.Text.Json.Nodes.JsonObject ob && l is System.Text.Json.Nodes.JsonObject ol && r is System.Text.Json.Nodes.JsonObject or)
+        {
+            var result = new System.Text.Json.Nodes.JsonObject();
+            foreach (var key in or.Select(p => p.Key).Concat(ol.Select(p => p.Key)).Distinct())
+            {
+                ob.TryGetPropertyValue(key, out var vb);
+                ol.TryGetPropertyValue(key, out var vl);
+                or.TryGetPropertyValue(key, out var vr);
+                result[key] = MergeNode(vb, vl, vr, ref clash);
+            }
+            return result;
+        }
+        clash = true;
+        return r?.DeepClone();
     }
 
     private static List<T> MergeList<T>(string kind, List<T> @base, List<T> local, List<T> remote,
@@ -116,8 +161,12 @@ public static class ContentMerger
                 else if (jr == jb) result.Add(vl!);   // seul le local a changé
                 else
                 {
-                    conflicts.Add(new MergeConflict { Kind = kind, Id = key, Name = name(vl!), LocalJson = jl, When = DateTime.Now });
-                    result.Add(vr!);
+                    // Modifié des deux côtés : on fusionne réglage par réglage (ex : lieu changé ici, dialogue changé
+                    // ailleurs → les deux sont gardés). Seuls les réglages changés différemment des deux côtés prennent
+                    // la version en ligne, et la version locale est mise de côté (restaurable).
+                    var (value, clash) = MergeFields(jb, jl, jr, info, vr!);
+                    if (clash) conflicts.Add(new MergeConflict { Kind = kind, Id = key, Name = name(vl!), LocalJson = jl, When = DateTime.Now });
+                    result.Add(value);
                 }
             }
             else if (inR) // absent en local
