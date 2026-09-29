@@ -212,6 +212,9 @@ public sealed class NpcEditor : EditorPage
         }, "+ Placement");
         Form.OptionalInt(f, "Amitié de départ envers l'équipe", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
         Form.OptionalInt(f, "Amour de départ envers l'équipe", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
+        f.Note("Passifs : comme ceux des PJ (bonus de stats, résistances, effets au début du combat, PV par tour...). "
+            + "Ils agissent quand le PNJ se bat, et la condition « A un passif » marche aussi sur lui.");
+        f.IdList("Passifs", _x.PassiveIds, DevState.Passives);
         f.RefField("Dialogue par défaut", _x.DefaultDialogueId, DevState.Dialogues, v => _x.DefaultDialogueId = v);
         f.Note("Dialogues selon la situation : le premier dont les conditions sont remplies est joué, sinon le dialogue par défaut. "
             + "Condition « Qui parle » = dialogue spécial selon le PJ qui s'adresse au PNJ ; « Amitié », « Karma », « Entre deux heures »... pour le reste.");
@@ -493,6 +496,7 @@ public sealed class MonsterEditor : EditorPage
             df.DoubleField("Chance (0 à 1, ex : 0.25 = 25 %)", d.Chance, v => d.Chance = v);
         }, "+ Butin");
         f.Resistances("Faiblesses et résistances", _x.Resistances);
+        f.IdList("Passifs (comme ceux des PJ)", _x.PassiveIds, DevState.Passives);
         f.BattleLines("Répliques de combat", _x.BattleLines);
     }
 }
@@ -509,6 +513,8 @@ public sealed class PassiveEditor : EditorPage
     {
         DevState.Draft.Passives.Remove(_x);
         foreach (var c in DevState.Draft.Characters) c.Passives.RemoveAll(p => p.PassiveId == _x.Id);
+        foreach (var n in DevState.Draft.Npcs) n.PassiveIds.Remove(_x.Id);
+        foreach (var m in DevState.Draft.Monsters) m.PassiveIds.Remove(_x.Id);
     };
 
     protected override void Build(Form f)

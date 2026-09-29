@@ -208,6 +208,10 @@ public sealed class GameDatabase
         }
         foreach (var c in Content.Characters)
             foreach (var p in c.Passives) Ref(Passives, p.PassiveId, $"Personnage {c.Id}", "passif");
+        foreach (var n in Content.Npcs)
+            foreach (var id in n.PassiveIds) Ref(Passives, id, $"PNJ {n.Id}", "passif");
+        foreach (var m in Content.Monsters)
+            foreach (var id in m.PassiveIds) Ref(Passives, id, $"Monstre {m.Id}", "passif");
         foreach (var c in Content.Characters)
             foreach (var id in c.BaseGauges.Keys) Ref(Gauges, id, $"Personnage {c.Id}", "jauge");
         foreach (var n in Content.Npcs.Where(n => n.Combat is not null && Content.Monsters.Any(m => m.Id == n.Id)))

@@ -161,16 +161,20 @@ public sealed class Battle
             var name = def.Name;
             if (defs.Count(d => d.Id == def.Id) > 1)
                 name += " " + (char)('A' + enemies.Count(e => e.Monster!.Id == def.Id));
+            // Passifs du monstre ou du PNJ : stats, résistances, effets en combat (comme pour les PJ).
+            var passives = session.ActivePassives(def.Id, def.PassiveIds);
+            var stats = passives.Count > 0 ? GameSession.WithPassives(def.Stats, passives) : def.Stats;
             enemies.Add(new Combatant
             {
                 Name = name,
                 Monster = def,
-                Stats = def.Stats,
+                Stats = stats,
                 Skills = def.SkillIds.Where(session.Db.Skills.ContainsKey).Select(id => session.Db.Skills[id]).ToList(),
-                Hp = def.Stats.MaxHp,
-                Mana = def.Stats.MaxMana,
+                Hp = stats.MaxHp,
+                Mana = stats.MaxMana,
                 Lines = def.BattleLines,
-                Resistances = def.Resistances,
+                Resistances = [.. passives.SelectMany(p => p.Resistances), .. def.Resistances],
+                Passives = passives,
             });
         }
         Enemies = enemies;
@@ -180,10 +184,10 @@ public sealed class Battle
 
         Log.Add(Enemies.Count > 0 ? $"Combat ! {string.Join(", ", Enemies.Select(e => e.Name))}" : "Aucun ennemi.");
         // Passifs : effets posés sur le porteur au début du combat.
-        foreach (var ally in Allies)
-            foreach (var p in ally.Passives)
+        foreach (var fighter in All)
+            foreach (var p in fighter.Passives)
                 foreach (var effect in p.BattleStart)
-                    Log.Add($"{p.Name} : {ApplyEffect(ally, effect, "passif:" + p.Id)}");
+                    Log.Add($"{p.Name} : {ApplyEffect(fighter, effect, "passif:" + p.Id)}");
         SayAll(BattleTrigger.Start);
         CheckEnd();
         NextTurn();

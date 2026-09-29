@@ -659,6 +659,9 @@ public sealed partial class GameSession
     private bool HasActivePassive(string who, string passiveId)
     {
         if (!Db.Passives.TryGetValue(passiveId, out var p)) return false;
+        // PNJ : ses passifs de fiche.
+        if (who != "@equipe" && Db.Npcs.TryGetValue(ResolveWho(who.Length > 0 ? who : "@parle"), out var npc))
+            return ActivePassives(npc.Id, npc.PassiveIds).Contains(p);
         return ConditionTargets(who).Any(c => PassivesOf(c).Contains(p) && IsPassiveActive(c, p));
     }
 
@@ -1178,6 +1181,41 @@ public sealed partial class GameSession
         finally { _passiveOwner = previous; }
     }
 
+    /// <summary>Passifs d'un PNJ ou d'un monstre qui agissent en ce moment (« @soi » = lui).</summary>
+    public IReadOnlyList<PassiveDef> ActivePassives(string ownerId, IEnumerable<string> passiveIds)
+    {
+        var result = new List<PassiveDef>();
+        var previous = _passiveOwner;
+        _passiveOwner = ownerId;
+        try
+        {
+            foreach (var id in passiveIds.Distinct())
+                if (Db.Passives.TryGetValue(id, out var p) && (p.Conditions.Count == 0 || CheckAll(p.Conditions))) result.Add(p);
+        }
+        finally { _passiveOwner = previous; }
+        return result;
+    }
+
+    /// <summary>Stats de base + passifs (bonus fixes, puis en % du total).</summary>
+    public static StatBlock WithPassives(StatBlock stats, IEnumerable<PassiveDef> passives)
+    {
+        var list = passives.ToList();
+        foreach (var p in list) stats += p.Bonus;
+        var percent = new StatBlock();
+        foreach (var p in list) percent += p.Percent;
+        stats = new StatBlock(
+            stats.MaxHp + stats.MaxHp * percent.MaxHp / 100,
+            stats.MaxMana + stats.MaxMana * percent.MaxMana / 100,
+            stats.Attack + stats.Attack * percent.Attack / 100,
+            stats.Defense + stats.Defense * percent.Defense / 100,
+            stats.Magic + stats.Magic * percent.Magic / 100,
+            stats.Speed + stats.Speed * percent.Speed / 100);
+        stats.MaxHp = Math.Max(1, stats.MaxHp);
+        stats.MaxMana = Math.Max(0, stats.MaxMana);
+        stats.Speed = Math.Max(1, stats.Speed);
+        return stats;
+    }
+
     /// <summary>Passifs qui agissent en ce moment.</summary>
     public IReadOnlyList<PassiveDef> ActivePassives(CharacterState c) => PassivesOf(c).Where(p => IsPassiveActive(c, p)).ToList();
 
@@ -1194,21 +1232,7 @@ public sealed partial class GameSession
                 stats += item.Bonus;
         }
         // Passifs : bonus fixes, puis en % du total.
-        var passives = ActivePassives(c);
-        foreach (var p in passives) stats += p.Bonus;
-        var percent = new StatBlock();
-        foreach (var p in passives) percent += p.Percent;
-        stats = new StatBlock(
-            stats.MaxHp + stats.MaxHp * percent.MaxHp / 100,
-            stats.MaxMana + stats.MaxMana * percent.MaxMana / 100,
-            stats.Attack + stats.Attack * percent.Attack / 100,
-            stats.Defense + stats.Defense * percent.Defense / 100,
-            stats.Magic + stats.Magic * percent.Magic / 100,
-            stats.Speed + stats.Speed * percent.Speed / 100);
-        stats.MaxHp = Math.Max(1, stats.MaxHp);
-        stats.MaxMana = Math.Max(0, stats.MaxMana);
-        stats.Speed = Math.Max(1, stats.Speed);
-        return stats;
+        return WithPassives(stats, ActivePassives(c));
     }
 
     /// <summary>Compétences connues : celles de sa fiche, puis celles de ses pouvoirs (chacune à son niveau).</summary>

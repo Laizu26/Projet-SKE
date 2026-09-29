@@ -248,6 +248,8 @@ public sealed class MonsterDef
     public List<BattleLine> BattleLines { get; set; } = [];
     public List<ElementModifier> Resistances { get; set; } = [];
     public string? PortraitId { get; set; }
+    /// <summary>Passifs (bonus de stats, résistances, effets en combat...), comme ceux des PJ.</summary>
+    public List<string> PassiveIds { get; set; } = [];
 }
 
 public sealed class EncounterGroup
@@ -339,6 +341,8 @@ public sealed class NpcDef
     public int? BaseFriendship { get; set; }
     /// <summary>Amour de départ (null = valeur par défaut de l'amour).</summary>
     public int? BaseLove { get; set; }
+    /// <summary>Passifs du PNJ (en combat : stats, résistances, effets ; condition « A un passif »).</summary>
+    public List<string> PassiveIds { get; set; } = [];
     /// <summary>Caché au début de la partie : n'apparaît qu'avec l'effet « PNJ : montrer ».</summary>
     public bool HiddenAtStart { get; set; }
     /// <summary>Le PNJ n'apparaît que si ces conditions sont remplies.</summary>
@@ -387,7 +391,7 @@ public sealed class NpcCombat
     {
         Id = npc.Id, Name = npc.Name, Description = npc.Description, PortraitId = npc.PortraitId,
         Stats = Stats, SkillIds = SkillIds, Xp = Xp, Gold = Gold, Drops = Drops, IsBoss = IsBoss,
-        BattleLines = BattleLines, Resistances = Resistances,
+        BattleLines = BattleLines, Resistances = Resistances, PassiveIds = npc.PassiveIds,
     };
 }
 
