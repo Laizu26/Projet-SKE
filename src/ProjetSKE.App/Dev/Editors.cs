@@ -137,6 +137,14 @@ public sealed class CharacterEditor : EditorPage
         f.Header("Personnalité");
         f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
         Form.OptionalInt(f, "Karma de départ", _x.BaseKarma, v => _x.BaseKarma = v, $"par défaut : {DevState.Draft.Karma.Default}");
+        foreach (var gauge in DevState.Draft.Gauges)
+        {
+            var g = gauge;
+            Form.OptionalInt(f, $"{g.Name} de départ", _x.BaseGauges.TryGetValue(g.Id, out var v0) ? v0 : null, v =>
+            {
+                if (v is { } value) _x.BaseGauges[g.Id] = value; else _x.BaseGauges.Remove(g.Id);
+            }, $"par défaut : {g.Default}");
+        }
         Form.OptionalInt(f, "Amitié de départ envers les autres", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
         f.Resistances("Faiblesses et résistances", _x.Resistances);
         f.BattleLines("Répliques de combat", _x.BattleLines);

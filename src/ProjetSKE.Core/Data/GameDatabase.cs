@@ -10,6 +10,7 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, ItemDef> Items { get; }
     public IReadOnlyDictionary<string, CharacterDef> Characters { get; }
     public IReadOnlyDictionary<string, MonsterDef> Monsters { get; }
+    public IReadOnlyDictionary<string, CharacterGaugeDef> Gauges { get; }
     public IReadOnlyDictionary<string, LocationDef> Locations { get; }
     public IReadOnlyDictionary<string, NpcDef> Npcs { get; }
     public IReadOnlyDictionary<string, DialogueDef> Dialogues { get; }
@@ -79,6 +80,7 @@ public sealed class GameDatabase
         Quests = Index(content.Quests, q => q.Id);
         Variables = Index(content.Variables, v => v.Id);
         Portraits = Index(content.Portraits, p => p.Id);
+        Gauges = Index(content.Gauges, g => g.Id);
     }
 
     /// <summary>
@@ -128,6 +130,9 @@ public sealed class GameDatabase
         CheckIds(Content.Items.Select(x => x.Id), "Objet");
         CheckIds(Content.Characters.Select(x => x.Id), "Personnage");
         CheckIds(Content.Monsters.Select(x => x.Id), "Monstre");
+        CheckIds(Content.Gauges.Select(x => x.Id), "Jauge");
+        foreach (var c in Content.Characters)
+            foreach (var id in c.BaseGauges.Keys) Ref(Gauges, id, $"Personnage {c.Id}", "jauge");
         foreach (var n in Content.Npcs.Where(n => n.Combat is not null && Content.Monsters.Any(m => m.Id == n.Id)))
             Check(false, $"PNJ {n.Id} : un monstre a le même identifiant (le combat ne saurait pas lequel prendre)");
         CheckIds(Content.Locations.Select(x => x.Id), "Lieu");
@@ -395,6 +400,10 @@ public sealed class GameDatabase
                     case ConditionType.AtLocation or ConditionType.Visited: Ref(Locations, c.Arg, w, "lieu"); break;
                     case ConditionType.MetNpc: Ref(Npcs, c.Arg, w, "PNJ"); break;
                     case ConditionType.Karma when !c.Arg.StartsWith('@'): Ref(Characters, c.Arg, w, "personnage"); break;
+                    case ConditionType.Gauge:
+                        Check(Gauges.ContainsKey(c.Arg2), $"{w} : jauge « {c.Arg2} » introuvable");
+                        if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
+                        break;
                     case ConditionType.Friendship:
                         Check(c.Arg.StartsWith('@') || Npcs.ContainsKey(c.Arg) || Characters.ContainsKey(c.Arg), $"{w} : personnage « {c.Arg} » introuvable");
                         break;
@@ -450,6 +459,10 @@ public sealed class GameDatabase
                         break;
                     case ActionType.AddKarma or ActionType.SetKarma when !a.Arg.StartsWith('@') && a.Arg.Length > 0:
                         Ref(Characters, a.Arg, w, "personnage"); break;
+                    case ActionType.AddGauge or ActionType.SetGauge:
+                        Check(Gauges.ContainsKey(a.Arg), $"{w} : jauge « {a.Arg} » introuvable");
+                        if (a.Arg2.Length > 0 && !a.Arg2.StartsWith('@')) Ref(Characters, a.Arg2, w, "personnage");
+                        break;
                     case ActionType.GiveItem or ActionType.TakeItem: Ref(Items, a.Arg, w, "objet"); break;
                     case ActionType.StartQuest or ActionType.CompleteQuest or ActionType.FailQuest: Ref(Quests, a.Arg, w, "quête"); break;
                     case ActionType.SetQuestStage:

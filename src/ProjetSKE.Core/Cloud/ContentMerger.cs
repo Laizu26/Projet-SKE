@@ -57,6 +57,8 @@ public static class ContentMerger
             Camp = MergeValue("Campement", "camp", @base.Camp, local.Camp, remote.Camp, ctx.CampSettings, conflicts),
             Portraits = MergeList("Portrait", @base.Portraits, local.Portraits, remote.Portraits, x => x.Id, x => x.Name, ctx.PortraitDef, conflicts),
             Variables = MergeList("Variable", @base.Variables, local.Variables, remote.Variables, x => x.Id, x => x.Name, ctx.VariableDef, conflicts),
+            Gauges = MergeList("Jauge", @base.Gauges, local.Gauges, remote.Gauges, x => x.Id, x => x.Name, ctx.CharacterGaugeDef, conflicts),
+            Tutorial = MergeValue("Prologue", "tutorial", @base.Tutorial, local.Tutorial, remote.Tutorial, ctx.TutorialSettings, conflicts),
         };
         var hasLocalChanges = ContentSerializer.ToJson(merged) != ContentSerializer.ToJson(remote);
         return new MergeResult(merged, conflicts, hasLocalChanges);
@@ -167,6 +169,10 @@ public static class ContentMerger
             case "Variable": return Put(content.Variables, ctx.VariableDef, x => x.Id);
             case "Autre départ": return Put(content.ExtraStarts, ctx.StartSettings, x => x.Id);
             case "Portrait": return Put(content.Portraits, ctx.PortraitDef, x => x.Id);
+            case "Jauge": return Put(content.Gauges, ctx.CharacterGaugeDef, x => x.Id);
+            case "Prologue":
+                if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.TutorialSettings) is { } tutorial) { content.Tutorial = tutorial; return true; }
+                return false;
             case "Campement":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.CampSettings) is { } camp) { content.Camp = camp; return true; }
                 return false;
@@ -209,7 +215,8 @@ public static class ContentMerger
             + Value(a.Start, b.Start, ctx.StartSettings) + Value(a.Balance, b.Balance, ctx.BalanceSettings)
             + Value(a.Title, b.Title, ctx.String) + Value(a.World, b.World, ctx.WorldSettings) + Value(a.Time, b.Time, ctx.TimeSettings)
             + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings)
-            + Value(a.Camp, b.Camp, ctx.CampSettings);
+            + Value(a.Camp, b.Camp, ctx.CampSettings)
+            + Lists(a.Gauges, b.Gauges, x => x.Id, ctx.CharacterGaugeDef) + Value(a.Tutorial, b.Tutorial, ctx.TutorialSettings);
     }
 
     /// <summary>Résumé lisible d'un contenu (pour l'historique).</summary>

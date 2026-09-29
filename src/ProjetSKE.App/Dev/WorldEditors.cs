@@ -17,6 +17,14 @@ public static class WorldLists
         subtitle: x => $"départ {x.Initial}" + (x.Visible ? " · affichée" : ""),
         help: "Valeurs libres du scénario (réputation, dette, nombre de loups tués...). Les effets les modifient, les conditions les testent, %var:id% les affiche.");
 
+    public static Page GaugeList() => new EntityListPage<CharacterGaugeDef>(
+        "Jauges de personnage", C.Gauges, x => x.Id, x => x.Name,
+        (id, name) => new CharacterGaugeDef { Id = id, Name = name },
+        x => new GaugeEditor(x),
+        subtitle: x => $"{x.Min} à {x.Max} · départ {x.Default}" + (x.Visible ? "" : " · cachée"),
+        help: "Stats propres à chaque personnage, comme le karma : folie, peur, corruption... Les effets « Jauge : ajouter / fixer » "
+            + "les font évoluer, la condition « Jauge » fait réagir dialogues et PNJ, %jauge:id% les affiche.");
+
     public static Page ImageList() => new EntityListPage<PortraitDef>(
         "Banque d'images", C.Portraits, x => x.Id, x => x.Name,
         (id, name) => new PortraitDef { Id = id, Name = name },
@@ -139,6 +147,38 @@ public sealed class ScaleEditor : EditorPage
         f.IntField("Maximum", s.Max, v => s.Max = v);
         f.Note("Paliers : le nom du plus haut palier atteint est affiché (ex : ≥ 50 → « Vertueux »).");
         f.ObjectList("Paliers", s.Tiers, () => new ScaleTier("Nouveau", 0), (tf, t, _) =>
+        {
+            tf.TextField("Nom", t.Name, v => t.Name = v);
+            tf.IntField("À partir de", t.Min, v => t.Min = v);
+        }, "+ Palier");
+    }
+}
+
+// ====================================================================== Jauges de personnage (folie...)
+
+public sealed class GaugeEditor : EditorPage
+{
+    private readonly CharacterGaugeDef _x;
+    public GaugeEditor(CharacterGaugeDef x) { _x = x; Render(); }
+    protected override string PageTitle => "Jauge : " + _x.Name;
+    protected override void GoBack() => SkeApp.GoTo(WorldLists.GaugeList());
+    protected override Action Delete => () =>
+    {
+        DevState.Draft.Gauges.Remove(_x);
+        foreach (var c in DevState.Draft.Characters) c.BaseGauges.Remove(_x.Id);
+    };
+
+    protected override void Build(Form f)
+    {
+        f.Note($"Identifiant : {_x.Id} — dans un texte : %jauge:{_x.Id}% (celui qui parle)");
+        f.TextField("Nom affiché", _x.Name, v => _x.Name = v);
+        f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
+        f.BoolField("Visible par le joueur", _x.Visible, v => _x.Visible = v);
+        f.IntField("Valeur de départ (sauf PJ réglé à part, sur sa fiche)", _x.Default, v => _x.Default = v);
+        f.IntField("Minimum", _x.Min, v => _x.Min = v);
+        f.IntField("Maximum", _x.Max, v => _x.Max = v);
+        f.Note("Paliers : le nom du plus haut palier atteint est affiché (ex : ≥ 50 → « Tourmenté »).");
+        f.ObjectList("Paliers", _x.Tiers, () => new ScaleTier("Nouveau", 0), (tf, t, _) =>
         {
             tf.TextField("Nom", t.Name, v => t.Name = v);
             tf.IntField("À partir de", t.Min, v => t.Min = v);

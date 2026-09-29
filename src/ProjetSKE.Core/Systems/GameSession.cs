@@ -112,6 +112,8 @@ public sealed partial class GameSession
             State.Version = GameState.CurrentVersion;
         }
         if (State.SpeakerId is { } sp && !State.Party.Any(c => c.DefId == sp)) State.SpeakerId = null;
+        // Jauges ajoutées après le début de la partie : valeur de départ du personnage.
+        foreach (var c in State.Party) InitGauges(c);
         State.Camp.RemoveAll(m => !Db.Npcs.ContainsKey(m.Id) && !Db.Characters.ContainsKey(m.Id));
         foreach (var m in State.Camp)
         {
@@ -176,6 +178,7 @@ public sealed partial class GameSession
         ConditionType.LevelAtLeast => MaxLevel >= c.Amount,
         ConditionType.Variable => Compare(GetVariable(c.Arg), c.Op, c.Amount),
         ConditionType.Karma => Compare(GetKarma(c.Arg), c.Op, c.Amount),
+        ConditionType.Gauge => Compare(GetGauge(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
@@ -306,6 +309,17 @@ public sealed partial class GameSession
                     c.Karma = ClampScale(Db.Content.Karma, a.Type == ActionType.AddKarma ? c.Karma + a.Amount : a.Amount);
                     if (Db.Content.Karma.Visible && c.Karma != before)
                         Notifications.Add($"{DefOf(c).Name} : {Db.Content.Karma.Name} {Signed(c.Karma - before)}");
+                }
+                break;
+            case ActionType.AddGauge or ActionType.SetGauge:
+                if (!Db.Gauges.TryGetValue(a.Arg, out var gauge)) break;
+                foreach (var c in KarmaTargets(a.Arg2.Length > 0 ? a.Arg2 : "@parle"))
+                {
+                    var before = GaugeOf(c, gauge);
+                    var now = gauge.Clamp(a.Type == ActionType.AddGauge ? before + a.Amount : a.Amount);
+                    c.Gauges[gauge.Id] = now;
+                    if (gauge.Visible && now != before)
+                        Notifications.Add($"{DefOf(c).Name} : {gauge.Name} {Signed(now - before)}");
                 }
                 break;
             case ActionType.AddFriendship or ActionType.SetFriendship:
@@ -458,6 +472,28 @@ public sealed partial class GameSession
         return State.Party.FirstOrDefault(c => c.DefId == id)?.Karma ?? Db.Content.Karma.Default;
     }
 
+    /// <summary>Valeur d'une jauge (folie...) pour un PJ.</summary>
+    public int GaugeOf(CharacterState c, CharacterGaugeDef gauge) =>
+        c.Gauges.TryGetValue(gauge.Id, out var v) ? v : StartGauge(c.DefId, gauge);
+
+    private int StartGauge(string characterId, CharacterGaugeDef gauge) =>
+        gauge.Clamp(Db.Characters.TryGetValue(characterId, out var d) && d.BaseGauges.TryGetValue(gauge.Id, out var v) ? v : gauge.Default);
+
+    private void InitGauges(CharacterState c)
+    {
+        foreach (var g in Db.Content.Gauges) c.Gauges.TryAdd(g.Id, StartGauge(c.DefId, g));
+    }
+
+    /// <summary>Jauge d'un PJ (« @parle », « @heros », id), ou moyenne de l'équipe (« @equipe »).</summary>
+    public int GetGauge(string who, string gaugeId)
+    {
+        if (!Db.Gauges.TryGetValue(gaugeId, out var gauge)) return 0;
+        if (who == "@equipe")
+            return State.Party.Count > 0 ? (int)Math.Round(State.Party.Average(c => GaugeOf(c, gauge))) : gauge.Default;
+        var id = ResolveWho(who.Length > 0 ? who : "@parle");
+        return State.Party.FirstOrDefault(c => c.DefId == id) is { } pc ? GaugeOf(pc, gauge) : StartGauge(id, gauge);
+    }
+
     private IEnumerable<CharacterState> KarmaTargets(string who)
     {
         if (who == "@equipe") return State.Party.ToList();
@@ -520,6 +556,7 @@ public sealed partial class GameSession
                 "lieu" => CurrentLocation.Name,
                 "or" => State.Gold.ToString(),
                 "karma" => GetKarma(arg.Length > 0 ? arg : "@parle").ToString(),
+                "jauge" => GetGauge("@parle", arg).ToString(),
                 "var" => GetVariable(arg).ToString(),
                 "amitie" => GetFriendship(arg).ToString(),
                 "nom" => CharacterName(arg),
@@ -936,6 +973,7 @@ public sealed partial class GameSession
             IsActive = ActiveParty.Count() < Config.MaxActiveParty,
             Karma = def.BaseKarma ?? Db.Content.Karma.Default,
         };
+        InitGauges(c);
         var stats = GetStats(c);
         c.CurrentHp = stats.MaxHp;
         c.CurrentMana = stats.MaxMana;

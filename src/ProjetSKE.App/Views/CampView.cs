@@ -467,6 +467,13 @@ public sealed class CampView : ContentView
             var tier = karma.TierName(c.Karma);
             stack.Add(DarkStat(Ico.Scale, karma.Name, tier.Length > 0 ? $"{c.Karma} · {tier}" : c.Karma.ToString()));
         }
+        // Jauges propres au personnage (folie...), comme le karma.
+        foreach (var gauge in s.Db.Content.Gauges.Where(g => g.Visible))
+        {
+            var value = s.GaugeOf(c, gauge);
+            var tier = gauge.TierName(value);
+            stack.Add(DarkStat(Ico.Sparkles, gauge.Name, tier.Length > 0 ? $"{value} · {tier}" : value.ToString()));
+        }
 
         stack.Add(Section("Statistiques"));
         stack.Add(TileGrid(

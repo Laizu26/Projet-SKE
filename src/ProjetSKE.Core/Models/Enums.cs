@@ -44,6 +44,8 @@ public enum ActionType
     StartDialogue,
     // Interface : débloquer / verrouiller un onglet ou une commande ; finir le prologue
     UnlockFeature, LockFeature, EndTutorial,
+    // Jauges de personnage (folie...) : comme le karma
+    AddGauge, SetGauge,
 }
 
 /// <summary>
@@ -83,6 +85,8 @@ public enum ConditionType
     QuestPartNotStarted, QuestPartActive, QuestPartCompleted, QuestPartFailed,
     // Groupes de conditions
     AnyOf, AllOf,
+    // Jauges de personnage (folie...)
+    Gauge,
 }
 
 /// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>

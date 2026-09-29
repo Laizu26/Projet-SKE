@@ -291,6 +291,9 @@ public static class AutoTest
             });
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
             await Step("éditeur : lieux rangés (sous-lieux)", () => SkeApp.GoTo(Editors.LocationList()));
+            await Step("éditeur : jauges de personnage", () => SkeApp.GoTo(WorldLists.GaugeList()));
+            if (DevState.Draft.Gauges.Count > 0)
+                await Step("éditeur : jauge (folie)", () => SkeApp.GoTo(new GaugeEditor(DevState.Draft.Gauges[0])));
             await Step("éditeur : lieu avec sous-lieux", () =>
             {
                 var parent = DevState.Draft.Locations.FirstOrDefault(l => DevState.Draft.Locations.Any(c => c.ParentId == l.Id)) ?? DevState.Draft.Locations[0];

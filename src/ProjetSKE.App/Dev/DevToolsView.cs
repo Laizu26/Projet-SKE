@@ -75,6 +75,22 @@ public sealed class DevToolsView : ContentView
         }
         stack.Add(Panel(karmaBox));
 
+        // Jauges de chaque PJ (folie...)
+        foreach (var gauge in db.Content.Gauges)
+        {
+            var g = gauge;
+            var box = Stack(Muted(g.Name));
+            foreach (var c in s.State.Party)
+            {
+                var id = c.DefId;
+                var value = s.GaugeOf(c, g);
+                box.Add(Row(Txt($"{s.DefOf(c).Name} : {value} {g.TierName(value)}", 13), ButtonRow(
+                    Form.SmallButton("-10", () => { s.Execute(new GameAction(ActionType.AddGauge, g.Id, -10) { Arg2 = id }); Done(); }),
+                    Form.SmallButton("+10", () => { s.Execute(new GameAction(ActionType.AddGauge, g.Id, 10) { Arg2 = id }); Done(); }))));
+            }
+            stack.Add(Panel(box));
+        }
+
         // Variables
         if (db.Content.Variables.Count > 0)
         {

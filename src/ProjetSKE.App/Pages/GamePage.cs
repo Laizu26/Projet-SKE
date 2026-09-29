@@ -537,6 +537,11 @@ public sealed class GamePage : ContentPage
             if (def.ClassAndTitle.Length > 0) details.Add(def.ClassAndTitle);
             var karma = Session.Db.Content.Karma;
             if (karma.Enabled && karma.Visible) details.Add($"{karma.Name} {c.Karma} {karma.TierName(c.Karma)}".Trim());
+            foreach (var gauge in Session.Db.Content.Gauges.Where(g => g.Visible))
+            {
+                var value = Session.GaugeOf(c, gauge);
+                details.Add($"{gauge.Name} {value} {gauge.TierName(value)}".Trim());
+            }
             var friendship = Session.Db.Content.Friendship;
             if (friendship.Enabled && friendship.Visible)
             {

@@ -388,6 +388,12 @@ public sealed class Form
                 RefField("Karma de", c.Arg, DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
                 Compare(c, "Valeur");
                 break;
+            case ConditionType.Gauge:
+                RefField("Jauge", c.Arg2, DevState.Gauges, v => c.Arg2 = v ?? "", allowNone: false,
+                    emptyHint: "Aucune jauge : crée-en une dans « Jauges de personnage » (menu du mode dev).");
+                RefField("De qui", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
+                Compare(c, "Valeur");
+                break;
             case ConditionType.Friendship:
                 RefField("Amitié de", c.Arg, DevState.Persons, v => c.Arg = v ?? "", allowNone: false);
                 RefField("Envers", c.Arg2, DevState.Toward, v => c.Arg2 = v ?? "", allowNone: false);
@@ -523,6 +529,12 @@ public sealed class Form
             case ActionType.SetVariable or ActionType.AddVariable:
                 RefField("Variable", a.Arg, DevState.Variables, v => a.Arg = v ?? "", allowNone: false);
                 IntField(a.Type == ActionType.AddVariable ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
+                break;
+            case ActionType.AddGauge or ActionType.SetGauge:
+                RefField("Jauge", a.Arg, DevState.Gauges, v => a.Arg = v ?? "", allowNone: false,
+                    emptyHint: "Aucune jauge : crée-en une dans « Jauges de personnage » (menu du mode dev).");
+                RefField("De qui", a.Arg2.Length > 0 ? a.Arg2 : "@parle", DevState.KarmaWho, v => a.Arg2 = v ?? "", allowNone: false);
+                IntField(a.Type == ActionType.AddGauge ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
                 break;
             case ActionType.AddKarma or ActionType.SetKarma:
                 RefField("Karma de", a.Arg, DevState.KarmaWho, v => a.Arg = v ?? "", allowNone: false);

@@ -139,6 +139,8 @@ public sealed class CharacterDef
     public List<GameAction> StartActions { get; set; } = [];
     /// <summary>Karma de départ (vide = valeur par défaut des réglages de karma).</summary>
     public int? BaseKarma { get; set; }
+    /// <summary>Valeur de départ des jauges (folie...) : id de jauge → valeur (absente = valeur par défaut de la jauge).</summary>
+    public Dictionary<string, int> BaseGauges { get; set; } = [];
     /// <summary>Amitié de départ envers les autres (vide = valeur par défaut des réglages d'amitié).</summary>
     public int? BaseFriendship { get; set; }
     /// <summary>Répliques de combat du personnage.</summary>
@@ -744,6 +746,28 @@ public sealed class ScaleSettings
         Tiers.Where(t => value >= t.Min).OrderByDescending(t => t.Min).FirstOrDefault()?.Name ?? "";
 }
 
+/// <summary>
+/// Jauge propre à chaque personnage, comme le karma : folie, peur, corruption... Elle évolue avec les effets
+/// « Jauge : ajouter / fixer » et fait réagir dialogues et PNJ avec la condition « Jauge ».
+/// </summary>
+public sealed class CharacterGaugeDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    public int Default { get; set; }
+    public int Min { get; set; }
+    public int Max { get; set; } = 100;
+    /// <summary>Afficher la valeur au joueur (sinon elle reste cachée mais agit quand même).</summary>
+    public bool Visible { get; set; } = true;
+    public List<ScaleTier> Tiers { get; set; } = [];
+
+    public string TierName(int value) =>
+        Tiers.Where(t => value >= t.Min).OrderByDescending(t => t.Min).FirstOrDefault()?.Name ?? "";
+
+    public int Clamp(int value) => Math.Clamp(value, Math.Min(Min, Max), Math.Max(Min, Max));
+}
+
 /// <summary>Moment de la journée (« Aube » à partir de 5 h...).</summary>
 public sealed class DayPeriod
 {
@@ -851,6 +875,8 @@ public sealed class GameContent
     public List<PortraitDef> Portraits { get; set; } = [];
     public CampSettings Camp { get; set; } = new();
     public TutorialSettings Tutorial { get; set; } = new();
+    /// <summary>Jauges propres à chaque personnage (folie...), en plus du karma.</summary>
+    public List<CharacterGaugeDef> Gauges { get; set; } = [];
 }
 
 /// <summary>

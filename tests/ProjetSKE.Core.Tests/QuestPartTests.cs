@@ -468,3 +468,89 @@ public class TutorialTests
         Assert.Contains(new GameDatabase(bad).Validate(), e => e.Contains("interface"));
     }
 }
+
+public class GaugeTests
+{
+    private static GameSession Game()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var db = new GameDatabase(content);
+        Assert.Empty(db.Validate());
+        var s = GameSession.NewGame(db, "aldric", new Random(1));
+        s.Recruit("lyra");
+        return s;
+    }
+
+    [Fact]
+    public void Gauge_IsPerCharacter_WithStartValues()
+    {
+        var s = Game();
+        Assert.Equal(0, s.GetGauge("aldric", "folie"));
+        Assert.Equal(10, s.GetGauge("lyra", "folie")); // valeur de départ propre à Lyra
+        Assert.Equal(5, s.GetGauge("@equipe", "folie"));
+    }
+
+    [Fact]
+    public void Gauge_EffectsAndConditions()
+    {
+        var s = Game();
+        s.Execute(new GameAction(ActionType.AddGauge, "folie", 30) { Arg2 = "lyra" });
+        Assert.Equal(40, s.GetGauge("lyra", "folie"));
+        Assert.Equal(0, s.GetGauge("aldric", "folie"));
+        Assert.Contains(s.Notifications, n => n.Contains("Folie +30"));
+
+        s.Execute(new GameAction(ActionType.AddGauge, "folie", 500) { Arg2 = "@equipe" });
+        Assert.Equal(100, s.GetGauge("aldric", "folie")); // bornée au maximum
+        s.Execute(new GameAction(ActionType.SetGauge, "folie", 20) { Arg2 = "aldric" });
+        Assert.Equal(20, s.GetGauge("aldric", "folie"));
+
+        Assert.True(s.Check(new Condition(ConditionType.Gauge, "lyra", 95) { Arg2 = "folie", Op = CompareOp.AtLeast }));
+        Assert.False(s.Check(new Condition(ConditionType.Gauge, "aldric", 50) { Arg2 = "folie", Op = CompareOp.AtLeast }));
+        Assert.Equal("Perdu", s.Db.Gauges["folie"].TierName(100));
+    }
+
+    [Fact]
+    public void Gauge_ScriptWords_RoundTrip()
+    {
+        var nodes = DialogueScript.Parse("- Quelque chose se brise en toi. [jauge folie 10 @heros]", out var errors);
+        Assert.Empty(errors);
+        var action = nodes.SelectMany(n => n.Actions).Single();
+        Assert.Equal(ActionType.AddGauge, action.Type);
+        Assert.Equal("folie", action.Arg);
+        Assert.Equal("@heros", action.Arg2);
+        Assert.Equal(10, action.Amount);
+    }
+}
+
+public class MergerCoversEverythingTests
+{
+    /// <summary>Chaque réglage du contenu, modifié seulement en local, doit survivre à la synchronisation.</summary>
+    [Fact]
+    public void LocalOnlyChanges_OfEveryContentProperty_SurviveMerge()
+    {
+        var baseline = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var local = ContentSerializer.Clone(baseline);
+        local.Tutorial.Enabled = true;
+        local.Tutorial.Name = "Songe";
+        local.Gauges.Add(new CharacterGaugeDef { Id = "peur", Name = "Peur" });
+        local.Title = "Autre titre";
+        var merged = ProjetSKE.Core.Cloud.ContentMerger.Merge(baseline, local, ContentSerializer.Clone(baseline)).Merged;
+        Assert.Equal(ContentSerializer.ToJson(local), ContentSerializer.ToJson(merged));
+    }
+
+    /// <summary>Garde-fou : toute nouvelle propriété du contenu doit être ajoutée à la synchronisation.</summary>
+    [Fact]
+    public void Merger_HandlesEveryContentProperty()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepo(), "src/ProjetSKE.Core/Cloud/ContentMerger.cs"));
+        foreach (var p in typeof(GameContent).GetProperties().Where(p => p.CanWrite && p.Name != nameof(GameContent.Version)))
+            Assert.True(source.Contains($"{p.Name} = Merge"), $"ContentMerger ne synchronise pas « {p.Name} »");
+    }
+
+    private static string FindRepo()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "CLAUDE.md"))) dir = dir.Parent;
+        return dir?.FullName ?? throw new DirectoryNotFoundException("racine du dépôt");
+    }
+}

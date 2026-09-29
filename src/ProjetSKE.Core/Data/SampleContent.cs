@@ -19,6 +19,16 @@ internal static class SampleContent
         Npcs = [.. Npcs()],
         Dialogues = [.. Dialogues()],
         Quests = [.. Quests()],
+        // Jauge propre à chaque personnage, comme le karma.
+        Gauges =
+        [
+            new()
+            {
+                Id = "folie", Name = "Folie", Min = 0, Max = 100, Default = 0,
+                Description = "Ce que le personnage a vu et ne peut oublier. Plus elle monte, plus la raison vacille.",
+                Tiers = [new("Lucide", 0), new("Troublé", 25), new("Tourmenté", 50), new("Dément", 75), new("Perdu", 95)],
+            },
+        ],
         Start = new()
         {
             LocationId = "havrefort",
@@ -269,6 +279,7 @@ internal static class SampleContent
         new()
         {
             Id = "lyra", Name = "Lyra", Class = "Mage", Title = "Mage de Brume",
+            BaseGauges = new() { ["folie"] = 10 },
             Description = "Jeune mage qui s'ennuie à mourir à Bourg-de-Brume.",
             BaseStats = new(MaxHp: 70, MaxMana: 50, Attack: 5, Defense: 5, Magic: 16, Speed: 10),
             GrowthPerLevel = new(MaxHp: 7, MaxMana: 5, Attack: 1, Defense: 1, Magic: 3, Speed: 1),

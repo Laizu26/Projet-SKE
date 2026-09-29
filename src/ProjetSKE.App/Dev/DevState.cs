@@ -247,7 +247,7 @@ public static class DevState
         var text = Name(c.Type);
         if (c.Arg.Length > 0) text += " " + c.Arg;
         if (c.Arg2.Length > 0) text += " › " + c.Arg2;
-        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Friendship or ConditionType.Gold
+        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Gauge or ConditionType.Friendship or ConditionType.Gold
             or ConditionType.Level or ConditionType.PartySize or ConditionType.Day or ConditionType.CampRank or ConditionType.CampResource)
             text += " " + Name(c.Op).Split(' ').Last().Trim('(', ')') + " " + c.Amount;
         if (c.Type is ConditionType.AnyOf or ConditionType.AllOf) text += $" ({c.Children?.Count ?? 0})";
@@ -269,6 +269,8 @@ public static class DevState
     /// <summary>PNJ et PJ (pour l'amitié : qui ressent).</summary>
     public static IEnumerable<(string Id, string Name)> Persons =>
         Draft.Npcs.Select(x => (x.Id, "PNJ " + x.Name)).Concat(Draft.Characters.Select(x => (x.Id, "PJ " + x.Name)));
+
+    public static IEnumerable<(string Id, string Name)> Gauges => Draft.Gauges.Select(x => (x.Id, x.Name));
 
     /// <summary>De qui (karma) : celui qui parle par défaut.</summary>
     public static IEnumerable<(string Id, string Name)> KarmaWho =>
@@ -304,6 +306,8 @@ public static class DevState
         ActionType.AddVariable => "Variable : ajouter",
         ActionType.AddKarma => "Karma : ajouter",
         ActionType.SetKarma => "Karma : fixer",
+        ActionType.AddGauge => "Jauge (folie...) : ajouter",
+        ActionType.SetGauge => "Jauge (folie...) : fixer",
         ActionType.AddFriendship => "Amitié : ajouter",
         ActionType.SetFriendship => "Amitié : fixer",
         ActionType.AdvanceTime => "Temps : faire passer",
@@ -365,6 +369,7 @@ public static class DevState
         ConditionType.LevelAtLeast => "Niveau minimum",
         ConditionType.Variable => "Variable",
         ConditionType.Karma => "Karma",
+        ConditionType.Gauge => "Jauge (folie...)",
         ConditionType.Friendship => "Amitié",
         ConditionType.Gold => "Or (comparaison)",
         ConditionType.Level => "Niveau (comparaison)",

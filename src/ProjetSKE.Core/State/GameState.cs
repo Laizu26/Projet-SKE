@@ -35,6 +35,8 @@ public sealed class CharacterState
     public string? ShieldId { get; set; }
     /// <summary>Karma propre à ce personnage (évolue avec ses choix).</summary>
     public int Karma { get; set; }
+    /// <summary>Jauges propres à ce personnage (folie...) : id de jauge → valeur.</summary>
+    public Dictionary<string, int> Gauges { get; set; } = [];
 
     public string? GetEquipped(EquipSlot slot) => slot switch
     {
