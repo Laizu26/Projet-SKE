@@ -155,9 +155,17 @@ public sealed class Form
 
     /// <summary>Menu déroulant vers un autre élément du contenu (objet, lieu, dialogue...).</summary>
     public View RefField(string label, string? value, IEnumerable<(string Id, string Name)> options, Action<string?> set,
-        bool allowNone = true, bool rerender = false, bool add = true)
+        bool allowNone = true, bool rerender = false, bool add = true, string? emptyHint = null)
     {
         var list = options.ToList();
+        if (list.Count == 0 && !allowNone && string.IsNullOrEmpty(value))
+        {
+            // Liste vide : un sélecteur vide ne servirait à rien, on explique plutôt quoi faire.
+            var empty = Labeled(label, IconRow(Icon(Ico.Info, 13, Theme.Gold600),
+                Txt(emptyHint ?? "Rien à choisir pour l'instant : crée-en d'abord un dans l'éditeur.", 12, Theme.Stone600)));
+            if (add) Root.Add(empty);
+            return empty;
+        }
         var ids = new List<string?>();
         var labels = new List<string>();
         if (allowNone) { ids.Add(null); labels.Add("(aucun)"); }
@@ -336,8 +344,9 @@ public sealed class Form
             Root.Add(Panel(sub.Root));
         }
         void Add(Condition c) { conditions.Add(c); Changed(); _rerender(); }
+        // Deux lignes : sur téléphone, trois boutons côte à côte coupaient leur texte (« + » seul).
+        Root.Add(Btn("+ Condition", () => Add(new Condition(ConditionType.FlagSet))));
         Root.Add(ButtonRow(
-            Btn("+ Condition", () => Add(new Condition(ConditionType.FlagSet))),
             Btn("+ Groupe OU", () => Add(new Condition(ConditionType.AnyOf) { Children = [] })),
             Btn("+ Groupe ET", () => Add(new Condition(ConditionType.AllOf) { Children = [] }))));
     }
@@ -444,7 +453,8 @@ public sealed class Form
                 Note("Vrai dès que ce choix a été fait (même dans une ancienne conversation). « Inverser » = ne l'a pas choisi.");
                 break;
             case ConditionType.QuestPartNotStarted or ConditionType.QuestPartActive or ConditionType.QuestPartCompleted or ConditionType.QuestPartFailed:
-                RefField("Quête", c.Arg, DevState.PartQuests, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField("Quête", c.Arg, DevState.PartQuests, v => { c.Arg = v ?? ""; c.Arg2 = ""; }, allowNone: false, rerender: true,
+                    emptyHint: "Aucune quête en plusieurs parties. Pour une quête normale, prends plutôt le type « Quête : en cours » (ou pas commencée, terminée). Sinon, dans la quête, choisis la forme « Parties en parallèle ».");
                 RefField("Partie", c.Arg2, DevState.PartsOf(c.Arg), v => c.Arg2 = v ?? "", allowNone: false);
                 break;
             case ConditionType.AnyOf or ConditionType.AllOf:
@@ -491,7 +501,8 @@ public sealed class Form
                 Note("Joué dès que l'écran est libre (après le dialogue ou le combat en cours).");
                 break;
             case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
-                RefField("Quête", a.Arg, DevState.PartQuests, v => { a.Arg = v ?? ""; a.Arg2 = ""; }, allowNone: false, rerender: true);
+                RefField("Quête", a.Arg, DevState.PartQuests, v => { a.Arg = v ?? ""; a.Arg2 = ""; }, allowNone: false, rerender: true,
+                    emptyHint: "Aucune quête en plusieurs parties. Pour une quête normale, prends plutôt l'effet « Quête : ajouter / terminer ». Sinon, dans la quête, choisis la forme « Parties en parallèle ».");
                 RefField("Partie", a.Arg2, DevState.PartsOf(a.Arg), v => a.Arg2 = v ?? "", allowNone: false);
                 break;
             case ActionType.Teleport or ActionType.RevealLocation or ActionType.HideLocation:
