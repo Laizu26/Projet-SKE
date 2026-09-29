@@ -216,6 +216,11 @@ public static class AutoTest
                     view.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(1200), () => view.PeekFirstChoice());
             }, 2500);
             await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
+            await Step("combat contre un PNJ", () =>
+            {
+                var fighter = testDb.Content.Npcs.FirstOrDefault(n => n.Combat is not null);
+                if (fighter is not null) world!.StartBattle(new[] { fighter.Id });
+            }, 2500);
             foreach (var percent in new[] { 25, 10, 3 })
                 await Step($"écran fissuré ({percent} % PV)", () =>
                 {
@@ -239,6 +244,19 @@ public static class AutoTest
                 if (DevState.Draft.Camp.Buildings.Count > 0) SkeApp.GoTo(new CampBuildingEditor(DevState.Draft.Camp.Buildings[0]));
             });
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
+            await Step("éditeur : PNJ qui se bat et attaque", () =>
+            {
+                // Le brouillon n'est modifié que le temps d'afficher la page (section « attaque » dépliée).
+                var npc = DevState.Draft.Npcs.FirstOrDefault(n => n.Combat is not null) ?? DevState.Draft.Npcs[0];
+                var had = npc.Combat;
+                var combat = had ?? new ProjetSKE.Core.Models.NpcCombat { Stats = new ProjetSKE.Core.Models.StatBlock(MaxHp: 50, Attack: 8) };
+                var attacked = combat.Attacks;
+                npc.Combat = combat;
+                combat.Attacks = true;
+                SkeApp.GoTo(new NpcEditor(npc));
+                combat.Attacks = attacked;
+                npc.Combat = had;
+            });
             await Step("éditeur : monstre", () => SkeApp.GoTo(new MonsterEditor(DevState.Draft.Monsters.Last())));
             var sampleDialogue = DevState.Draft.Dialogues.First(d => d.Nodes.Any(n => n.Variants.Count > 0));
             await Step("éditeur : dialogue (déroulé)", () => SkeApp.GoTo(new DialogueEditor(sampleDialogue)), 2000);

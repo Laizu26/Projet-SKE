@@ -47,7 +47,8 @@ public sealed class GameDatabase
         Skills = Index(content.Skills, s => s.Id);
         Items = Index(content.Items, i => i.Id);
         Characters = Index(content.Characters, c => c.Id);
-        Monsters = Index(content.Monsters, m => m.Id);
+        // Les PNJ qui se battent sont aussi des adversaires (même identifiant que le PNJ).
+        Monsters = Index(content.Monsters.Concat(content.Npcs.Where(n => n.Combat is not null).Select(n => n.Combat!.AsMonster(n))), m => m.Id);
         Locations = Index(content.Locations, l => l.Id);
         Npcs = Index(content.Npcs, n => n.Id);
         Dialogues = Index(content.Dialogues, d => d.Id);
@@ -103,6 +104,8 @@ public sealed class GameDatabase
         CheckIds(Content.Items.Select(x => x.Id), "Objet");
         CheckIds(Content.Characters.Select(x => x.Id), "Personnage");
         CheckIds(Content.Monsters.Select(x => x.Id), "Monstre");
+        foreach (var n in Content.Npcs.Where(n => n.Combat is not null && Content.Monsters.Any(m => m.Id == n.Id)))
+            Check(false, $"PNJ {n.Id} : un monstre a le même identifiant (le combat ne saurait pas lequel prendre)");
         CheckIds(Content.Locations.Select(x => x.Id), "Lieu");
         CheckIds(Content.Npcs.Select(x => x.Id), "PNJ");
         CheckIds(Content.Dialogues.Select(x => x.Id), "Dialogue");
@@ -163,6 +166,21 @@ public sealed class GameDatabase
             Check(m.SkillIds.Count > 0, $"{w} : aucune compétence");
             Check(m.Stats.MaxHp > 0, $"{w} : PV à 0");
             CheckLines(m.BattleLines, w);
+        }
+        foreach (var n in Content.Npcs)
+        {
+            if (n.Combat is not { } c) continue;
+            var w = $"PNJ {n.Id} (combat)";
+            foreach (var s in c.SkillIds) Ref(Skills, s, w, "compétence");
+            foreach (var d in c.Drops) Ref(Items, d.ItemId, w, "butin");
+            foreach (var id in c.AllyIds) Ref(Monsters, id, w, "allié");
+            Check(c.SkillIds.Count > 0, $"{w} : aucune compétence");
+            Check(c.Stats.MaxHp > 0, $"{w} : PV à 0");
+            Ref(Dialogues, c.AttackDialogueId, w, "dialogue");
+            Ref(Dialogues, c.VictoryDialogueId, w, "dialogue");
+            Ref(Dialogues, c.DefeatDialogueId, w, "dialogue");
+            CheckConditions(c.AttackConditions, w);
+            CheckLines(c.BattleLines, w);
         }
         foreach (var l in Content.Locations)
         {

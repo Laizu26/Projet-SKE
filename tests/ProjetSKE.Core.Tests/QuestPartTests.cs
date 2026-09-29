@@ -276,3 +276,62 @@ public class QuestWithoutObjectiveTests
         Assert.Contains("libre_finie", s.State.Flags);
     }
 }
+
+public class NpcCombatTests
+{
+    private static GameSession Game(Action<NpcDef>? change = null)
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var npc = content.Npcs.First(n => n.Id == "capitaine_hardin");
+        change?.Invoke(npc);
+        Assert.Empty(new GameDatabase(content).Validate());
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        s.State.Config.TravelEncounters = TravelEncounterMode.None;
+        return s;
+    }
+
+    [Fact]
+    public void FightingNpc_IsAnOpponent_AndBeatenFlagIsSet()
+    {
+        var s = Game();
+        Assert.True(s.Db.Monsters.ContainsKey("capitaine_hardin"));
+        Assert.Equal("Capitaine Hardin", s.Db.Monsters["capitaine_hardin"].Name);
+        Assert.Equal(["capitaine_hardin"], s.Execute(new GameAction(ActionType.StartBattle, "capitaine_hardin")));
+
+        var battle = s.StartBattle(["capitaine_hardin"]);
+        s.ApplyVictory(battle);
+        Assert.True(s.HasFlag(GameSession.NpcBeatenFlag("capitaine_hardin")));
+        Assert.DoesNotContain(s.GetEncyclopedia(EncyclopediaCategory.Monsters), e => e.Name == "Capitaine Hardin");
+    }
+
+    [Fact]
+    public void NpcWithoutCombat_IsNotAnOpponent()
+    {
+        var s = Game(n => n.Combat = null);
+        Assert.False(s.Db.Monsters.ContainsKey("capitaine_hardin"));
+    }
+
+    [Fact]
+    public void HostileNpc_AttacksOnArrival_UntilBeaten()
+    {
+        var s = Game(n =>
+        {
+            n.LocationId = "route_roi";
+            n.Combat!.Attacks = true;
+            n.Combat.AllyIds = ["bandit"];
+            n.Combat.AttackConditions = [new(ConditionType.FlagNotSet, "paix")];
+        });
+        s.State.CurrentLocationId = "havrefort";
+
+        var arrival = s.Travel("route_roi");
+        Assert.Equal(["capitaine_hardin", "bandit"], arrival.BattleMonsterIds);
+
+        s.SetFlag("paix");
+        Assert.Null(s.HostileNpc());
+        s.State.Flags.Remove("paix");
+        Assert.NotNull(s.HostileNpc());
+
+        s.ApplyVictory(s.StartBattle(arrival.BattleMonsterIds!));
+        Assert.Null(s.HostileNpc());
+    }
+}

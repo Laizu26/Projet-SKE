@@ -421,6 +421,11 @@ internal static class SampleContent
                 new("capitaine_attente", IfQuestActive("quete_crypte")),
             ],
             DefaultDialogueId = "capitaine",
+            // Il sait se battre : on peut l'affronter avec l'effet « Combat : lancer » (ex : un duel d'entraînement).
+            Combat = new()
+            {
+                Stats = new(MaxHp: 120, Attack: 13, Defense: 9, Speed: 9), SkillIds = ["entaille"], Xp = 30, Gold = 0,
+            },
         },
         new()
         {

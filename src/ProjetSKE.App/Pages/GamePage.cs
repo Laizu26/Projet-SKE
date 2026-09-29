@@ -432,15 +432,17 @@ public sealed class GamePage : ContentPage
             HideOverlay();
             AutoSave();
             Render();
-            // Dialogue d'après-combat (combat fixe).
+            // Dialogue d'après-combat (combat fixe, ou PNJ combattu).
             var fb = fixedBattleId is null ? null
                 : Session.Db.Content.Locations.Select(l => l.FixedBattle).FirstOrDefault(f => f?.Id == fixedBattleId);
+            var npc = monsterIds.Select(id => Session.Db.Npcs.GetValueOrDefault(id)?.Combat).FirstOrDefault(c => c is not null);
             var after = battle.Outcome switch
             {
-                BattleOutcome.Victory => fb?.VictoryDialogueId,
-                BattleOutcome.Defeat => fb?.DefeatDialogueId,
+                BattleOutcome.Victory => fb?.VictoryDialogueId ?? npc?.VictoryDialogueId,
+                BattleOutcome.Defeat => fb?.DefeatDialogueId ?? npc?.DefeatDialogueId,
                 _ => null,
             };
+            if (after is not null && !Session.Db.Dialogues.ContainsKey(after)) after = null;
             if (after is not null) ShowDialogue(after);
         }));
     }

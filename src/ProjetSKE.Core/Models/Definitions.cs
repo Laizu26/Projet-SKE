@@ -268,6 +268,45 @@ public sealed class NpcDef
     /// <summary>Membre du campement dès le début de la partie (avec ce grade ; vide = grade le plus bas).</summary>
     public bool StartsInCamp { get; set; }
     public string? StartRankId { get; set; }
+    /// <summary>Fiche de combat (vide = le PNJ ne se bat pas). Avec elle, on peut le combattre comme un monstre.</summary>
+    public NpcCombat? Combat { get; set; }
+}
+
+/// <summary>
+/// Un PNJ qui sait se battre : stats, compétences, récompenses et répliques, comme un monstre.
+/// On le combat avec l'effet « Combat : lancer » (dans un dialogue, une quête...) ou il attaque de lui-même
+/// l'équipe qui arrive dans son lieu. Une fois vaincu, le flag « pnj_vaincu:{id} » est posé.
+/// </summary>
+public sealed class NpcCombat
+{
+    public StatBlock Stats { get; set; } = new();
+    public List<string> SkillIds { get; set; } = [];
+    public int Xp { get; set; }
+    public int Gold { get; set; }
+    public List<ItemDrop> Drops { get; set; } = [];
+    public bool IsBoss { get; set; }
+    public List<BattleLine> BattleLines { get; set; } = [];
+    public List<ElementModifier> Resistances { get; set; } = [];
+    /// <summary>Monstres qui se battent à ses côtés.</summary>
+    public List<string> AllyIds { get; set; } = [];
+
+    /// <summary>Attaque l'équipe quand elle arrive dans son lieu (si les conditions passent).</summary>
+    public bool Attacks { get; set; }
+    public List<Condition> AttackConditions { get; set; } = [];
+    /// <summary>Attaque encore après avoir été vaincu (sinon une seule victoire suffit).</summary>
+    public bool AttacksAgain { get; set; }
+    /// <summary>Dialogue avant son attaque, puis après une victoire / une défaite de l'équipe.</summary>
+    public string? AttackDialogueId { get; set; }
+    public string? VictoryDialogueId { get; set; }
+    public string? DefeatDialogueId { get; set; }
+
+    /// <summary>Le PNJ vu comme un adversaire de combat (même identifiant que le PNJ).</summary>
+    public MonsterDef AsMonster(NpcDef npc) => new()
+    {
+        Id = npc.Id, Name = npc.Name, Description = npc.Description, PortraitId = npc.PortraitId,
+        Stats = Stats, SkillIds = SkillIds, Xp = Xp, Gold = Gold, Drops = Drops, IsBoss = IsBoss,
+        BattleLines = BattleLines, Resistances = Resistances,
+    };
 }
 
 /// <summary>Le PNJ se trouve à ce lieu quand les conditions sont remplies (ex : la nuit, à l'auberge).</summary>

@@ -832,7 +832,8 @@ public sealed partial class GameSession
                 .Select(c => (c.Name, c.ClassAndTitle, c.Description))
                 .Concat(State.SeenNpcs.Select(id => Db.Npcs[id])
                     .Select(n => (n.Name, "PNJ · " + NameOrId(Db.Locations, NpcLocation(n), l => l.Name), n.Description))),
-            EncyclopediaCategory.Monsters => State.SeenMonsters.Select(id => Db.Monsters[id])
+            // Les PNJ combattus restent dans « Personnages », pas dans le bestiaire.
+            EncyclopediaCategory.Monsters => State.SeenMonsters.Where(id => Db.Monsters.ContainsKey(id) && !Db.Npcs.ContainsKey(id)).Select(id => Db.Monsters[id])
                 .Select(m => (m.Name, m.IsBoss ? "Boss" : $"PV {m.Stats.MaxHp} · ATQ {m.Stats.Attack} · DEF {m.Stats.Defense}", m.Description)),
             EncyclopediaCategory.Locations => State.SeenLocations.Select(id => Db.Locations[id])
                 .Select(l => (l.Name, LocationTypeLabel(l.Type), l.Description)),
@@ -1179,16 +1180,36 @@ public sealed partial class GameSession
             return new TravelResult(true, DialogueId: ValidDialogue(fb.IntroDialogueId), BattleMonsterIds: fb.MonsterIds, FixedBattleId: fb.Id);
         }
 
-        // 2. Dialogue de première visite.
+        // 2. Un PNJ du lieu attaque l'équipe.
+        if (HostileNpc() is { } npc)
+        {
+            var c = npc.Combat!;
+            return new TravelResult(true, DialogueId: ValidDialogue(c.AttackDialogueId),
+                BattleMonsterIds: [npc.Id, .. c.AllyIds.Where(Db.Monsters.ContainsKey)]);
+        }
+
+        // 3. Dialogue de première visite.
         if (firstVisit && ValidDialogue(dest.FirstVisitDialogueId) is { } dialogueId)
             return new TravelResult(true, DialogueId: dialogueId);
 
-        // 3. Rencontre aléatoire.
+        // 4. Rencontre aléatoire.
         if (RandomAllowed && RollEncounter(dest) is { } monsters)
             return new TravelResult(true, BattleMonsterIds: monsters);
 
         return new TravelResult(true);
     }
+
+    /// <summary>Flag posé quand un PNJ a été vaincu (utilisable en condition).</summary>
+    public static string NpcBeatenFlag(string npcId) => $"pnj_vaincu:{npcId}";
+
+    /// <summary>
+    /// PNJ du lieu actuel qui attaque l'équipe : il se bat, il est réglé pour attaquer, ses conditions passent,
+    /// et il n'a pas déjà été vaincu (sauf s'il attaque encore après une défaite).
+    /// </summary>
+    public NpcDef? HostileNpc() => VisibleNpcs.FirstOrDefault(n =>
+        n.Combat is { Attacks: true } c
+        && (c.AttacksAgain || !HasFlag(NpcBeatenFlag(n.Id)))
+        && CheckAll(c.AttackConditions));
 
     private string? ValidDialogue(string? id) => id is not null && Db.Dialogues.ContainsKey(id) ? id : null;
 
@@ -1244,6 +1265,7 @@ public sealed partial class GameSession
         }
 
         if (battle.FixedBattleId is { } id) SetFlag(FixedBattleDoneFlag(id));
+        foreach (var m in monsters.Where(m => Db.Npcs.ContainsKey(m.Id))) SetFlag(NpcBeatenFlag(m.Id));
         foreach (var m in monsters) UpdateQuests(ObjectiveType.Defeat, m.Id);
         return new BattleRewards(xp, gold, items, levelUps);
     }

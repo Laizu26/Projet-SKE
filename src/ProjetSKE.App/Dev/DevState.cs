@@ -187,7 +187,9 @@ public static class DevState
 
     public static IEnumerable<(string Id, string Name)> Skills => Draft.Skills.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Characters => Draft.Characters.Select(x => (x.Id, x.Name));
-    public static IEnumerable<(string Id, string Name)> Monsters => Draft.Monsters.Select(x => (x.Id, x.Name));
+    /// <summary>Adversaires possibles : les monstres, puis les PNJ qui savent se battre.</summary>
+    public static IEnumerable<(string Id, string Name)> Monsters => Draft.Monsters.Select(x => (x.Id, x.Name))
+        .Concat(Draft.Npcs.Where(n => n.Combat is not null).Select(n => (n.Id, "PNJ · " + n.Name)));
     public static IEnumerable<(string Id, string Name)> Locations => Draft.Locations.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Npcs => Draft.Npcs.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));

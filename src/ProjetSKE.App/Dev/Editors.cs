@@ -1,5 +1,6 @@
 using ProjetSKE.Core.Data;
 using ProjetSKE.Core.Models;
+using ProjetSKE.Core.Systems;
 using Condition = ProjetSKE.Core.Models.Condition;
 using ProjetSKE.App.Ui;
 using static ProjetSKE.App.Ui.UiKit;
@@ -175,6 +176,46 @@ public sealed class NpcEditor : EditorPage
             sf.Conditions("Si", d.Conditions);
         }, "+ Dialogue conditionnel");
         f.Conditions("Visible seulement si", _x.VisibleConditions);
+
+        f.Header("Combat");
+        f.BoolField("Ce PNJ peut se battre", _x.Combat is not null, v =>
+        {
+            if (!v) { _x.Combat = null; return; }
+            // Point de départ : les stats et compétences du premier monstre, à ajuster.
+            var model = DevState.Draft.Monsters.FirstOrDefault();
+            _x.Combat = new NpcCombat
+            {
+                Stats = model is null ? new StatBlock(MaxHp: 60, Attack: 10, Defense: 6, Magic: 6, Speed: 8)
+                    : new StatBlock(model.Stats.MaxHp, model.Stats.MaxMana, model.Stats.Attack, model.Stats.Defense, model.Stats.Magic, model.Stats.Speed),
+                SkillIds = model is null ? [] : [.. model.SkillIds],
+                Xp = model?.Xp ?? 20,
+                Gold = model?.Gold ?? 10,
+            };
+        }, rerender: true);
+        if (_x.Combat is not { } c) return;
+        f.Note($"On le combat avec l'effet « Combat : lancer » (il est dans la liste des adversaires sous « PNJ · {_x.Name} »), "
+            + $"ou il attaque de lui-même (ci-dessous). Une fois vaincu, le flag « {GameSession.NpcBeatenFlag(_x.Id)} » est posé.");
+        f.BoolField("Boss (fuite impossible)", c.IsBoss, v => c.IsBoss = v);
+        f.StatsField("Stats", c.Stats);
+        f.IntField("XP donnée", c.Xp, v => c.Xp = v);
+        f.IntField("Or donné", c.Gold, v => c.Gold = v);
+        f.IdList("Compétences (choisies au hasard en combat)", c.SkillIds, DevState.Skills);
+        f.IdList("Se bat avec (alliés)", c.AllyIds, DevState.Monsters.Where(m => m.Id != _x.Id));
+        f.ObjectList("Butin", c.Drops, () => new ItemDrop("", 0.1), (df, d, _) =>
+        {
+            df.RefField("Objet", d.ItemId, DevState.Items(), v => d.ItemId = v ?? "", allowNone: false);
+            df.DoubleField("Chance (0 à 1, ex : 0.25 = 25 %)", d.Chance, v => d.Chance = v);
+        }, "+ Butin");
+        f.Resistances("Faiblesses et résistances", c.Resistances);
+        f.BattleLines("Répliques de combat", c.BattleLines);
+        f.RefField("Dialogue après une victoire de l'équipe", c.VictoryDialogueId, DevState.Dialogues, v => c.VictoryDialogueId = v);
+        f.RefField("Dialogue après une défaite de l'équipe", c.DefeatDialogueId, DevState.Dialogues, v => c.DefeatDialogueId = v);
+
+        f.BoolField("Attaque l'équipe quand elle arrive dans son lieu", c.Attacks, v => c.Attacks = v, rerender: true);
+        if (!c.Attacks) return;
+        f.Conditions("Attaque seulement si", c.AttackConditions);
+        f.RefField("Dialogue avant l'attaque", c.AttackDialogueId, DevState.Dialogues, v => c.AttackDialogueId = v);
+        f.BoolField("Attaque encore après avoir été vaincu", c.AttacksAgain, v => c.AttacksAgain = v);
     }
 }
 
