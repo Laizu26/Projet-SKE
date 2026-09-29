@@ -388,6 +388,11 @@ public sealed class Form
                 RefField("Karma de", c.Arg, DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
                 Compare(c, "Valeur");
                 break;
+            case ConditionType.HasPower:
+                RefField("Pouvoir", c.Arg2, DevState.Powers, v => c.Arg2 = v ?? "", allowNone: false,
+                    emptyHint: "Aucun pouvoir : crée-en un dans « Pouvoirs » (menu du mode dev).");
+                RefField("Qui", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
+                break;
             case ConditionType.HasPassive:
                 RefField("Passif", c.Arg2, DevState.Passives, v => c.Arg2 = v ?? "", allowNone: false,
                     emptyHint: "Aucun passif : crée-en un dans « Passifs » (menu du mode dev).");
@@ -508,7 +513,8 @@ public sealed class Form
                 RefField("Quête", a.Arg, DevState.Quests, v => a.Arg = v ?? "", allowNone: false);
                 break;
             case ActionType.UnlockFeature or ActionType.LockFeature:
-                RefField("Partie de l'interface", a.Arg, Enum.GetValues<UiFeature>().Select(x => (x.ToString(), DevState.Name(x))), v => a.Arg = v ?? "", allowNone: false);
+                RefField(a.Type == ActionType.UnlockFeature ? "Menu à activer" : "Menu à désactiver", a.Arg,
+                    Enum.GetValues<UiFeature>().Select(x => (x.ToString(), DevState.Name(x))), v => a.Arg = v ?? "", allowNone: false);
                 break;
             case ActionType.EndTutorial:
                 Note("Seulement pendant le prologue : quand l'écran est libre (fin du dialogue ou du combat), le joueur arrive au choix de son héros.");
@@ -534,6 +540,11 @@ public sealed class Form
             case ActionType.SetVariable or ActionType.AddVariable:
                 RefField("Variable", a.Arg, DevState.Variables, v => a.Arg = v ?? "", allowNone: false);
                 IntField(a.Type == ActionType.AddVariable ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
+                break;
+            case ActionType.GivePower or ActionType.RemovePower:
+                RefField("Pouvoir", a.Arg, DevState.Powers, v => a.Arg = v ?? "", allowNone: false,
+                    emptyHint: "Aucun pouvoir : crée-en un dans « Pouvoirs » (menu du mode dev).");
+                RefField("À qui", a.Arg2.Length > 0 ? a.Arg2 : "@parle", DevState.KarmaWho, v => a.Arg2 = v ?? "", allowNone: false);
                 break;
             case ActionType.GivePassive or ActionType.RemovePassive:
                 RefField("Passif", a.Arg, DevState.Passives, v => a.Arg = v ?? "", allowNone: false,

@@ -40,6 +40,9 @@ public sealed class CharacterState
     /// <summary>Passifs donnés / retirés en cours de partie (en plus / à la place de ceux de sa fiche).</summary>
     public HashSet<string> GainedPassives { get; set; } = [];
     public HashSet<string> LostPassives { get; set; } = [];
+    /// <summary>Pouvoirs donnés / retirés en cours de partie.</summary>
+    public HashSet<string> GainedPowers { get; set; } = [];
+    public HashSet<string> LostPowers { get; set; } = [];
 
     public string? GetEquipped(EquipSlot slot) => slot switch
     {

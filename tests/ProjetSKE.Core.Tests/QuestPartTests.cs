@@ -624,3 +624,45 @@ public class PassiveTests
         Assert.Equal((ActionType.GivePassive, "transe", "@heros"), (a.Type, a.Arg, a.Arg2));
     }
 }
+
+public class PowerTests
+{
+    [Fact]
+    public void GivingAPower_TeachesAllItsSkills_ByLevel()
+    {
+        var db = new GameDatabase(ContentSerializer.Clone(GameDatabase.Default.Content));
+        Assert.Empty(db.Validate());
+        var s = GameSession.NewGame(db, "aldric", new Random(1));
+        var aldric = s.State.Party[0];
+        Assert.DoesNotContain(s.GetSkills(aldric), k => k.Id == "soin");
+
+        s.Execute(new GameAction(ActionType.GivePower, "sacre") { Arg2 = "@heros" });
+        Assert.Contains(s.Notifications, n => n.Contains("maîtrise le pouvoir « Magie sacrée »"));
+        var skills = s.GetSkills(aldric).Select(k => k.Id).ToList();
+        Assert.Contains("soin", skills);                // niveau 1
+        Assert.DoesNotContain("resurrection", skills);  // niveau 5 : pas encore
+        Assert.True(s.Check(new Condition(ConditionType.HasPower, "@heros") { Arg2 = "sacre" }));
+
+        aldric.Level = 5;
+        Assert.Contains(s.GetSkills(aldric), k => k.Id == "resurrection");
+
+        s.Execute(new GameAction(ActionType.RemovePower, "sacre") { Arg2 = "@heros" });
+        Assert.DoesNotContain(s.GetSkills(aldric), k => k.Id == "soin");
+    }
+
+    [Fact]
+    public void InterfaceFeatures_HaveShortFrenchWords()
+    {
+        Assert.True(UiFeatures.TryParse("carte", out var f) && f == UiFeature.TabMap);
+        Assert.True(UiFeatures.TryParse("Sac", out f) && f == UiFeature.CampBag);
+        Assert.True(UiFeatures.TryParse("BattleFlee", out f) && f == UiFeature.BattleFlee);
+        Assert.False(UiFeatures.TryParse("rien", out _));
+
+        var nodes = DialogueScript.Parse("- Le monde s'ouvre. [debloquer carte] [verrouiller sac] [pouvoir sacre @heros]", out var errors);
+        Assert.Empty(errors);
+        var s = GameSession.NewTutorial(GameDatabase.Default);
+        foreach (var a in nodes.SelectMany(n => n.Actions)) s.Execute(a);
+        Assert.False(s.IsLocked(UiFeature.TabMap));
+        Assert.True(s.IsLocked(UiFeature.CampBag));
+    }
+}

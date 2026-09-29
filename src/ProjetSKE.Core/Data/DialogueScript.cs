@@ -41,7 +41,9 @@ public static partial class DialogueScript
         [var x 5] [ajoute x 2] [karma 5] [karma -5 @equipe] [fixe_karma 0 perso]
         [amitie pnj 5] [amitie pnj 5 @parle] [fixe_amitie pnj 0]
         [jauge folie 10] [jauge folie -5 @heros] [fixe_jauge folie 0 @equipe]
-        [passif transe @heros] [retirer_passif transe lyra]
+        [passif transe @heros] [retirer_passif transe lyra] [pouvoir pyromancie @heros]
+        [debloquer carte] [verrouiller fuite] (carte, camp, quetes, encyclopedie, boutique, journal, menu, royaume,
+        explorer, competences, objets, fuite, defense, gestion, ressources, persos, equipe, sac, lieux) [fin_prologue]
         [temps 60] [attendre 8] [message texte libre]
         [deplace pnj lieu] [revele lieu] [cache lieu]
         [camp pnj] [camp pnj grade] [quitte_camp pnj] [grade pnj grade] [tache pnj tache]
@@ -92,6 +94,7 @@ public static partial class DialogueScript
         ("fin_prologue", ActionType.EndTutorial, ""),
         ("jauge", ActionType.AddGauge, "anb"), ("fixe_jauge", ActionType.SetGauge, "anb"),
         ("passif", ActionType.GivePassive, "ab"), ("retirer_passif", ActionType.RemovePassive, "ab"),
+        ("pouvoir", ActionType.GivePower, "ab"), ("retirer_pouvoir", ActionType.RemovePower, "ab"),
     ];
 
     private static readonly (string Word, ConditionType Type, string Sig)[] ConditionWords =
@@ -103,7 +106,7 @@ public static partial class DialogueScript
         ("or", ConditionType.GoldAtLeast, "n"), ("niveau", ConditionType.LevelAtLeast, "n"),
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
-        ("amitie", ConditionType.Friendship, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
+        ("amitie", ConditionType.Friendship, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"),

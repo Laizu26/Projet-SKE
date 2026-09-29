@@ -20,6 +20,18 @@ public sealed class CampView : ContentView
     /// <summary>Au-delà, un cercle de grade est trop chargé : les persos s'affichent en liste.</summary>
     private const int MaxPerRing = 9;
 
+    /// <summary>Partie de l'interface qui correspond à un menu du camp (pour le désactiver).</summary>
+    private static UiFeature? SectionFeature(CampSection section) => section switch
+    {
+        CampSection.Management => UiFeature.CampManagement,
+        CampSection.Resources => UiFeature.CampResources,
+        CampSection.People => UiFeature.CampPeople,
+        CampSection.Team => UiFeature.CampTeam,
+        CampSection.Bag => UiFeature.CampBag,
+        CampSection.Places => UiFeature.CampPlaces,
+        _ => null,
+    };
+
     public CampView(GamePage page)
     {
         _page = page;
@@ -28,6 +40,7 @@ public sealed class CampView : ContentView
         var campOn = s.CampRules.Enabled;
         var section = page.CampSection;
         if (!campOn && section is CampSection.People or CampSection.Management or CampSection.Places) section = CampSection.Hub;
+        if (SectionFeature(section) is { } locked && s.IsLocked(locked)) section = CampSection.Hub; // menu désactivé (prologue...)
 
         stack.Add(PageHeader(Ico.Tent, s.Db.T("title.camp"), section switch
         {
@@ -91,6 +104,9 @@ public sealed class CampView : ContentView
             var buildable = s.CampRules.Buildings.Count(b => s.CannotBuild(b) is null);
             nodes.Add((Ico.Hammer, s.Db.T("camp.places"), CampSection.Places, buildable > 0 ? buildable.ToString() : null, false));
         }
+
+        // Menus désactivés (prologue, effet « Menu : désactiver ») : ils disparaissent du cercle.
+        nodes.RemoveAll(n => SectionFeature(n.Section) is { } f && s.IsLocked(f));
 
         // Réparties en cercle, en commençant en haut.
         for (var i = 0; i < nodes.Count; i++)
@@ -474,6 +490,10 @@ public sealed class CampView : ContentView
             var tier = gauge.TierName(value);
             stack.Add(DarkStat(Ico.Sparkles, gauge.Name, tier.Length > 0 ? $"{value} · {tier}" : value.ToString()));
         }
+
+        // Pouvoirs du personnage (familles de compétences).
+        if (s.PowersOf(c) is { Count: > 0 } powers)
+            stack.Add(DarkStat(Ico.Flame, "Pouvoirs", string.Join(", ", powers.Select(p => p.Name))));
 
         // Passifs : ceux qui agissent en or, ceux en sommeil (conditions non remplies) grisés.
         var passives = s.PassivesOf(c);

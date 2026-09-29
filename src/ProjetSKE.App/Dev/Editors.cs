@@ -90,7 +90,20 @@ public static class Editors
         x => new SkillEditor(x),
         subtitle: x => DevState.Name(x.Kind) + (x.ManaCost > 0 ? $" · {x.ManaCost} PM" : "")
             + (x.Element.Length > 0 ? $" · {x.Element}" : "") + (x.Effects.Count > 0 ? $" · {x.Effects.Count} effet(s)" : "")
-            + (x.Cooldown > 0 ? $" · recharge {x.Cooldown}" : ""));
+            + (x.Cooldown > 0 ? $" · recharge {x.Cooldown}" : "") + (PowerOf(x) is not null ? $" · niv. {x.PowerLevel}" : ""),
+        help: "Rangées par pouvoir. Un PJ qui a un pouvoir apprend toutes ses compétences (chacune à son niveau). Les pouvoirs se créent dans « Pouvoirs ».",
+        sortKey: x => $"{x.PowerLevel:D3} {x.Name}",
+        group: x => PowerOf(x)?.Name ?? "");
+
+    private static PowerDef? PowerOf(SkillDef s) => DevState.Draft.Powers.FirstOrDefault(p => p.Id == s.PowerId);
+
+    public static Page PowerList() => new EntityListPage<PowerDef>(
+        "Pouvoirs", C.Powers, x => x.Id, x => x.Name,
+        (id, name) => new PowerDef { Id = id, Name = name },
+        x => new PowerEditor(x),
+        subtitle: x => $"{C.Skills.Count(s => s.PowerId == x.Id)} compétence(s) · {C.Characters.Count(c => c.PowerIds.Contains(x.Id))} PJ",
+        help: "Un pouvoir regroupe des compétences (« Pyromancie », « Épée »...). Donne-le à un PJ (sa fiche, ou l'effet « Pouvoir : donner ») : "
+            + "il apprend toutes ses compétences, chacune au niveau réglé.");
 
     public static Page LocationList() => new EntityListPage<LocationDef>(
         "Lieux et carte", C.Locations, x => x.Id, x => x.Name,
@@ -142,6 +155,7 @@ public sealed class CharacterEditor : EditorPage
             sf.RefField("Compétence", s.SkillId, DevState.Skills, v => s.SkillId = v ?? "", allowNone: false);
             sf.IntField("Apprise au niveau", s.Level, v => s.Level = v);
         }, "+ Compétence");
+        f.IdList("Pouvoirs (toutes leurs compétences, chacune à son niveau)", _x.PowerIds, DevState.Powers);
         f.ObjectList("Passifs", _x.Passives, () => new PassiveUnlock(1, ""), (pf, p, _) =>
         {
             pf.RefField("Passif", p.PassiveId, DevState.Passives, v => p.PassiveId = v ?? "", allowNone: false,
@@ -525,6 +539,61 @@ public sealed class PassiveEditor : EditorPage
     }
 }
 
+// ====================================================================== Pouvoirs
+
+public sealed class PowerEditor : EditorPage
+{
+    private readonly PowerDef _x;
+    public PowerEditor(PowerDef x) { _x = x; Render(); }
+    protected override string PageTitle => "Pouvoir : " + _x.Name;
+    protected override void GoBack() => SkeApp.GoTo(Editors.PowerList());
+    protected override Action Delete => () =>
+    {
+        DevState.Draft.Powers.Remove(_x);
+        foreach (var s in DevState.Draft.Skills.Where(s => s.PowerId == _x.Id)) s.PowerId = null;
+        foreach (var c in DevState.Draft.Characters) c.PowerIds.Remove(_x.Id);
+    };
+
+    protected override void Build(Form f)
+    {
+        f.Note($"Identifiant : {_x.Id} — effet « Pouvoir : donner », ou mode texte : [pouvoir {_x.Id} @heros]");
+        f.TextField("Nom", _x.Name, v => _x.Name = v);
+        f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
+
+        f.Header("Compétences du pouvoir");
+        var skills = DevState.Draft.Skills.Where(s => s.PowerId == _x.Id).OrderBy(s => s.PowerLevel).ThenBy(s => s.Name).ToList();
+        if (skills.Count == 0) f.Note("Aucune pour l'instant : crée-en une ci-dessous, ou choisis ce pouvoir sur une compétence existante.");
+        foreach (var skill in skills)
+        {
+            var sk = skill;
+            f.Add(Panel(Row(Stack(Txt(sk.Name, 14, Theme.Text, bold: true), Muted($"niveau {sk.PowerLevel} · {DevState.Name(sk.Kind)}")),
+                Form.SmallButton("Modifier", () => SkeApp.GoTo(new SkillEditor(sk))))));
+        }
+        f.IdList("Ajouter des compétences existantes", [], DevState.Draft.Skills.Where(s => s.PowerId != _x.Id).Select(s => (s.Id, s.Name)),
+            onAdded: id => { if (DevState.Draft.Skills.FirstOrDefault(s => s.Id == id) is { } s) s.PowerId = _x.Id; Render(); });
+        f.Add(Btn("+ Nouvelle compétence dans ce pouvoir", async () =>
+        {
+            var name = await DisplayPromptAsync("Nouvelle compétence", $"Nom (pouvoir {_x.Name}) :", "Créer", "Annuler");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var skill = new SkillDef { Id = DevState.NewId(name, DevState.Draft.Skills.Select(s => s.Id)), Name = name.Trim(), PowerId = _x.Id };
+            DevState.Draft.Skills.Add(skill);
+            DevState.Touch();
+            SkeApp.GoTo(new SkillEditor(skill));
+        }));
+
+        f.Header("PJ qui ont ce pouvoir dès le début");
+        foreach (var c in DevState.Draft.Characters)
+        {
+            var pc = c;
+            f.BoolField(pc.Name, pc.PowerIds.Contains(_x.Id), v =>
+            {
+                pc.PowerIds.Remove(_x.Id);
+                if (v) pc.PowerIds.Add(_x.Id);
+            });
+        }
+    }
+}
+
 // ====================================================================== Compétences
 
 public sealed class SkillEditor : EditorPage
@@ -540,6 +609,9 @@ public sealed class SkillEditor : EditorPage
         f.Note("Identifiant : " + _x.Id);
         f.TextField("Nom", _x.Name, v => _x.Name = v);
         f.TextField("Description", _x.Description, v => _x.Description = v);
+        f.RefField("Pouvoir (famille de compétences)", _x.PowerId, DevState.Powers, v => _x.PowerId = v, rerender: true);
+        if (!string.IsNullOrEmpty(_x.PowerId))
+            f.IntField("Apprise au niveau (par les PJ qui ont ce pouvoir)", _x.PowerLevel, v => _x.PowerLevel = v);
         f.EnumField("Type", _x.Kind, v => _x.Kind = v, DevState.Name, rerender: true);
         f.EnumField("Cible", _x.Target, v => _x.Target = v, DevState.Name);
         var offensive = _x.Kind is SkillKind.Physical or SkillKind.Magical;

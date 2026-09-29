@@ -48,6 +48,8 @@ public enum ActionType
     AddGauge, SetGauge,
     // Passifs : donner / retirer à un personnage
     GivePassive, RemovePassive,
+    // Pouvoirs : donner / retirer (le PJ apprend toutes les compétences du pouvoir)
+    GivePower, RemovePower,
 }
 
 /// <summary>
@@ -62,6 +64,31 @@ public enum UiFeature
     WorldMap, Explore,
     // Combat
     BattleSkills, BattleItems, BattleFlee, BattleDefend,
+    // Menus du camp
+    CampManagement, CampResources, CampPeople, CampTeam, CampBag, CampPlaces,
+}
+
+/// <summary>Noms courts des parties de l'interface (mode texte : « [debloquer carte] »), en plus des noms anglais.</summary>
+public static class UiFeatures
+{
+    public static readonly (string Word, UiFeature Feature)[] Words =
+    [
+        ("camp", UiFeature.TabCamp), ("carte", UiFeature.TabMap), ("quetes", UiFeature.TabQuests),
+        ("encyclopedie", UiFeature.TabEncyclopedia), ("boutique", UiFeature.TabShop), ("journal", UiFeature.TabJournal),
+        ("menu", UiFeature.TabMenu), ("royaume", UiFeature.WorldMap), ("explorer", UiFeature.Explore),
+        ("competences", UiFeature.BattleSkills), ("objets", UiFeature.BattleItems), ("fuite", UiFeature.BattleFlee),
+        ("defense", UiFeature.BattleDefend), ("gestion", UiFeature.CampManagement), ("ressources", UiFeature.CampResources),
+        ("persos", UiFeature.CampPeople), ("equipe", UiFeature.CampTeam), ("sac", UiFeature.CampBag), ("lieux", UiFeature.CampPlaces),
+    ];
+
+    /// <summary>Lit une partie de l'interface : nom court (« carte ») ou nom anglais (« TabMap »).</summary>
+    public static bool TryParse(string? text, out UiFeature feature)
+    {
+        var t = (text ?? "").Trim();
+        foreach (var (word, f) in Words)
+            if (string.Equals(word, t, StringComparison.OrdinalIgnoreCase)) { feature = f; return true; }
+        return Enum.TryParse(t, ignoreCase: true, out feature) && Enum.IsDefined(feature);
+    }
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>
@@ -91,6 +118,8 @@ public enum ConditionType
     Gauge,
     // A un passif (actif)
     HasPassive,
+    // A un pouvoir
+    HasPower,
 }
 
 /// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>

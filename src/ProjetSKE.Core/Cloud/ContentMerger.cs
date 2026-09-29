@@ -57,6 +57,7 @@ public static class ContentMerger
             Camp = MergeValue("Campement", "camp", @base.Camp, local.Camp, remote.Camp, ctx.CampSettings, conflicts),
             Portraits = MergeList("Portrait", @base.Portraits, local.Portraits, remote.Portraits, x => x.Id, x => x.Name, ctx.PortraitDef, conflicts),
             Variables = MergeList("Variable", @base.Variables, local.Variables, remote.Variables, x => x.Id, x => x.Name, ctx.VariableDef, conflicts),
+            Powers = MergeList("Pouvoir", @base.Powers, local.Powers, remote.Powers, x => x.Id, x => x.Name, ctx.PowerDef, conflicts),
             Passives = MergeList("Passif", @base.Passives, local.Passives, remote.Passives, x => x.Id, x => x.Name, ctx.PassiveDef, conflicts),
             Gauges = MergeList("Jauge", @base.Gauges, local.Gauges, remote.Gauges, x => x.Id, x => x.Name, ctx.CharacterGaugeDef, conflicts),
             Tutorial = MergeValue("Prologue", "tutorial", @base.Tutorial, local.Tutorial, remote.Tutorial, ctx.TutorialSettings, conflicts),
@@ -172,6 +173,7 @@ public static class ContentMerger
             case "Portrait": return Put(content.Portraits, ctx.PortraitDef, x => x.Id);
             case "Jauge": return Put(content.Gauges, ctx.CharacterGaugeDef, x => x.Id);
             case "Passif": return Put(content.Passives, ctx.PassiveDef, x => x.Id);
+            case "Pouvoir": return Put(content.Powers, ctx.PowerDef, x => x.Id);
             case "Prologue":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.TutorialSettings) is { } tutorial) { content.Tutorial = tutorial; return true; }
                 return false;
@@ -218,7 +220,8 @@ public static class ContentMerger
             + Value(a.Title, b.Title, ctx.String) + Value(a.World, b.World, ctx.WorldSettings) + Value(a.Time, b.Time, ctx.TimeSettings)
             + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings)
             + Value(a.Camp, b.Camp, ctx.CampSettings)
-            + Lists(a.Gauges, b.Gauges, x => x.Id, ctx.CharacterGaugeDef) + Lists(a.Passives, b.Passives, x => x.Id, ctx.PassiveDef) + Value(a.Tutorial, b.Tutorial, ctx.TutorialSettings);
+            + Lists(a.Gauges, b.Gauges, x => x.Id, ctx.CharacterGaugeDef) + Lists(a.Passives, b.Passives, x => x.Id, ctx.PassiveDef)
+            + Lists(a.Powers, b.Powers, x => x.Id, ctx.PowerDef) + Value(a.Tutorial, b.Tutorial, ctx.TutorialSettings);
     }
 
     /// <summary>Résumé lisible d'un contenu (pour l'historique).</summary>

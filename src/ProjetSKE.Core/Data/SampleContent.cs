@@ -29,6 +29,12 @@ internal static class SampleContent
                 Tiers = [new("Lucide", 0), new("Troublé", 25), new("Tourmenté", 50), new("Dément", 75), new("Perdu", 95)],
             },
         ],
+        // Pouvoirs : familles de compétences (un PJ qui a le pouvoir apprend toutes ses compétences).
+        Powers =
+        [
+            new() { Id = "elementaire", Name = "Magie élémentaire", Description = "Le feu et la glace obéissent à qui les maîtrise." },
+            new() { Id = "sacre", Name = "Magie sacrée", Description = "Soigner, protéger, relever les tombés." },
+        ],
         // Passifs : effets permanents des personnages (sur leur fiche, selon le niveau).
         Passives =
         [
@@ -204,10 +210,10 @@ internal static class SampleContent
         new() { Id = "coup_puissant", Name = "Coup puissant", Description = "Un coup lourd.", ManaCost = 4, Power = 1.6 },
         new() { Id = "tourbillon", Name = "Tourbillon", Description = "Frappe tous les ennemis.", ManaCost = 8, Power = 0.8, Target = SkillTarget.AllEnemies },
         new() { Id = "trait_arcanique", Name = "Trait arcanique", Description = "Petit projectile magique.", Kind = SkillKind.Magical, Power = 0.9 },
-        new() { Id = "boule_feu", Name = "Boule de feu", Description = "Brûle un ennemi.", Kind = SkillKind.Magical, ManaCost = 5, Power = 1.6, Element = "feu" },
+        new() { PowerId = "elementaire", PowerLevel = 1, Id = "boule_feu", Name = "Boule de feu", Description = "Brûle un ennemi.", Kind = SkillKind.Magical, ManaCost = 5, Power = 1.6, Element = "feu" },
         new()
         {
-            Id = "blizzard", Name = "Blizzard", Description = "Gèle tous les ennemis et les ralentit.", Kind = SkillKind.Magical, ManaCost = 10, Power = 1.0,
+            PowerId = "elementaire", PowerLevel = 5, Id = "blizzard", Name = "Blizzard", Description = "Gèle tous les ennemis et les ralentit.", Kind = SkillKind.Magical, ManaCost = 10, Power = 1.0,
             Target = SkillTarget.AllEnemies, Element = "glace",
             Effects = [new() { Type = EffectType.StatDown, Stat = StatKind.Speed, Amount = 30, Turns = 2 }],
         },
@@ -219,15 +225,15 @@ internal static class SampleContent
             Effects = [new() { Type = EffectType.StatUp, Stat = StatKind.Attack, Amount = 30, Turns = 3 }],
             UseText = "%lanceur% pousse un cri de guerre !",
         },
-        new() { Id = "soin", Name = "Soin", Description = "Soigne un allié.", Kind = SkillKind.Heal, ManaCost = 4, Power = 1.2, Target = SkillTarget.SingleAlly },
-        new() { Id = "priere", Name = "Prière", Description = "Soigne toute l'équipe.", Kind = SkillKind.Heal, ManaCost = 10, Power = 0.7, Target = SkillTarget.AllAllies },
+        new() { PowerId = "sacre", PowerLevel = 1, Id = "soin", Name = "Soin", Description = "Soigne un allié.", Kind = SkillKind.Heal, ManaCost = 4, Power = 1.2, Target = SkillTarget.SingleAlly },
+        new() { PowerId = "sacre", PowerLevel = 4, Id = "priere", Name = "Prière", Description = "Soigne toute l'équipe.", Kind = SkillKind.Heal, ManaCost = 10, Power = 0.7, Target = SkillTarget.AllAllies },
         new()
         {
-            Id = "egide", Name = "Égide", Description = "Bouclier de 30 points sur un allié et purification.", Kind = SkillKind.Status, ManaCost = 6,
+            PowerId = "sacre", PowerLevel = 2, Id = "egide", Name = "Égide", Description = "Bouclier de 30 points sur un allié et purification.", Kind = SkillKind.Status, ManaCost = 6,
             Target = SkillTarget.SingleAlly, Cooldown = 2,
             Effects = [new() { Type = EffectType.Cleanse }, new() { Type = EffectType.Shield, Amount = 30, Turns = 3 }],
         },
-        new() { Id = "resurrection", Name = "Résurrection", Description = "Relève un allié K.O.", Kind = SkillKind.Revive, ManaCost = 15, Power = 1.0, FlatAmount = 20, Target = SkillTarget.SingleAlly, Cooldown = 4 },
+        new() { PowerId = "sacre", PowerLevel = 5, Id = "resurrection", Name = "Résurrection", Description = "Relève un allié K.O.", Kind = SkillKind.Revive, ManaCost = 15, Power = 1.0, FlatAmount = 20, Target = SkillTarget.SingleAlly, Cooldown = 4 },
 
         // Monstres
         new() { Id = "morsure", Name = "Morsure" },

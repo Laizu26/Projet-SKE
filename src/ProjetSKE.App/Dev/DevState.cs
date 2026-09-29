@@ -203,6 +203,12 @@ public static class DevState
         UiFeature.BattleItems => "Combat : objets",
         UiFeature.BattleFlee => "Combat : fuir",
         UiFeature.BattleDefend => "Combat : se défendre",
+        UiFeature.CampManagement => "Camp : Gestion",
+        UiFeature.CampResources => "Camp : Ressources",
+        UiFeature.CampPeople => "Camp : Persos",
+        UiFeature.CampTeam => "Camp : Équipe",
+        UiFeature.CampBag => "Camp : Sac",
+        UiFeature.CampPlaces => "Camp : Lieux",
         _ => f.ToString(),
     };
 
@@ -272,6 +278,7 @@ public static class DevState
 
     public static IEnumerable<(string Id, string Name)> Gauges => Draft.Gauges.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Passives => Draft.Passives.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> Powers => Draft.Powers.Select(x => (x.Id, x.Name));
 
     /// <summary>De qui (karma) : celui qui parle par défaut.</summary>
     public static IEnumerable<(string Id, string Name)> KarmaWho =>
@@ -328,8 +335,10 @@ public static class DevState
         ActionType.BuildCampBuilding => "Camp : construire un lieu (gratuit)",
         ActionType.SetQuestStage => "Quête : aller à l'étape",
         ActionType.StartDialogue => "Dialogue : lancer",
-        ActionType.UnlockFeature => "Interface : débloquer (onglet, commande...)",
-        ActionType.LockFeature => "Interface : verrouiller",
+        ActionType.UnlockFeature => "Menu / interface : activer (débloquer un onglet, un menu du camp...)",
+        ActionType.LockFeature => "Menu / interface : désactiver (verrouiller)",
+        ActionType.GivePower => "Pouvoir : donner (toutes ses compétences)",
+        ActionType.RemovePower => "Pouvoir : retirer",
         ActionType.EndTutorial => "Prologue : terminer (aller au choix du héros)",
         ActionType.StartQuestPart => "Quête : démarrer une partie",
         ActionType.CompleteQuestPart => "Quête : terminer une partie",
@@ -374,6 +383,7 @@ public static class DevState
         ConditionType.Karma => "Karma",
         ConditionType.Gauge => "Jauge (folie...)",
         ConditionType.HasPassive => "A un passif (qui agit)",
+        ConditionType.HasPower => "A un pouvoir",
         ConditionType.Friendship => "Amitié",
         ConditionType.Gold => "Or (comparaison)",
         ConditionType.Level => "Niveau (comparaison)",

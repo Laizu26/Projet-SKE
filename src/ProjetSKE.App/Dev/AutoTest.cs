@@ -293,6 +293,10 @@ public static class AutoTest
             await Step("éditeur : lieux rangés (sous-lieux)", () => SkeApp.GoTo(Editors.LocationList()));
             await Step("éditeur : jauges de personnage", () => SkeApp.GoTo(WorldLists.GaugeList()));
             await Step("éditeur : passifs", () => SkeApp.GoTo(Editors.PassiveList()));
+            await Step("éditeur : compétences rangées par pouvoir (avec recherche)", () => SkeApp.GoTo(Editors.SkillList()));
+            await Step("éditeur : pouvoirs", () => SkeApp.GoTo(Editors.PowerList()));
+            if (DevState.Draft.Powers.Count > 0)
+                await Step("éditeur : pouvoir", () => SkeApp.GoTo(new PowerEditor(DevState.Draft.Powers[0])));
             if (DevState.Draft.Passives.Count > 0)
                 await Step("éditeur : passif", () => SkeApp.GoTo(new PassiveEditor(DevState.Draft.Passives[^1])));
             if (DevState.Draft.Gauges.Count > 0)

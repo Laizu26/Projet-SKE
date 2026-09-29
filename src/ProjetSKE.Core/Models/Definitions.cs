@@ -34,6 +34,21 @@ public sealed class SkillDef
     public List<SkillEffect> Effects { get; set; } = [];
     /// <summary>Texte du journal à la place du texte automatique (%lanceur%, %cible%, %sort%).</summary>
     public string UseText { get; set; } = "";
+    /// <summary>Pouvoir auquel appartient la compétence (vide = aucun) : un PJ qui a ce pouvoir l'apprend.</summary>
+    public string? PowerId { get; set; }
+    /// <summary>Niveau auquel un PJ qui a le pouvoir apprend cette compétence.</summary>
+    public int PowerLevel { get; set; } = 1;
+}
+
+/// <summary>
+/// Pouvoir : une famille de compétences (« Pyromancie », « Épée »...). Un PJ qui a le pouvoir apprend toutes
+/// ses compétences, chacune à son niveau. Sur la fiche du PJ ou par l'effet « Pouvoir : donner ».
+/// </summary>
+public sealed class PowerDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
 }
 
 /// <summary>Effet durable d'une compétence.</summary>
@@ -161,6 +176,8 @@ public sealed class CharacterDef
     public StatBlock BaseStats { get; set; } = new();
     public StatBlock GrowthPerLevel { get; set; } = new();
     public List<SkillUnlock> Skills { get; set; } = [];
+    /// <summary>Pouvoirs du personnage : il apprend toutes leurs compétences (chacune à son niveau).</summary>
+    public List<string> PowerIds { get; set; } = [];
     /// <summary>Passifs du personnage, chacun obtenu à un niveau.</summary>
     public List<PassiveUnlock> Passives { get; set; } = [];
     public string? StartingWeaponId { get; set; }
@@ -918,6 +935,8 @@ public sealed class GameContent
     public List<CharacterGaugeDef> Gauges { get; set; } = [];
     /// <summary>Passifs, attribués aux personnages (fiche du PJ ou effet « Passif : donner »).</summary>
     public List<PassiveDef> Passives { get; set; } = [];
+    /// <summary>Pouvoirs : familles de compétences données d'un coup à un PJ.</summary>
+    public List<PowerDef> Powers { get; set; } = [];
 }
 
 /// <summary>

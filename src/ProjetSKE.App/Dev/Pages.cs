@@ -140,7 +140,8 @@ public sealed class EntityListPage<T> : ContentPage where T : class
         Func<T, bool>? filter = null,
         string? help = null,
         Func<T, string>? sortKey = null,
-        Func<T, int>? depth = null)
+        Func<T, int>? depth = null,
+        Func<T, string>? group = null)
     {
         Background = Theme.PageBackground;
         var stack = new VerticalStackLayout { Padding = new Thickness(12), Spacing = 6 };
@@ -158,17 +159,57 @@ public sealed class EntityListPage<T> : ContentPage where T : class
             SkeApp.GoTo(editor(item));
         }));
 
-        foreach (var item in items.Where(i => filter?.Invoke(i) ?? true).OrderBy(sortKey ?? label, StringComparer.CurrentCultureIgnoreCase))
+        // Recherche : filtre au fil de la frappe (nom, identifiant, détails, groupe).
+        var search = new Entry { Placeholder = "🔍 Rechercher...", ClearButtonVisibility = ClearButtonVisibility.WhileEditing, FontSize = 14 };
+        stack.Add(search);
+        var empty = Muted("Aucun résultat.");
+        empty.IsVisible = false;
+
+        var rows = new List<(View Panel, string Text, View? Header)>();
+        var headers = new List<View>();
+        var ordered = items.Where(i => filter?.Invoke(i) ?? true)
+            .OrderBy(i => group?.Invoke(i) ?? "", StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(sortKey ?? label, StringComparer.CurrentCultureIgnoreCase);
+        string? currentGroup = null;
+        View? header = null;
+        foreach (var item in ordered)
         {
             var it = item;
+            // Regroupement (ex : compétences par pouvoir) : un titre avant chaque groupe.
+            if (group is not null && group(item) is var g && g != currentGroup)
+            {
+                currentGroup = g;
+                header = Section(g.Length > 0 ? g : "Sans groupe");
+                headers.Add(header);
+                stack.Add(header);
+            }
             // Rangement en arbre (ex : sous-lieux décalés sous leur lieu, comme des salons dans une catégorie).
             var level = Math.Min(depth?.Invoke(item) ?? 0, 6);
-            var info = Stack(Txt((level > 0 ? "↳ " : "") + label(item), 15, Theme.Text, bold: true), Muted(id(item) + (subtitle is null ? "" : " · " + subtitle(item))));
+            var details = id(item) + (subtitle is null ? "" : " · " + subtitle(item));
+            var info = Stack(Txt((level > 0 ? "↳ " : "") + label(item), 15, Theme.Text, bold: true), Muted(details));
             var panel = Panel(Row(info, Form.SmallButton("Modifier", () => SkeApp.GoTo(editor(it)))));
             panel.Margin = new Thickness(level * 18, 0, 0, 0);
             stack.Add(panel);
+            rows.Add((panel, $"{label(item)} {details} {group?.Invoke(item)}", header));
         }
+        stack.Add(empty);
+        search.TextChanged += (_, e) =>
+        {
+            var words = (e.NewTextValue ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            bool Match(string text) => words.All(w => text.Contains(w, StringComparison.CurrentCultureIgnoreCase)
+                || Plain(text).Contains(Plain(w), StringComparison.OrdinalIgnoreCase));
+            foreach (var (panel, text, _) in rows) panel.IsVisible = Match(text);
+            foreach (var h in headers) h.IsVisible = rows.Any(r => r.Header == h && r.Panel.IsVisible);
+            empty.IsVisible = rows.Count > 0 && rows.All(r => !r.Panel.IsVisible);
+        };
         Content = new ScrollView { Content = stack };
+    }
+
+    /// <summary>Texte sans accents (« epee » trouve « Épée »).</summary>
+    private static string Plain(string text)
+    {
+        var decomposed = text.Normalize(System.Text.NormalizationForm.FormD);
+        return new string(decomposed.Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
     }
 
     protected override bool OnBackButtonPressed()
@@ -210,6 +251,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Nav($"Reliques ({c.Items.Count(i => i.Type == Core.Models.ItemType.Relic)})", Editors.RelicList));
         stack.Add(Nav($"Monstres ({c.Monsters.Count})", Editors.MonsterList));
         stack.Add(Nav($"Compétences ({c.Skills.Count})", Editors.SkillList));
+        stack.Add(Nav($"Pouvoirs ({c.Powers.Count})", Editors.PowerList));
         stack.Add(Nav($"Passifs ({c.Passives.Count})", Editors.PassiveList));
         stack.Add(Nav($"Lieux et carte ({c.Locations.Count})", Editors.LocationList));
         stack.Add(Nav($"Départs de partie ({1 + c.ExtraStarts.Count})", () => new StartsPage()));

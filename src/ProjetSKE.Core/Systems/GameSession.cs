@@ -180,6 +180,9 @@ public sealed partial class GameSession
         ConditionType.Karma => Compare(GetKarma(c.Arg), c.Op, c.Amount),
         ConditionType.Gauge => Compare(GetGauge(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.HasPassive => HasActivePassive(c.Arg, c.Arg2),
+        ConditionType.HasPower => Db.Powers.TryGetValue(c.Arg2, out var pw)
+            && (c.Arg == "@equipe" ? State.Party : State.Party.Where(p => p.DefId == ResolveWho(c.Arg.Length > 0 ? c.Arg : "@parle")))
+                .Any(p => PowersOf(p).Contains(pw)),
         ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
@@ -312,6 +315,17 @@ public sealed partial class GameSession
                         Notifications.Add($"{DefOf(c).Name} : {Db.Content.Karma.Name} {Signed(c.Karma - before)}");
                 }
                 break;
+            case ActionType.GivePower or ActionType.RemovePower:
+                if (!Db.Powers.TryGetValue(a.Arg, out var power)) break;
+                foreach (var c in KarmaTargets(a.Arg2.Length > 0 ? a.Arg2 : "@parle"))
+                {
+                    var had = PowersOf(c).Contains(power);
+                    if (a.Type == ActionType.GivePower) { c.LostPowers.Remove(power.Id); c.GainedPowers.Add(power.Id); }
+                    else { c.GainedPowers.Remove(power.Id); c.LostPowers.Add(power.Id); }
+                    var has = PowersOf(c).Contains(power);
+                    if (had != has) Notifications.Add($"{DefOf(c).Name} {(has ? "maîtrise" : "perd")} le pouvoir « {power.Name} »");
+                }
+                break;
             case ActionType.GivePassive or ActionType.RemovePassive:
                 if (!Db.Passives.TryGetValue(a.Arg, out var passive)) break;
                 foreach (var c in KarmaTargets(a.Arg2.Length > 0 ? a.Arg2 : "@parle"))
@@ -403,11 +417,11 @@ public sealed partial class GameSession
                 if (Db.Dialogues.ContainsKey(a.Arg)) PendingDialogues.Enqueue(a.Arg);
                 break;
             case ActionType.UnlockFeature:
-                if (Enum.TryParse<UiFeature>(a.Arg, out var unlock) && State.LockedFeatures.Remove(unlock))
+                if (UiFeatures.TryParse(a.Arg, out var unlock) && State.LockedFeatures.Remove(unlock))
                     Notifications.Add($"Débloqué : {FeatureName(unlock)}");
                 break;
             case ActionType.LockFeature:
-                if (Enum.TryParse<UiFeature>(a.Arg, out var locked)) State.LockedFeatures.Add(locked);
+                if (UiFeatures.TryParse(a.Arg, out var locked)) State.LockedFeatures.Add(locked);
                 break;
             case ActionType.EndTutorial:
                 if (State.IsTutorial) State.TutorialDone = true;
@@ -1019,8 +1033,21 @@ public sealed partial class GameSession
         return stats;
     }
 
+    /// <summary>Compétences connues : celles de sa fiche, puis celles de ses pouvoirs (chacune à son niveau).</summary>
     public IReadOnlyList<SkillDef> GetSkills(CharacterState c) =>
-        DefOf(c).Skills.Where(s => s.Level <= c.Level && Db.Skills.ContainsKey(s.SkillId)).Select(s => Db.Skills[s.SkillId]).ToList();
+        DefOf(c).Skills.Where(s => s.Level <= c.Level && Db.Skills.ContainsKey(s.SkillId)).Select(s => Db.Skills[s.SkillId])
+            .Concat(PowersOf(c).SelectMany(p => Db.SkillsOfPower(p.Id)).Where(s => s.PowerLevel <= c.Level))
+            .Distinct()
+            .ToList();
+
+    /// <summary>Pouvoirs du personnage (fiche + donnés − retirés).</summary>
+    public IReadOnlyList<PowerDef> PowersOf(CharacterState c) =>
+        DefOf(c).PowerIds.Concat(c.GainedPowers)
+            .Where(id => !c.LostPowers.Contains(id))
+            .Distinct()
+            .Where(Db.Powers.ContainsKey)
+            .Select(id => Db.Powers[id])
+            .ToList();
 
     public bool IsInParty(string characterId) => State.Party.Any(c => c.DefId == characterId);
 
@@ -1280,6 +1307,12 @@ public sealed partial class GameSession
         UiFeature.BattleItems => "les objets en combat",
         UiFeature.BattleFlee => "la fuite en combat",
         UiFeature.BattleDefend => "la défense en combat",
+        UiFeature.CampManagement => "la gestion du camp",
+        UiFeature.CampResources => "les ressources du camp",
+        UiFeature.CampPeople => "les persos du camp",
+        UiFeature.CampTeam => "l'équipe",
+        UiFeature.CampBag => "le sac",
+        UiFeature.CampPlaces => "les lieux du camp",
         _ => f.ToString(),
     };
 

@@ -12,6 +12,11 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, MonsterDef> Monsters { get; }
     public IReadOnlyDictionary<string, CharacterGaugeDef> Gauges { get; }
     public IReadOnlyDictionary<string, PassiveDef> Passives { get; }
+    public IReadOnlyDictionary<string, PowerDef> Powers { get; }
+
+    /// <summary>Compétences d'un pouvoir, par niveau d'apprentissage.</summary>
+    public IEnumerable<SkillDef> SkillsOfPower(string powerId) =>
+        Content.Skills.Where(s => s.PowerId == powerId).OrderBy(s => s.PowerLevel);
     public IReadOnlyDictionary<string, LocationDef> Locations { get; }
     public IReadOnlyDictionary<string, NpcDef> Npcs { get; }
     public IReadOnlyDictionary<string, DialogueDef> Dialogues { get; }
@@ -83,6 +88,7 @@ public sealed class GameDatabase
         Portraits = Index(content.Portraits, p => p.Id);
         Gauges = Index(content.Gauges, g => g.Id);
         Passives = Index(content.Passives, p => p.Id);
+        Powers = Index(content.Powers, p => p.Id);
     }
 
     /// <summary>
@@ -134,6 +140,10 @@ public sealed class GameDatabase
         CheckIds(Content.Monsters.Select(x => x.Id), "Monstre");
         CheckIds(Content.Gauges.Select(x => x.Id), "Jauge");
         CheckIds(Content.Passives.Select(x => x.Id), "Passif");
+        CheckIds(Content.Powers.Select(x => x.Id), "Pouvoir");
+        foreach (var s in Content.Skills) Ref(Powers, s.PowerId, $"Compétence {s.Id}", "pouvoir");
+        foreach (var c in Content.Characters)
+            foreach (var p in c.PowerIds) Ref(Powers, p, $"Personnage {c.Id}", "pouvoir");
         foreach (var p in Content.Passives)
         {
             CheckConditions(p.Conditions, $"Passif {p.Id}");
@@ -409,6 +419,10 @@ public sealed class GameDatabase
                     case ConditionType.AtLocation or ConditionType.Visited: Ref(Locations, c.Arg, w, "lieu"); break;
                     case ConditionType.MetNpc: Ref(Npcs, c.Arg, w, "PNJ"); break;
                     case ConditionType.Karma when !c.Arg.StartsWith('@'): Ref(Characters, c.Arg, w, "personnage"); break;
+                    case ConditionType.HasPower:
+                        Check(Powers.ContainsKey(c.Arg2), $"{w} : pouvoir « {c.Arg2} » introuvable");
+                        if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
+                        break;
                     case ConditionType.HasPassive:
                         Check(Passives.ContainsKey(c.Arg2), $"{w} : passif « {c.Arg2} » introuvable");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
@@ -472,6 +486,10 @@ public sealed class GameDatabase
                         break;
                     case ActionType.AddKarma or ActionType.SetKarma when !a.Arg.StartsWith('@') && a.Arg.Length > 0:
                         Ref(Characters, a.Arg, w, "personnage"); break;
+                    case ActionType.GivePower or ActionType.RemovePower:
+                        Check(Powers.ContainsKey(a.Arg), $"{w} : pouvoir « {a.Arg} » introuvable");
+                        if (a.Arg2.Length > 0 && !a.Arg2.StartsWith('@')) Ref(Characters, a.Arg2, w, "personnage");
+                        break;
                     case ActionType.GivePassive or ActionType.RemovePassive:
                         Check(Passives.ContainsKey(a.Arg), $"{w} : passif « {a.Arg} » introuvable");
                         if (a.Arg2.Length > 0 && !a.Arg2.StartsWith('@')) Ref(Characters, a.Arg2, w, "personnage");
@@ -490,7 +508,7 @@ public sealed class GameDatabase
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
                     case ActionType.StartDialogue: Check(Dialogues.ContainsKey(a.Arg), $"{w} : dialogue « {a.Arg} » introuvable"); break;
                     case ActionType.UnlockFeature or ActionType.LockFeature:
-                        Check(Enum.TryParse<UiFeature>(a.Arg, out _), $"{w} : partie de l'interface « {a.Arg} » inconnue");
+                        Check(UiFeatures.TryParse(a.Arg, out _), $"{w} : partie de l'interface « {a.Arg} » inconnue");
                         break;
                     case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
                         Ref(Quests, a.Arg, w, "quête");
