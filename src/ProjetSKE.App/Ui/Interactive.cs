@@ -127,57 +127,17 @@ public static class Interactive
     }
 
     /// <summary>
-    /// Aperçu d'un bouton dont le texte est coupé : au survol de la souris (PC) ou en restant appuyé
-    /// (téléphone, et PC aussi). <paramref name="show"/> reçoit true pour afficher, false pour cacher.
-    /// Le clic qui suit un appui long n'est pas compté (on regardait, on ne choisissait pas) :
-    /// l'action du bouton vérifie <see cref="Peek.Consumed"/>.
+    /// Survol de la souris (PC) : <paramref name="show"/> reçoit true en entrant (si <paramref name="wanted"/>), false en sortant.
+    /// Sur téléphone il n'y a pas de survol : l'écran concerné prévoit un équivalent au toucher.
     /// </summary>
-    public static Peek AttachPeek(Button button, Func<bool> wanted, Action<bool> show)
+    public static void AttachHover(View view, Func<bool> wanted, Action<bool> show)
     {
-        var peek = new Peek();
-        var generation = 0;
 #if WINDOWS
         var pointer = new PointerGestureRecognizer();
-        pointer.PointerEntered += (_, _) => { if (wanted()) { peek.Hovering = true; show(true); } };
-        pointer.PointerExited += (_, _) =>
-        {
-            peek.Hovering = false;
-            if (!peek.Held) show(false);
-        };
-        button.GestureRecognizers.Add(pointer);
+        pointer.PointerEntered += (_, _) => { if (wanted()) show(true); };
+        pointer.PointerExited += (_, _) => show(false);
+        view.GestureRecognizers.Add(pointer);
 #endif
-        button.Pressed += (_, _) =>
-        {
-            var mine = ++generation;
-            button.Dispatcher.StartTimer(TimeSpan.FromMilliseconds(450), () =>
-            {
-                if (mine == generation && button.IsPressed && wanted())
-                {
-                    peek.Held = true;
-                    show(true);
-                }
-                return false;
-            });
-        };
-        button.Released += (_, _) =>
-        {
-            generation++;
-            if (!peek.Held) return;
-            peek.Held = false;
-            peek.EndedAt = DateTime.UtcNow;
-            if (!peek.Hovering) show(false);
-        };
-        return peek;
-    }
-
-    public sealed class Peek
-    {
-        internal bool Held;
-        internal bool Hovering;
-        internal DateTime EndedAt = DateTime.MinValue;
-
-        /// <summary>Vrai si le clic vient de la fin d'un appui long : à ignorer.</summary>
-        public bool Consumed() => Held || (DateTime.UtcNow - EndedAt).TotalMilliseconds < 600;
     }
 
     /// <summary>

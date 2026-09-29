@@ -41,6 +41,11 @@ public sealed class DialogueView : ContentView
         FontSize = 15, LineHeight = 1.3, TextColor = Theme.Stone100,
         HorizontalTextAlignment = TextAlignment.Center, LineBreakMode = LineBreakMode.WordWrap,
     };
+    private readonly Label _peekHint = new()
+    {
+        Text = "TOUCHE ENCORE LE CHOIX POUR LE VALIDER", FontSize = 9, FontAttributes = FontAttributes.Bold, CharacterSpacing = 2,
+        TextColor = Color.FromArgb("#CA8A04"), HorizontalTextAlignment = TextAlignment.Center, IsVisible = false,
+    };
     private readonly Border _peek;
 
     public DialogueView(GameSession session, DialogueRunner runner, Action onEnd)
@@ -64,7 +69,7 @@ public sealed class DialogueView : ContentView
             StrokeThickness = 1.5,
             StrokeShape = new RoundRectangle { CornerRadius = 12 },
             Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.6f, Radius = 18, Offset = new Point(0, 6) },
-            Content = _peekText,
+            Content = new VerticalStackLayout { Spacing = 10, Children = { _peekText, _peekHint } },
         };
         BackgroundColor = Colors.Transparent;
         Content = new Grid { Children = { _dim, _barTop, _barBottom, _layer, _peek } };
@@ -139,18 +144,37 @@ public sealed class DialogueView : ContentView
     }
 
     /// <summary>Bouton de choix : si son texte est coupé, il s'affiche en entier au survol ou en restant appuyé.</summary>
+    /// <summary>
+    /// Bouton de choix. Si son texte est coupé : un premier toucher (ou clic) l'affiche en gros au-dessus,
+    /// un second le valide. Sur PC, le survol de la souris l'affiche aussi (sans rien valider).
+    /// </summary>
     private Button ChoiceButton(string label, string fullText, Action choose, bool enabled)
     {
-        Interactive.Peek? peek = null;
-        var button = Btn(label, () =>
+        Button? button = null;
+        button = Btn(label, () =>
         {
-            if (peek?.Consumed() == true) return;
+            if (_armedChoice != button && IsCut(button!))
+            {
+                // Le choix touché est entouré d'or ; l'ancien reprend son allure.
+                if (_armedChoice is { } previous) { previous.BorderColor = _armedBorder; previous.BorderWidth = 1; }
+                _armedChoice = button;
+                _armedBorder = button.BorderColor;
+                button.BorderColor = Color.FromArgb("#EAB308");
+                button.BorderWidth = 2.5;
+                ShowPeek(fullText, big: true);
+                return;
+            }
+            _armedChoice = null;
             ShowPeek(null);
             choose();
         }, enabled: enabled);
-        peek = Interactive.AttachPeek(button, () => IsCut(button), on => ShowPeek(on ? fullText : null));
+        Interactive.AttachHover(button, () => IsCut(button) && _armedChoice is null, on => ShowPeek(on ? fullText : null));
         return button;
     }
+
+    /// <summary>Choix touché une fois (affiché en gros) : le toucher encore le valide.</summary>
+    private Button? _armedChoice;
+    private Color? _armedBorder;
 
     /// <summary>Le texte (en capitales espacées) dépasse-t-il de la largeur du bouton ? Estimation prudente.</summary>
     private static bool IsCut(Button button)
@@ -162,8 +186,11 @@ public sealed class DialogueView : ContentView
         return text.Length * perChar > room * 0.92;
     }
 
-    /// <summary>Affiche (texte) ou cache (null) l'aperçu du choix, en haut de l'écran.</summary>
-    public void ShowPeek(string? text)
+    /// <summary>
+    /// Affiche (texte) ou cache (null) l'aperçu du choix, en haut de l'écran.
+    /// En gros (<paramref name="big"/>) après un premier toucher, avec l'indication pour valider.
+    /// </summary>
+    public void ShowPeek(string? text, bool big = false)
     {
         _peek.AbortAnimation("FadeTo");
         if (text is null)
@@ -173,7 +200,9 @@ public sealed class DialogueView : ContentView
             return;
         }
         _peekText.Text = text;
-        _peekText.FontAttributes = FontAttributes.None;
+        _peekText.FontSize = big ? 22 : 15;
+        _peekText.FontFamily = big ? "serif" : null;
+        _peekHint.IsVisible = big;
         _peek.Margin = new Thickness(16, Math.Max(40, Height * 0.11) + 24, 16, 0);
         _peek.IsVisible = true;
         _ = _peek.FadeTo(1, 140);
@@ -184,7 +213,7 @@ public sealed class DialogueView : ContentView
     {
         var options = _runner.Options;
         if (options.Count == 0) return false;
-        ShowPeek(options[0].Text);
+        ShowPeek(options[0].Text, big: true);
         return true;
     }
 
@@ -315,6 +344,7 @@ public sealed class DialogueView : ContentView
     private void Render()
     {
         if (_ended) return;
+        _armedChoice = null;
         ShowPeek(null);
         _notes.AddRange(_session.Notifications);
         _session.Notifications.Clear();
