@@ -36,31 +36,76 @@ public sealed class HexMapView : ContentView
     private readonly IReadOnlyList<HexTileSpec> _tiles;
     private readonly IReadOnlyList<HexRoad> _roads;
     private readonly IReadOnlyList<HexToken> _tokens;
-    private double _builtForWidth = -1;
+    private double _size;
+    private AbsoluteLayout? _canvas;
+
+    /// <summary>Dernière carte affichée (vérification de la mise en page par le test automatique).</summary>
+    public static HexMapView? Last { get; private set; }
 
     public HexMapView(IReadOnlyList<HexTileSpec> tiles, IReadOnlyList<HexRoad>? roads = null, IReadOnlyList<HexToken>? tokens = null)
     {
         _tiles = tiles;
         _roads = roads ?? [];
         _tokens = tokens ?? [];
-        Build(34);
+        Last = this;
+        HorizontalOptions = LayoutOptions.Fill;
+        VerticalOptions = LayoutOptions.Start;
+        // Taille des cases choisie tout de suite d'après la largeur de la fenêtre (colonne du jeu) : la carte
+        // a sa bonne taille dès le premier affichage. Sur Android, la reconstruire pendant le calcul de la mise
+        // en page la laissait à l'ancienne taille, décalée dans un grand cadre vide.
+        _size = SizeFor(EstimatedWidth());
+        Build(_size);
         SizeChanged += (_, _) =>
         {
-            if (Width <= 0 || Math.Abs(Width - _builtForWidth) < 1) return;
-            _builtForWidth = Width;
-            var (unitW, _) = Extent(1);
-            Build(Math.Clamp(Width / unitW, 18, 48));
+            if (Width <= 0) return;
+            var size = SizeFor(Width);
+            if (Math.Abs(size - _size) < 0.5) return;
+            _size = size;
+            // Hors du calcul de mise en page en cours, puis on redemande la mesure.
+            Dispatcher.Dispatch(() =>
+            {
+                Build(size);
+                InvalidateMeasure();
+            });
         };
+    }
+
+    /// <summary>Largeur probable de la carte avant la première mesure : la fenêtre (au plus la colonne du jeu), moins les marges.</summary>
+    private static double EstimatedWidth()
+    {
+        var window = Application.Current?.Windows.FirstOrDefault()?.Width ?? 0;
+        if (window <= 0)
+        {
+            var display = DeviceDisplay.Current.MainDisplayInfo;
+            window = display.Density > 0 ? display.Width / display.Density : 360;
+        }
+        return Math.Min(window, Responsive.GameWidth) - 56;
+    }
+
+    /// <summary>Taille des cases pour que toute la carte tienne dans cette largeur (les marges fixes comptées à part).</summary>
+    private double SizeFor(double width)
+    {
+        if (_tiles.Count == 0) return 34;
+        var xs = _tiles.Select(t => Center(t.Hex, 1).X).ToList();
+        var span = xs.Max() - xs.Min() + Sqrt3; // largeur de la carte pour des cases de taille 1, sans les marges
+        return Math.Clamp((width - 10) / span, 16, 48);
+    }
+
+    /// <summary>
+    /// Problème de mise en page visible (carte qui déborde, décalée, ou perdue dans un cadre trop grand), sinon null.
+    /// Sert au test automatique, sur téléphone et sur PC.
+    /// </summary>
+    public string? LayoutProblem()
+    {
+        if (_canvas is not { } c || Width <= 0 || c.Width <= 0) return "carte pas encore affichée";
+        if (c.Width > Width + 2) return $"la carte déborde ({c.Width:0} > {Width:0})";
+        if (c.X < -1 || c.X + c.Width > Width + 2) return $"carte décalée (x = {c.X:0}, largeur {c.Width:0} sur {Width:0})";
+        if (Height > c.Height + 30) return $"cadre trop haut ({Height:0} pour une carte de {c.Height:0})";
+        return null;
     }
 
     private static (double X, double Y) Center(Hex h, double size) =>
         (size * Sqrt3 * (h.Q + h.R / 2.0), size * 1.5 * h.R);
-
-    private (double W, double H) Extent(double size)
-    {
-        var (minX, minY, maxX, maxY) = MapBounds(size);
-        return (maxX - minX, maxY - minY);
-    }
 
     private (double MinX, double MinY, double MaxX, double MaxY) MapBounds(double size)
     {
@@ -92,7 +137,9 @@ public sealed class HexMapView : ContentView
             WidthRequest = maxX - minX,
             HeightRequest = maxY - minY,
             HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Start,
         };
+        _canvas = canvas;
         var full = new Rect(0, 0, maxX - minX, maxY - minY);
 
         // Routes sous les tuiles.

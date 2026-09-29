@@ -35,6 +35,14 @@ public static class AutoTest
         }
     }
 
+    /// <summary>La carte hexagonale tient dans son cadre (ni débordement, ni carte minuscule perdue dans un grand vide).</summary>
+    private static void CheckMapLayout()
+    {
+        var map = ProjetSKE.App.Ui.HexMapView.Last ?? throw new InvalidOperationException("aucune carte affichée");
+        Log($"carte : {map.Width:0} × {map.Height:0}");
+        if (map.LayoutProblem() is { } problem) throw new InvalidOperationException("mise en page de la carte : " + problem);
+    }
+
     private static void Sync(string message) => CrashReporter.Log("SKE_SYNC_TEST " + message);
 
     /// <summary>
@@ -124,8 +132,10 @@ public static class AutoTest
             foreach (var tab in Enum.GetValues<GameTab>())
                 await Step("onglet " + tab, () => page!.SwitchTab(tab));
 
-            await Step("carte du royaume", () => { page!.SwitchTab(GameTab.Map); page.MapShowCountry = true; page.Render(); });
-            await Step("carte du lieu", () => { page!.MapShowCountry = false; page.Render(); });
+            await Step("carte du royaume", () => { page!.SwitchTab(GameTab.Map); page.MapShowCountry = true; page.Render(); }, 2000);
+            await Step("carte du royaume : mise en page", CheckMapLayout);
+            await Step("carte du lieu", () => { page!.MapShowCountry = false; page.Render(); }, 2000);
+            await Step("carte du lieu : mise en page", CheckMapLayout);
             // Lieux dans des lieux : entrer dans un sous-lieu, voir la carte du royaume depuis l'intérieur, ressortir.
             var subLoc = db.Content.Locations.FirstOrDefault(l => db.ParentOf(l) is not null);
             if (subLoc is not null)
