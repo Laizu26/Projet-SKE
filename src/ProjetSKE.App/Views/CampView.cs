@@ -459,7 +459,7 @@ public sealed class CampView : ContentView
                 new Label
                 {
                     Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 24, FontAttributes = FontAttributes.Bold,
-                    TextColor = Theme.Stone100, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
+                    TextColor = Night.Stone100, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
                 },
                 new Label
                 {
@@ -468,7 +468,7 @@ public sealed class CampView : ContentView
                 },
                 new Label
                 {
-                    Text = def.Description, FontSize = 13, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400,
+                    Text = def.Description, FontSize = 13, FontAttributes = FontAttributes.Italic, TextColor = Night.Stone400,
                     HorizontalTextAlignment = TextAlignment.Center,
                 },
                 Bar(_page.T("hp"), c.CurrentHp, stats.MaxHp, Theme.Green500, 10, dark: true),

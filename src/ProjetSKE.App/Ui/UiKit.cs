@@ -11,62 +11,92 @@ namespace ProjetSKE.App.Ui;
 /// </summary>
 public static class Theme
 {
-    // Pierre (stone)
-    public static readonly Color Stone950 = Color.FromArgb("#0C0A09");
-    public static readonly Color Stone900 = Color.FromArgb("#1C1917");
-    public static readonly Color Stone800 = Color.FromArgb("#292524");
-    public static readonly Color Stone700 = Color.FromArgb("#44403C");
-    public static readonly Color Stone600 = Color.FromArgb("#57534E");
-    public static readonly Color Stone500 = Color.FromArgb("#78716C");
-    public static readonly Color Stone400 = Color.FromArgb("#A8A29E");
-    public static readonly Color Stone300 = Color.FromArgb("#D6D3D1");
-    public static readonly Color Stone200 = Color.FromArgb("#E7E5E4");
-    public static readonly Color Stone100 = Color.FromArgb("#F5F5F4");
-    public static readonly Color Stone50 = Color.FromArgb("#FAFAF9");
+    // ------------------------------------------------------------------ Mode sombre
 
-    // Parchemin
-    public static readonly Color Parchment = Color.FromArgb("#E6E2D6");
-    public static readonly Color ParchmentLight = Color.FromArgb("#FDF6E3");
-    public static readonly Color ParchmentMid = Color.FromArgb("#F5F0DC");
-    public static readonly Color ParchmentActive = Color.FromArgb("#E6DCC3");
+    private const string DarkKey = "theme.dark";
 
-    // Or et accents
+    /// <summary>Mode sombre (réglage de l'appareil, dans le Menu et sur l'écran titre). Désactivé par défaut.</summary>
+    public static bool Dark { get; private set; } = LoadDark();
+
+    private static bool LoadDark()
+    {
+        try { return Preferences.Default.Get(DarkKey, false); }
+        catch (Exception) { return false; } // pas de stockage (projet de vérification)
+    }
+
+    /// <summary>Change le mode (enregistré sur l'appareil). Les écrans reprennent les couleurs en se redessinant.</summary>
+    public static void SetDark(bool dark)
+    {
+        Dark = dark;
+        try { Preferences.Default.Set(DarkKey, dark); }
+        catch (Exception) { }
+        if (Application.Current is { } app) app.UserAppTheme = dark ? AppTheme.Dark : AppTheme.Light;
+    }
+
+    private static Color Pick(Color light, Color dark) => Dark ? dark : light;
+
+    // Pierre (stone) : en mode sombre l'échelle s'inverse (texte clair, fonds sombres).
+    // Les éléments toujours sombres (bandeaux, combat, cinématiques) utilisent Night, qui ne change pas.
+    public static Color Stone950 => Pick(Night.Stone950, Color.FromArgb("#FAF8F6"));
+    public static Color Stone900 => Pick(Night.Stone900, Color.FromArgb("#F0EDEA"));
+    public static Color Stone800 => Pick(Night.Stone800, Color.FromArgb("#E2DEDB"));
+    public static Color Stone700 => Pick(Night.Stone700, Color.FromArgb("#D0CBC7"));
+    public static Color Stone600 => Pick(Night.Stone600, Color.FromArgb("#BDB7B2"));
+    public static Color Stone500 => Pick(Night.Stone500, Color.FromArgb("#A39C96"));
+    public static Color Stone400 => Pick(Night.Stone400, Color.FromArgb("#8C857F"));
+    public static Color Stone300 => Pick(Night.Stone300, Color.FromArgb("#524C47"));
+    public static Color Stone200 => Pick(Night.Stone200, Color.FromArgb("#3D3834"));
+    public static Color Stone100 => Pick(Night.Stone100, Color.FromArgb("#2F2B27"));
+    public static Color Stone50 => Pick(Night.Stone50, Color.FromArgb("#282420"));
+
+    // Parchemin (fonds de page et feuilles)
+    public static Color Parchment => Pick(Color.FromArgb("#E6E2D6"), Color.FromArgb("#171412"));
+    public static Color ParchmentLight => Pick(Color.FromArgb("#FDF6E3"), Color.FromArgb("#26211B"));
+    public static Color ParchmentMid => Pick(Color.FromArgb("#F5F0DC"), Color.FromArgb("#221E19"));
+    public static Color ParchmentActive => Pick(Color.FromArgb("#E6DCC3"), Color.FromArgb("#342C22"));
+
+    // Or et accents (identiques dans les deux modes)
     public static readonly Color Gold400 = Color.FromArgb("#FACC15");
     public static readonly Color Gold500 = Color.FromArgb("#EAB308");
     public static readonly Color Gold600 = Color.FromArgb("#CA8A04");
-    public static readonly Color Gold700 = Color.FromArgb("#A16207");
+    public static Color Gold700 => Pick(Color.FromArgb("#A16207"), Color.FromArgb("#C08A1E"));
     public static readonly Color Amber500 = Color.FromArgb("#F59E0B");
-    public static readonly Color Green600 = Color.FromArgb("#16A34A");
+    public static Color Green600 => Pick(Color.FromArgb("#16A34A"), Color.FromArgb("#22C55E"));
     public static readonly Color Green500 = Color.FromArgb("#22C55E");
-    public static readonly Color Red600 = Color.FromArgb("#DC2626");
+    public static Color Red600 => Pick(Color.FromArgb("#DC2626"), Color.FromArgb("#F05252"));
     public static readonly Color Red500 = Color.FromArgb("#EF4444");
-    public static readonly Color Blue600 = Color.FromArgb("#2563EB");
+    public static Color Blue600 => Pick(Color.FromArgb("#2563EB"), Color.FromArgb("#4F8BF5"));
     public static readonly Color Blue500 = Color.FromArgb("#3B82F6");
-    public static readonly Color Purple600 = Color.FromArgb("#9333EA");
+    public static Color Purple600 => Pick(Color.FromArgb("#9333EA"), Color.FromArgb("#A855F7"));
 
     // Rôles (noms utilisés dans tout le code)
-    public static readonly Color Bg = Parchment;
-    public static readonly Color Text = Stone900;
-    public static readonly Color Muted = Stone500;
-    public static readonly Color Accent = Gold600;
-    public static readonly Color AccentLight = Gold500;
-    public static readonly Color Surface = Colors.White;
-    public static readonly Color Surface2 = Stone50;
-    public static readonly Color Stroke = Stone200;
-    public static readonly Color Track = Stone200;
-    public static readonly Color Good = Green600;
-    public static readonly Color Danger = Red600;
-    public static readonly Color Hp = Green600;
-    public static readonly Color Mana = Blue600;
-    public static readonly Color Xp = Purple600;
+    public static Color Bg => Parchment;
+    public static Color Text => Stone900;
+    public static Color Muted => Stone500;
+    public static Color Accent => Gold600;
+    public static Color AccentLight => Gold500;
+    /// <summary>Fond des cartes : blanc, ou pierre sombre en mode sombre.</summary>
+    public static Color Surface => Pick(Colors.White, Color.FromArgb("#211D1A"));
+    public static Color Surface2 => Stone50;
+    public static Color Stroke => Stone200;
+    public static Color Track => Stone200;
+    public static Color Good => Green600;
+    public static Color Danger => Red600;
+    public static Color Hp => Green600;
+    public static Color Mana => Blue600;
+    public static Color Xp => Purple600;
+    /// <summary>Fond jaune pâle d'un élément mis en avant (tâche en cours, emplacement choisi).</summary>
+    public static Color Highlight => Pick(Color.FromArgb("#FEF9C3"), Color.FromArgb("#3A2F12"));
+    /// <summary>Fond rosé d'un élément en erreur (éditeur).</summary>
+    public static Color DangerBg => Pick(Color.FromArgb("#FEF2F2"), Color.FromArgb("#3B1D1D"));
     public static readonly Color Overlay = Color.FromArgb("#B3000000");
-    public static readonly Color Ink = Stone900;
+    public static Color Ink => Stone900;
 
     // Anciens noms conservés pour l'éditeur.
-    public static readonly Color Panel = Colors.White;
-    public static readonly Color Header = Stone900;
-    public static readonly Color ButtonBg = Colors.White;
-    public static readonly Color ButtonSelected = Stone900;
+    public static Color Panel => Surface;
+    public static Color Header => Night.Stone900;
+    public static Color ButtonBg => Surface;
+    public static Color ButtonSelected => Night.Stone900;
 
     public static Brush Vertical(Color top, Color bottom) => new LinearGradientBrush
     {
@@ -91,7 +121,7 @@ public static class Theme
     };
 
     public static Brush PageBackground => new SolidColorBrush(Parchment);
-    public static Brush DarkBackground => Diagonal(Stone900, Stone950);
+    public static Brush DarkBackground => Diagonal(Night.Stone900, Night.Stone950);
 
     /// <summary>Icône et couleur d'accent de chaque type de lieu.</summary>
     public static (string Icon, Color Accent) LocationStyle(LocationType type) => type switch
@@ -100,6 +130,12 @@ public static class Theme
         LocationType.Dungeon => (Ico.Skull, Red500),
         _ => (Ico.Trees, Green500),
     };
+
+    /// <summary>Fond clair (le texte posé dessus doit être sombre) ?</summary>
+    public static bool IsLight(Color background) => background.GetLuminosity() > 0.45f;
+
+    /// <summary>Encre lisible sur un fond donné (tuiles de carte colorées...), dans les deux modes.</summary>
+    public static Color InkOn(Color background) => IsLight(background) ? Night.Stone900 : Night.Stone100;
 
     private static readonly Color[] AvatarColors =
     [
@@ -131,6 +167,25 @@ public static class Theme
         ItemType.Relic => Ico.Wine,
         _ => Ico.ScrollText,
     };
+}
+
+/// <summary>
+/// Pierre sombre fixe : bandeaux, barre d'onglets, combat, cinématiques, cartes sombres.
+/// Ces éléments sont sombres dans les deux modes (le mode sombre ne les inverse pas).
+/// </summary>
+public static class Night
+{
+    public static readonly Color Stone950 = Color.FromArgb("#0C0A09");
+    public static readonly Color Stone900 = Color.FromArgb("#1C1917");
+    public static readonly Color Stone800 = Color.FromArgb("#292524");
+    public static readonly Color Stone700 = Color.FromArgb("#44403C");
+    public static readonly Color Stone600 = Color.FromArgb("#57534E");
+    public static readonly Color Stone500 = Color.FromArgb("#78716C");
+    public static readonly Color Stone400 = Color.FromArgb("#A8A29E");
+    public static readonly Color Stone300 = Color.FromArgb("#D6D3D1");
+    public static readonly Color Stone200 = Color.FromArgb("#E7E5E4");
+    public static readonly Color Stone100 = Color.FromArgb("#F5F5F4");
+    public static readonly Color Stone50 = Color.FromArgb("#FAFAF9");
 }
 
 /// <summary>Briques d'interface réutilisées partout.</summary>
@@ -238,8 +293,9 @@ public static class UiKit
             FontAttributes = FontAttributes.Bold,
             CharacterSpacing = 1.5,
             TextColor = selected ? Theme.Gold500 : Theme.Stone800,
-            BackgroundColor = selected ? Theme.Stone900 : Colors.White,
-            BorderColor = selected ? Theme.Stone900 : Theme.Stone300,
+            BackgroundColor = selected ? Night.Stone900 : Theme.Surface,
+            // En mode sombre, le bouton pierre se détache du fond par un liseré or.
+            BorderColor = selected ? (Theme.Dark ? Theme.Gold700 : Night.Stone900) : Theme.Stone300,
             BorderWidth = 1,
             CornerRadius = 12,
             Padding = new Thickness(12, 8),
@@ -291,7 +347,7 @@ public static class UiKit
     public static Border Card(View content, Color? background = null, Color? stroke = null, double radius = 12) => new()
     {
         Content = content,
-        BackgroundColor = background ?? Colors.White,
+        BackgroundColor = background ?? Theme.Surface,
         Stroke = stroke ?? Theme.Stone200,
         StrokeThickness = 1,
         StrokeShape = new RoundRectangle { CornerRadius = radius },
@@ -343,7 +399,7 @@ public static class UiKit
         {
             Content = grid,
             Background = Theme.DarkBackground,
-            Stroke = Theme.Stone800,
+            Stroke = Theme.Dark ? Night.Stone700 : Night.Stone800,
             StrokeThickness = 2,
             StrokeShape = new RoundRectangle { CornerRadius = 12 },
             Padding = 0,
@@ -362,9 +418,9 @@ public static class UiKit
         HorizontalOptions = LayoutOptions.Center,
         VerticalOptions = LayoutOptions.Center,
         StrokeShape = new Ellipse(),
-        Stroke = Theme.Stone700,
+        Stroke = Night.Stone700,
         StrokeThickness = 4,
-        BackgroundColor = Theme.Stone800,
+        BackgroundColor = Night.Stone800,
         Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 4), Radius = 12, Opacity = 0.5f },
         Content = Icon(glyph, size * 0.45, color ?? Theme.Gold500),
     };
@@ -434,7 +490,7 @@ public static class UiKit
             StrokeShape = new Ellipse(),
             Stroke = color,
             StrokeThickness = 2,
-            BackgroundColor = Theme.Stone800,
+            BackgroundColor = Night.Stone800,
             VerticalOptions = LayoutOptions.Center,
             HorizontalOptions = LayoutOptions.Center,
             Content = new Label
@@ -443,7 +499,7 @@ public static class UiKit
                 FontFamily = "serif",
                 FontSize = size * 0.42,
                 FontAttributes = FontAttributes.Bold,
-                TextColor = Theme.Stone300,
+                TextColor = Night.Stone300,
                 HorizontalTextAlignment = TextAlignment.Center,
                 VerticalTextAlignment = TextAlignment.Center,
             },
@@ -482,7 +538,7 @@ public static class UiKit
         var track = new Border
         {
             HeightRequest = height,
-            BackgroundColor = dark ? Theme.Stone700 : Theme.Stone200,
+            BackgroundColor = dark ? Night.Stone700 : Theme.Stone200,
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = height / 2 },
             Padding = 0,
@@ -504,7 +560,7 @@ public static class UiKit
         name.VerticalOptions = LayoutOptions.Center;
         grid.Add(name, 0, 0);
         grid.Add(track, 1, 0);
-        var numbers = Txt($"{value}/{max}", 11, dark ? Theme.Stone300 : Theme.Stone600, bold: true);
+        var numbers = Txt($"{value}/{max}", 11, dark ? Night.Stone300 : Theme.Stone600, bold: true);
         numbers.HorizontalTextAlignment = TextAlignment.End;
         numbers.VerticalOptions = LayoutOptions.Center;
         grid.Add(numbers, 2, 0);
@@ -525,7 +581,7 @@ public static class UiKit
         var track = new AbsoluteLayout
         {
             HeightRequest = height,
-            BackgroundColor = dark ? Theme.Stone700 : Theme.Stone200,
+            BackgroundColor = dark ? Night.Stone700 : Theme.Stone200,
             VerticalOptions = LayoutOptions.Center,
         };
         var ghost = new BoxView { Color = damage ? Color.FromArgb("#FDE68A") : color.WithAlpha(0.45f), CornerRadius = height / 2 };
@@ -561,7 +617,7 @@ public static class UiKit
         name.VerticalOptions = LayoutOptions.Center;
         grid.Add(name, 0, 0);
         grid.Add(clip, 1, 0);
-        var numbers = Txt($"{from}/{max}", 11, dark ? Theme.Stone300 : Theme.Stone600, bold: true);
+        var numbers = Txt($"{from}/{max}", 11, dark ? Night.Stone300 : Theme.Stone600, bold: true);
         numbers.HorizontalTextAlignment = TextAlignment.End;
         numbers.VerticalOptions = LayoutOptions.Center;
         grid.Add(numbers, 2, 0);
@@ -707,7 +763,7 @@ public static class UiKit
             Spacing = 2,
             Children =
             {
-                Caps(label, 10, Theme.Stone400),
+                Caps(label, 10, Night.Stone400),
                 new Label { Text = value, FontFamily = "serif", FontSize = 34, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500 },
             },
         }, glyph, Theme.Gold500);

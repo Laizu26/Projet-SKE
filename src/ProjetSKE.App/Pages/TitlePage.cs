@@ -8,11 +8,11 @@ public sealed class TitlePage : ContentPage
 {
     public TitlePage()
     {
-        Background = Theme.Diagonal(Theme.Stone900, Theme.Stone950);
+        Background = Theme.Diagonal(Night.Stone900, Night.Stone950);
 
         var band = new VerticalStackLayout
         {
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Spacing = 0,
             Children =
             {
@@ -27,12 +27,12 @@ public sealed class TitlePage : ContentPage
                         new Label
                         {
                             Text = "PROJET SKE", FontFamily = "serif", FontSize = 30, FontAttributes = FontAttributes.Bold,
-                            TextColor = Theme.Stone100, CharacterSpacing = 6, HorizontalTextAlignment = TextAlignment.Center,
+                            TextColor = Night.Stone100, CharacterSpacing = 6, HorizontalTextAlignment = TextAlignment.Center,
                         },
                         new Label
                         {
                             Text = SkeApp.Db.Content.Title.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold,
-                            TextColor = Theme.Stone500, CharacterSpacing = 5, HorizontalTextAlignment = TextAlignment.Center,
+                            TextColor = Night.Stone500, CharacterSpacing = 5, HorizontalTextAlignment = TextAlignment.Center,
                         },
                     },
                 },
@@ -73,7 +73,7 @@ public sealed class TitlePage : ContentPage
         {
             Content = new VerticalStackLayout { Spacing = 0, Children = { band, body, footer } },
             BackgroundColor = Theme.Parchment,
-            Stroke = Theme.Stone800,
+            Stroke = Night.Stone800,
             StrokeThickness = 4,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
             Padding = 0,
@@ -82,7 +82,7 @@ public sealed class TitlePage : ContentPage
 
         var dev = new Border
         {
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Stroke = Theme.Gold700,
             StrokeThickness = 1.5,
             StrokeDashArray = new DoubleCollection { 4, 3 },
@@ -102,7 +102,7 @@ public sealed class TitlePage : ContentPage
             Padding = new Thickness(22, 40),
             Spacing = 18,
             VerticalOptions = LayoutOptions.Center,
-            Children = { card, dev },
+            Children = { card, dev, DarkModeButton(() => SkeApp.GoTo(new TitlePage())) },
         };
 
         // Le jeu a planté la dernière fois : on affiche le rapport pour pouvoir l'envoyer.
@@ -124,6 +124,18 @@ public sealed class TitlePage : ContentPage
         RenderUpdate();
 
         Content = new ScrollView { Content = column };
+    }
+
+    /// <summary>Interrupteur du mode sombre (écran titre et Menu du jeu), puis on redessine l'écran.</summary>
+    internal static Button DarkModeButton(Action redraw)
+    {
+        var button = Pill((Theme.Dark ? "☀  Mode clair" : "☾  Mode sombre"), () =>
+        {
+            Theme.SetDark(!Theme.Dark);
+            redraw();
+        });
+        button.HorizontalOptions = LayoutOptions.Center;
+        return button;
     }
 
     private readonly ContentView _updateHost = new();
@@ -171,6 +183,6 @@ public sealed class TitlePage : ContentPage
         box.Add(Muted(Updates.PlatformName == "PC"
             ? "Tes parties et ton contenu sont gardés. Le jeu se ferme, se met à jour et se relance."
             : "Tes parties et ton contenu sont gardés. La première fois, Android demande d'autoriser l'installation.", 11));
-        _updateHost.Content = Card(box, Color.FromArgb("#FEF9C3"), Theme.Gold500);
+        _updateHost.Content = Card(box, Theme.Highlight, Theme.Gold500);
     }
 }

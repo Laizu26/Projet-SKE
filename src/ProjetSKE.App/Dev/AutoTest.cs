@@ -1,5 +1,6 @@
 using ProjetSKE.App.Pages;
 using ProjetSKE.App.Views;
+using ProjetSKE.App.Ui;
 using ProjetSKE.Core.Systems;
 
 namespace ProjetSKE.App.Dev;
@@ -389,6 +390,31 @@ public static class AutoTest
                 var state = SkeApp.Saves.Load(0) ?? throw new InvalidOperationException("sauvegarde introuvable");
                 SkeApp.GoTo(new GamePage(new GameSession(db, state), 0, playIntro: false));
             }, 2500);
+
+            // Mode sombre : les mêmes écrans, redessinés avec la palette sombre (puis retour au mode clair).
+            var wasDark = Theme.Dark;
+            GamePage? night = null;
+            await Step("mode sombre : écran titre", () => { Theme.SetDark(true); SkeApp.GoTo(new TitlePage()); });
+            await Step("mode sombre : emplacements", () => SkeApp.GoTo(new SlotPage(newGame: false)));
+            await Step("mode sombre : partie", () =>
+            {
+                var state = SkeApp.Saves.Load(0) ?? throw new InvalidOperationException("sauvegarde introuvable");
+                night = new GamePage(new GameSession(db, state), -1, playIntro: false);
+                SkeApp.GoTo(night);
+            }, 1500);
+            foreach (var tab in Enum.GetValues<GameTab>())
+                await Step("mode sombre : onglet " + tab, () => night!.SwitchTab(tab));
+            await Step("mode sombre : carte du royaume", () => { night!.SwitchTab(GameTab.Map); night.MapShowCountry = true; night.Render(); }, 1500);
+            await Step("mode sombre : dialogue", () => night!.ShowDialogue(db.Content.Dialogues[0].Id), 2000);
+            await Step("mode sombre : combat", () => night!.StartBattle(new[] { db.Content.Monsters[0].Id }), 2000);
+            await Step("mode sombre : éditeur", () => SkeApp.GoTo(new DevHomePage()));
+            await Step("mode sombre : interrupteur du Menu (retour au clair)", () =>
+            {
+                SkeApp.GoTo(night!);
+                night!.SwitchTab(GameTab.Menu);
+                Theme.SetDark(wasDark);
+                night.Render();
+            });
 
             Log(Failures.Count == 0 ? "SKE_AUTOTEST_DONE" : "SKE_AUTOTEST_FAIL étapes en échec : " + string.Join(", ", Failures));
         }

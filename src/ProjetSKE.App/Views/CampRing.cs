@@ -25,7 +25,7 @@ public sealed class CampRing : ContentView
             {
                 new GradientStop(Color.FromArgb("#5C3A12"), 0f),
                 new GradientStop(Color.FromArgb("#2A1D10"), 0.45f),
-                new GradientStop(Theme.Stone950, 1f),
+                new GradientStop(Night.Stone950, 1f),
             }),
             Stroke = Theme.Gold700,
             StrokeThickness = 1.5,
@@ -126,7 +126,7 @@ public sealed class CampRing : ContentView
             StrokeShape = new RoundRectangle { CornerRadius = 29 },
             Stroke = alert ? Theme.Red500 : Theme.Gold500,
             StrokeThickness = 1.5,
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Content = Icon(glyph, 24, Theme.Gold400),
         };
         var top = new Grid { HorizontalOptions = LayoutOptions.Center, Children = { disc } };
@@ -139,7 +139,7 @@ public sealed class CampRing : ContentView
             b.TranslationY = -4;
             top.Add(b);
         }
-        var name = Caps(label, 9, Theme.Stone100);
+        var name = Caps(label, 9, Night.Stone100);
         name.HorizontalTextAlignment = TextAlignment.Center;
         name.LineBreakMode = LineBreakMode.TailTruncation;
         return OnTap(new VerticalStackLayout { Spacing = 4, Children = { top, name } }, onTap);
@@ -149,7 +149,7 @@ public sealed class CampRing : ContentView
     public static View Person(View face, string name, View? info, Action onTap)
     {
         face.HorizontalOptions = LayoutOptions.Center;
-        var label = Caps(name, 8, Theme.Stone100);
+        var label = Caps(name, 8, Night.Stone100);
         label.HorizontalTextAlignment = TextAlignment.Center;
         label.LineBreakMode = LineBreakMode.TailTruncation;
         var stack = new VerticalStackLayout { Spacing = 2, Children = { face, label } };

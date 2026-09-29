@@ -102,7 +102,7 @@ public static class CampPeople
                 {
                     Spacing = 2,
                     VerticalOptions = LayoutOptions.Center,
-                    Children = { Caps(rules.LeaderTitle, 9, Theme.Gold500), Txt(name, 18, Theme.Stone100, bold: true) },
+                    Children = { Caps(rules.LeaderTitle, 9, Theme.Gold500), Txt(name, 18, Night.Stone100, bold: true) },
                 }), Ico.Crown));
         }
 
@@ -234,7 +234,7 @@ public static class CampPeople
                 new Label
                 {
                     Text = name.ToUpperInvariant(), FontFamily = "serif", FontSize = 22, FontAttributes = FontAttributes.Bold,
-                    TextColor = Theme.Stone100, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
+                    TextColor = Night.Stone100, CharacterSpacing = 3, HorizontalTextAlignment = TextAlignment.Center,
                 },
                 new Label
                 {
@@ -244,7 +244,7 @@ public static class CampPeople
             },
         };
         if (description.Length > 0)
-            head.Add(new Label { Text = description, FontSize = 13, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400, HorizontalTextAlignment = TextAlignment.Center });
+            head.Add(new Label { Text = description, FontSize = 13, FontAttributes = FontAttributes.Italic, TextColor = Night.Stone400, HorizontalTextAlignment = TextAlignment.Center });
         stack.Add(DarkCard(head, Ico.Users, goldLine: true));
 
         if (npc is not null && (npc.DefaultDialogueId is not null || npc.ConditionalDialogues.Count > 0))
@@ -284,7 +284,7 @@ public static class CampPeople
             if (task.Description.Length > 0) info.Add(Txt(task.Description, 12, Theme.Stone600));
             if (reason is not null && !current) info.Add(IconRow(Icon(Ico.Lock, 11, Theme.Red600), Txt(reason, 11, Theme.Red600)));
             var card = Card(IconRow(IconBox(CampIcons.Get(task.Icon), current ? Theme.Gold600 : Theme.Stone700), info),
-                current ? Color.FromArgb("#FEF9C3") : null, current ? Theme.Gold500 : null);
+                current ? Theme.Highlight : null, current ? Theme.Gold500 : null);
             card.Padding = new Thickness(12, 10);
             if (reason is null && !current) OnTap(card, () => { s.SetCampTask(id, t.Id); page.AutoSave(); page.Render(); });
             else if (reason is not null) card.Opacity = 0.55;

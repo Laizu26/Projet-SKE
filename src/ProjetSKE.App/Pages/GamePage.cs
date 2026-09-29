@@ -55,7 +55,7 @@ public sealed class GamePage : ContentPage
     private readonly View _testBadge;
     private readonly ContentView _avatarHost;
     private readonly ContentView _body = new();
-    private readonly Grid _tabBar = new() { ColumnSpacing = 2, Padding = new Thickness(6, 6, 6, 10), BackgroundColor = Theme.Stone950 };
+    private readonly Grid _tabBar = new() { ColumnSpacing = 2, Padding = new Thickness(6, 6, 6, 10), BackgroundColor = Night.Stone950 };
     private readonly ContentView _overlay = new() { IsVisible = false, ZIndex = 10, BackgroundColor = Theme.Overlay };
     /// <summary>Fissures (PV du héros), au-dessus de tout sauf l'écran de fin.</summary>
     private readonly CrackOverlay _cracks = new() { ZIndex = 15 };
@@ -74,12 +74,12 @@ public sealed class GamePage : ContentPage
         Slot = slot;
         BackgroundColor = Theme.Bg;
 
-        _title = Txt("", 16, Theme.Stone100, bold: true);
-        _subtitle = Caps("", 9, Theme.Stone500);
-        _message = Txt("", 13, Theme.Stone100, bold: true);
+        _title = Txt("", 16, Night.Stone100, bold: true);
+        _subtitle = Caps("", 9, Night.Stone500);
+        _message = Txt("", 13, Night.Stone100, bold: true);
         _toast = new Border
         {
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Stroke = Theme.Gold600,
             StrokeThickness = 1,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 12 },
@@ -90,14 +90,14 @@ public sealed class GamePage : ContentPage
         };
         _testBadge = Badge("Test", Theme.Red500);
         _clockTime = new Label { FontFamily = "serif", FontSize = 17, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500, HorizontalTextAlignment = TextAlignment.End };
-        _clockDate = Caps("", 8, Theme.Stone500);
+        _clockDate = Caps("", 8, Night.Stone500);
         _clockDate.HorizontalTextAlignment = TextAlignment.End;
         _clock = new VerticalStackLayout { Spacing = 0, VerticalOptions = LayoutOptions.Center, Children = { _clockTime, _clockDate } };
         _avatarHost = new ContentView();
 
         var header = new Grid
         {
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Padding = new Thickness(16, 12),
             ColumnSpacing = 12,
             ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
@@ -113,7 +113,7 @@ public sealed class GamePage : ContentPage
         skip.FontSize = 10;
         skip.MinimumHeightRequest = 32;
         skip.Padding = new Thickness(10, 4);
-        skip.BackgroundColor = Theme.Stone800;
+        skip.BackgroundColor = Night.Stone800;
         skip.BorderColor = Theme.Gold700;
         skip.TextColor = Theme.Gold500;
         _skipTutorial = skip;
@@ -147,7 +147,7 @@ public sealed class GamePage : ContentPage
         root.Add(eyes, 0, 0);
         Grid.SetRowSpan(eyes, 5);
         Content = root;
-        BackgroundColor = Theme.Stone900;
+        BackgroundColor = Night.Stone900;
 
         Render();
         if (playIntro)
@@ -177,7 +177,7 @@ public sealed class GamePage : ContentPage
             RowSpacing = 0,
             RowDefinitions = { new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Star) },
         };
-        var veil = new BoxView { Color = Theme.Stone950, Opacity = 0.85 };
+        var veil = new BoxView { Color = Night.Stone950, Opacity = 0.85 };
         eyes.Add(veil, 0, 0);
         Grid.SetRowSpan(veil, 2);
 
@@ -243,6 +243,7 @@ public sealed class GamePage : ContentPage
     public void Render()
     {
         var loc = Session.CurrentLocation;
+        _root.BackgroundColor = Theme.Parchment; // suit le mode sombre (réglage du Menu)
         if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
         if (Tab == GameTab.Quests && !Session.Db.Content.World.ShowQuestTab) Tab = GameTab.Map;
         // Onglet verrouillé (prologue...) : on passe au premier onglet ouvert.
@@ -378,8 +379,8 @@ public sealed class GamePage : ContentPage
 
             var cell = new Border
             {
-                BackgroundColor = selected ? Theme.Stone800 : Colors.Transparent,
-                Stroke = selected ? Theme.Stone700 : Colors.Transparent,
+                BackgroundColor = selected ? Night.Stone800 : Colors.Transparent,
+                Stroke = selected ? Night.Stone700 : Colors.Transparent,
                 StrokeThickness = 1,
                 StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
                 Padding = new Thickness(0, 7, 0, 6),
@@ -389,7 +390,7 @@ public sealed class GamePage : ContentPage
                     Spacing = 3,
                     Children =
                     {
-                        Icon(t.Icon, 20, selected ? Theme.Gold500 : Theme.Stone500),
+                        Icon(t.Icon, 20, selected ? Theme.Gold500 : Night.Stone500),
                         new Label
                         {
                             Text = label.ToUpperInvariant(),
@@ -397,7 +398,7 @@ public sealed class GamePage : ContentPage
                             LineBreakMode = LineBreakMode.NoWrap,
                             FontAttributes = FontAttributes.Bold,
                             CharacterSpacing = 1,
-                            TextColor = selected ? Theme.Gold500 : Theme.Stone500,
+                            TextColor = selected ? Theme.Gold500 : Night.Stone500,
                             HorizontalTextAlignment = TextAlignment.Center,
                         },
                     },
@@ -544,7 +545,7 @@ public sealed class GamePage : ContentPage
             var def = Session.DefOf(c);
             var id = c.DefId;
             var info = new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center };
-            info.Add(Txt(def.Name, 15, Theme.Stone100, bold: true));
+            info.Add(Txt(def.Name, 15, Night.Stone100, bold: true));
             var details = new List<string>();
             if (def.ClassAndTitle.Length > 0) details.Add(def.ClassAndTitle);
             var karma = Session.Db.Content.Karma;
@@ -560,16 +561,16 @@ public sealed class GamePage : ContentPage
                 var f = Session.GetFriendship(npcId, id);
                 details.Add($"{friendship.Name} {f} {friendship.TierName(f)}".Trim());
             }
-            info.Add(Caps(string.Join(" · ", details), 8, Theme.Stone400));
+            info.Add(Caps(string.Join(" · ", details), 8, Night.Stone400));
             var card = Card(IconRow(Avatar(def.Name, id == Session.SpeakerId ? Theme.Gold500 : Theme.AvatarColor(id), 40), info),
-                Theme.Stone800, id == Session.SpeakerId ? Theme.Gold500 : Theme.Stone700, 12);
+                Night.Stone800, id == Session.SpeakerId ? Theme.Gold500 : Night.Stone700, 12);
             card.Padding = new Thickness(12, 10);
             list.Add(OnTap(card, () => TalkAs(npcId, id)));
         }
         var cancel = Btn("Annuler", () => { HideOverlay(); Render(); });
         var panel = new Border
         {
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Stroke = Theme.Gold600,
             StrokeThickness = 1.5,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
@@ -582,7 +583,7 @@ public sealed class GamePage : ContentPage
                 Children =
                 {
                     IconCaps(Ico.MessageCircle, npc.Name, Theme.Gold500, 10),
-                    new Label { Text = T("speaker.ask"), FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100 },
+                    new Label { Text = T("speaker.ask"), FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100 },
                     list,
                     cancel,
                 },
@@ -713,7 +714,7 @@ public sealed class GamePage : ContentPage
         };
         var textLabel = new Label
         {
-            Text = text, FontSize = 15, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400,
+            Text = text, FontSize = 15, FontAttributes = FontAttributes.Italic, TextColor = Night.Stone400,
             HorizontalTextAlignment = TextAlignment.Center,
         };
         return new Grid

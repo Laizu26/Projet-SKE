@@ -19,11 +19,12 @@ public sealed class MapView : ContentView
     private static readonly Color CityFill = Color.FromArgb("#E9C46A");
     private static readonly Color WildFill = Color.FromArgb("#A3B18A");
     private static readonly Color DungeonFill = Color.FromArgb("#B5838D");
-    private static readonly Color FogFill = Color.FromArgb("#E9DFC4");
-    private static readonly Color FogStroke = Color.FromArgb("#C9B98F");
-    private static readonly Color EmptyFill = Color.FromArgb("#E9DFC4");
-    private static readonly Color EmptyStroke = Color.FromArgb("#D8CBA3");
-    private static readonly Color BuildingFill = Color.FromArgb("#FFFBEB");
+    // Brouillard, cases vides et bâtiments : parchemin clair, ou parchemin sombre en mode sombre.
+    private static Color FogFill => Color.FromArgb(Theme.Dark ? "#3A3328" : "#E9DFC4");
+    private static Color FogStroke => Color.FromArgb(Theme.Dark ? "#5A4F3C" : "#C9B98F");
+    private static Color EmptyFill => Color.FromArgb(Theme.Dark ? "#2E2920" : "#E9DFC4");
+    private static Color EmptyStroke => Color.FromArgb(Theme.Dark ? "#4A4234" : "#D8CBA3");
+    private static Color BuildingFill => Color.FromArgb(Theme.Dark ? "#4A4030" : "#FFFBEB");
     private static readonly Color TileStroke = Color.FromArgb("#3F3A34");
     private static readonly Color Emerald = Color.FromArgb("#059669");
 
@@ -61,9 +62,9 @@ public sealed class MapView : ContentView
                 Spacing = 2,
                 Children =
                 {
-                    Caps("Où je suis", 9, Theme.Stone500),
-                    new Label { Text = loc.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 2 },
-                    new Label { Text = loc.Description, FontSize = 12, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400 },
+                    Caps("Où je suis", 9, Night.Stone500),
+                    new Label { Text = loc.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100, CharacterSpacing = 2 },
+                    new Label { Text = loc.Description, FontSize = 12, FontAttributes = FontAttributes.Italic, TextColor = Night.Stone400 },
                 },
             }), style.Icon, style.Accent, goldLine: true);
     }
@@ -75,14 +76,14 @@ public sealed class MapView : ContentView
         {
             var chip = new Border
             {
-                BackgroundColor = active ? Theme.Stone900 : Colors.Transparent,
+                BackgroundColor = active ? Night.Stone900 : Colors.Transparent,
                 StrokeThickness = 0,
                 StrokeShape = new RoundRectangle { CornerRadius = 8 },
                 Padding = new Thickness(10, 6),
                 Content = new HorizontalStackLayout
                 {
                     Spacing = 5,
-                    Children = { Icon(glyph, 12, active ? Theme.Amber500 : Theme.Stone400), Caps(text, 9, active ? Theme.Amber500 : Theme.Stone400) },
+                    Children = { Icon(glyph, 12, active ? Theme.Amber500 : Night.Stone400), Caps(text, 9, active ? Theme.Amber500 : Night.Stone400) },
                 },
             };
             return OnTap(chip, onTap);
@@ -125,7 +126,7 @@ public sealed class MapView : ContentView
             {
                 Center = new Point(0.5, 0.35),
                 Radius = 0.9,
-                GradientStops = { new GradientStop(Color.FromArgb("#F7F0DC"), 0f), new GradientStop(Color.FromArgb("#E6D6A8"), 1f) },
+                GradientStops = { new GradientStop(Color.FromArgb(Theme.Dark ? "#2C261D" : "#F7F0DC"), 0f), new GradientStop(Color.FromArgb(Theme.Dark ? "#1C1813" : "#E6D6A8"), 1f) },
             },
             Padding = new Thickness(6, 10),
             Content = map,
@@ -229,7 +230,7 @@ public sealed class MapView : ContentView
             BackgroundColor = tint,
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 10 },
-            Content = Icon(known ? Theme.LocationStyle(loc.Type).Icon : Ico.Compass, 18, Theme.Stone900),
+            Content = Icon(known ? Theme.LocationStyle(loc.Type).Icon : Ico.Compass, 18, Theme.InkOn(tint)),
         };
 
         var panel = Stack(IconRow(box, info));

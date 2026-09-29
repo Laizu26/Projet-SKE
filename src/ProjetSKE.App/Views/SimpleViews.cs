@@ -37,10 +37,10 @@ public sealed class EncyclopediaView : ContentView
                     new Label
                     {
                         Text = count.ToString(), FontFamily = "serif", FontSize = 15, FontAttributes = FontAttributes.Bold,
-                        TextColor = selected ? Theme.Stone100 : Theme.Stone900, HorizontalTextAlignment = TextAlignment.Center,
+                        TextColor = selected ? Night.Stone100 : Theme.Stone900, HorizontalTextAlignment = TextAlignment.Center,
                     },
                 },
-            }, selected ? Theme.Stone900 : Colors.White, selected ? Theme.Stone900 : Theme.Stone200, 10);
+            }, selected ? Night.Stone900 : Theme.Surface, selected ? (Theme.Dark ? Theme.Gold700 : Night.Stone900) : Theme.Stone200, 10);
             tile.Padding = new Thickness(2, 8);
             return (View)OnTap(tile, () => { page.EncyclopediaCategory = c.Category; page.Render(); });
         }).ToList();
@@ -198,6 +198,7 @@ public sealed class MenuView : ContentView
         settings.Add(Setting(Ico.Skull, "En cas de défaite", Describe(config.Defeat), () => config.Defeat = Next(config.Defeat)));
         settings.Add(Setting(Ico.Footprints, "Fuite", Describe(config.Flee), () => config.Flee = Next(config.Flee)));
         settings.Add(Setting(Ico.Feather, "Vitesse du texte", TextSpeed.Name, TextSpeed.Next));
+        settings.Add(Setting(Ico.Moon, "Mode sombre", Theme.Dark ? "Activé" : "Désactivé", () => Theme.SetDark(!Theme.Dark)));
         settings.Add(Muted("Touchez une valeur pour la changer. Les boss empêchent toujours la fuite.", 11));
         stack.Add(TitledCard(Ico.SlidersHorizontal, "Paramètres", settings));
 

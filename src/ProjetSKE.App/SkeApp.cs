@@ -67,6 +67,7 @@ public class SkeApp : Application
             else
                 Dev.CloudSync.StartAuto(Dispatcher);
         }
+        UserAppTheme = Ui.Theme.Dark ? AppTheme.Dark : AppTheme.Light; // contrôles natifs (champs, listes) assortis
         var title = new TitlePage();
         Ui.Responsive.Apply(title);
         var window = new Window(title) { Title = "Projet SKE" };

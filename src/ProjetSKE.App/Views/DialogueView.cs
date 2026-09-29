@@ -40,7 +40,7 @@ public sealed class DialogueView : ContentView
     // Aperçu d'un choix trop long pour son bouton (survol souris ou appui long).
     private readonly Label _peekText = new()
     {
-        FontSize = 15, LineHeight = 1.3, TextColor = Theme.Stone100,
+        FontSize = 15, LineHeight = 1.3, TextColor = Night.Stone100,
         HorizontalTextAlignment = TextAlignment.Center, LineBreakMode = LineBreakMode.WordWrap,
     };
     private readonly Label _peekHint = new()
@@ -281,7 +281,7 @@ public sealed class DialogueView : ContentView
                 FontFamily = "serif",
                 FontSize = 21,
                 LineHeight = 1.4,
-                TextColor = Theme.Stone100,
+                TextColor = Night.Stone100,
                 FontAttributes = Narration ? FontAttributes.Italic : FontAttributes.None,
                 HorizontalTextAlignment = TextAlignment.Center,
                 MinimumHeightRequest = 60,
@@ -308,17 +308,17 @@ public sealed class DialogueView : ContentView
                     }, option.Enabled);
                     choice.BackgroundColor = Color.FromArgb("#1C1917");
                     choice.BorderColor = Color.FromArgb("#A16207");
-                    choice.TextColor = Theme.Stone100;
+                    choice.TextColor = Night.Stone100;
                     choice.MinimumHeightRequest = 48;
                     if (option.Choice.Narration) choice.FontAttributes = FontAttributes.Italic;
                     center.Add(choice);
                     if (!option.Enabled && option.LockedText.Length > 0)
-                        center.Add(IconRow(Icon(Ico.Lock, 11, Theme.Stone500), Txt(option.LockedText, 11, Theme.Stone400)));
+                        center.Add(IconRow(Icon(Ico.Lock, 11, Night.Stone500), Txt(option.LockedText, 11, Night.Stone400)));
                 }
             }
             else
             {
-                var hint = Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Theme.Stone500);
+                var hint = Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Night.Stone500);
                 hint.HorizontalTextAlignment = TextAlignment.Center;
                 if (!Typing) Blink(hint);
                 center.Add(hint);
@@ -437,7 +437,7 @@ public sealed class DialogueView : ContentView
             Stroke = Theme.Gold600,
             StrokeThickness = 2,
             StrokeShape = new RoundRectangle { CornerRadius = 14 },
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 6), Radius = 18, Opacity = 0.6f },
             Content = new FramedImage(portrait),
         };
@@ -471,7 +471,7 @@ public sealed class DialogueView : ContentView
             Children = { IconCaps(Ico.BookOpen, _session.Db.T("title.story"), Theme.Gold500, 9) },
         };
         if (chapter.Length > 0)
-            titles.Add(new Label { Text = chapter.ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 2 });
+            titles.Add(new Label { Text = chapter.ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100, CharacterSpacing = 2 });
         bar.Add(titles, 0, 0);
         // Icônes seules (même taille qu'avant) : l'historique (une croix quand il est ouvert) et passer.
         bar.Add(DarkPill(_showHistory ? Ico.X : Ico.ScrollText, () => { _showHistory = !_showHistory; Render(); }), 1, 0);
@@ -483,8 +483,8 @@ public sealed class DialogueView : ContentView
     {
         var pill = new Border
         {
-            BackgroundColor = Theme.Stone800,
-            Stroke = Theme.Stone700,
+            BackgroundColor = Night.Stone800,
+            Stroke = Night.Stone700,
             StrokeThickness = 1,
             StrokeShape = new RoundRectangle { CornerRadius = 16 },
             Padding = new Thickness(10, 7),
@@ -499,7 +499,7 @@ public sealed class DialogueView : ContentView
     private View Stage()
     {
         var stage = new Grid();
-        var place = Caps(_session.CurrentLocation.Name, 9, Theme.Stone400);
+        var place = Caps(_session.CurrentLocation.Name, 9, Night.Stone400);
         place.HorizontalOptions = LayoutOptions.Center;
         place.VerticalOptions = LayoutOptions.Start;
         place.Margin = new Thickness(0, 6, 0, 0);
@@ -513,12 +513,12 @@ public sealed class DialogueView : ContentView
             {
                 notes.Add(new Border
                 {
-                    BackgroundColor = Theme.Stone900,
+                    BackgroundColor = Night.Stone900,
                     Stroke = Theme.Gold600,
                     StrokeThickness = 1,
                     StrokeShape = new RoundRectangle { CornerRadius = 10 },
                     Padding = new Thickness(12, 8),
-                    Content = IconRow(Icon(Ico.Sparkles, 14, Theme.Gold500), Txt(n, 13, Theme.Stone100, bold: true)),
+                    Content = IconRow(Icon(Ico.Sparkles, 14, Theme.Gold500), Txt(n, 13, Night.Stone100, bold: true)),
                 });
             }
             stage.Add(notes);
@@ -553,12 +553,12 @@ public sealed class DialogueView : ContentView
                 {
                     WidthRequest = 46, HeightRequest = 46,
                     StrokeShape = new RoundRectangle { CornerRadius = 23 },
-                    Stroke = speaking ? Theme.Gold500 : Theme.Stone600,
+                    Stroke = speaking ? Theme.Gold500 : Night.Stone600,
                     StrokeThickness = speaking ? 2.5 : 1,
                     Content = new FramedImage(image),
                 }
                 : Avatar(def.Name, Theme.AvatarColor(def.Id), 46);
-            var name = Caps(def.Name.Split(' ')[0], 8, speaking ? Theme.Gold500 : Theme.Stone400);
+            var name = Caps(def.Name.Split(' ')[0], 8, speaking ? Theme.Gold500 : Night.Stone400);
             name.HorizontalTextAlignment = TextAlignment.Center;
             row.Add(new VerticalStackLayout
             {
@@ -595,7 +595,7 @@ public sealed class DialogueView : ContentView
         return new Border
         {
             BackgroundColor = Theme.ParchmentLight,
-            Stroke = Theme.Stone800,
+            Stroke = (Theme.Dark ? Theme.Gold700 : Theme.Stone800),
             StrokeThickness = 3,
             StrokeShape = new RoundRectangle { CornerRadius = 14 },
             Padding = new Thickness(16, 12),
@@ -625,7 +625,7 @@ public sealed class DialogueView : ContentView
                 FontFamily = "serif",
                 FontSize = narration ? 18 : 17,
                 LineHeight = narration ? 1.35 : 1.25,
-                TextColor = narration ? Theme.Stone100 : Theme.Stone900,
+                TextColor = narration ? Night.Stone100 : Night.Stone900,
                 FontAttributes = narration ? FontAttributes.Italic : FontAttributes.None,
                 HorizontalTextAlignment = narration ? TextAlignment.Center : TextAlignment.Start,
                 MinimumHeightRequest = 70,
@@ -672,9 +672,9 @@ public sealed class DialogueView : ContentView
                     {
                         // Choix-narration : une action, pas une parole (italique, sur fond sombre).
                         choice.FontAttributes = FontAttributes.Italic;
-                        choice.BackgroundColor = Theme.Stone800;
+                        choice.BackgroundColor = Night.Stone800;
                         choice.BorderColor = Theme.Gold700;
-                        choice.TextColor = Theme.Stone100;
+                        choice.TextColor = Night.Stone100;
                     }
                     body.Add(choice);
                     if (!option.Enabled && option.LockedText.Length > 0)
@@ -689,7 +689,7 @@ public sealed class DialogueView : ContentView
                     HorizontalOptions = LayoutOptions.End,
                     Children =
                     {
-                        Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Theme.Stone400 : Theme.Stone500),
+                        Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Night.Stone400 : Theme.Stone500),
                         Icon(Ico.ChevronRight, 14, Theme.Gold600),
                     },
                 };
@@ -706,7 +706,7 @@ public sealed class DialogueView : ContentView
         var box = new Border
         {
             BackgroundColor = narrationBox ? Color.FromArgb("#F20C0A09") : Theme.Parchment,
-            Stroke = narrationBox ? Theme.Gold700 : Theme.Stone800,
+            Stroke = narrationBox ? Theme.Gold700 : (Theme.Dark ? Theme.Gold700 : Theme.Stone800),
             StrokeThickness = narrationBox ? 1.5 : 3,
             StrokeShape = new RoundRectangle { CornerRadius = 16 },
             Padding = 0,
@@ -724,7 +724,7 @@ public sealed class DialogueView : ContentView
             var speaker = _runner.Speaker;
             var plate = new Border
             {
-                BackgroundColor = Theme.Stone900,
+                BackgroundColor = Night.Stone900,
                 Stroke = Theme.Gold600,
                 StrokeThickness = 1.5,
                 StrokeShape = new RoundRectangle { CornerRadius = 8 },

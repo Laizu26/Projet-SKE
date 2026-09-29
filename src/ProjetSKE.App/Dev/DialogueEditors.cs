@@ -253,7 +253,7 @@ public sealed class DialogueEditor : EditorPage
         tools.Add(Form.SmallButton("✕", () => _ = Remove(n)));
         body.Add(tools);
 
-        var card = Card(body, isolated ? Color.FromArgb("#FEF2F2") : null, index == 0 ? Theme.Gold600 : null);
+        var card = Card(body, isolated ? Theme.DangerBg : null, index == 0 ? Theme.Gold600 : null);
         card.Padding = new Thickness(12, 10);
         return OnTap(card, () => SkeApp.GoTo(new DialogueNodeEditor(_x, n)));
     }

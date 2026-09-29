@@ -39,7 +39,7 @@ public sealed class BattleView : ContentView
         _page = page;
         _battle = battle;
         _onClose = onClose;
-        Background = Theme.Vertical(Theme.Stone900, Theme.Stone950);
+        Background = Theme.Vertical(Night.Stone900, Night.Stone950);
         Render();
     }
 
@@ -72,10 +72,10 @@ public sealed class BattleView : ContentView
             Children =
             {
                 Icon(Ico.Swords, 16, Theme.Gold500),
-                new Label { Text = _page.T("battle.title").ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4 },
+                new Label { Text = _page.T("battle.title").ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100, CharacterSpacing = 4 },
             },
         }, 0, 0);
-        header.Add(Caps($"Tour {_battle.Round}", 10, Theme.Stone500), 1, 0);
+        header.Add(Caps($"Tour {_battle.Round}", 10, Night.Stone500), 1, 0);
 
         grid.Add(GoldLine(3), 0, 0);
         grid.Add(header, 0, 1);
@@ -134,7 +134,7 @@ public sealed class BattleView : ContentView
                 WidthRequest = size,
                 HeightRequest = size * 1.2,
                 VerticalOptions = LayoutOptions.Start,
-                BackgroundColor = Theme.Stone950,
+                BackgroundColor = Night.Stone950,
                 Stroke = accent,
                 StrokeThickness = 1.5,
                 StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
@@ -154,7 +154,7 @@ public sealed class BattleView : ContentView
             WidthRequest = size,
             HeightRequest = size * 1.2,
             VerticalOptions = LayoutOptions.Start,
-            BackgroundColor = Theme.Stone950,
+            BackgroundColor = Night.Stone950,
             Stroke = accent,
             StrokeThickness = 1.5,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
@@ -166,7 +166,7 @@ public sealed class BattleView : ContentView
     private View Fighter(Combatant c, string? glyph, Color accent, Color background, Color stroke, double portrait, bool compact)
     {
         var before = Previous(c);
-        var name = Txt(c.Name + (c.IsAlive ? "" : " (K.O.)"), compact ? 12 : 15, c.IsAlive ? Theme.Stone100 : Theme.Stone600, bold: true);
+        var name = Txt(c.Name + (c.IsAlive ? "" : " (K.O.)"), compact ? 12 : 15, c.IsAlive ? Night.Stone100 : Night.Stone600, bold: true);
         name.LineBreakMode = LineBreakMode.TailTruncation;
         name.MaxLines = 1;
         var bars = new VerticalStackLayout { Spacing = compact ? 3 : 5, VerticalOptions = LayoutOptions.Center };
@@ -176,7 +176,7 @@ public sealed class BattleView : ContentView
             bars.Add(AnimatedBar(_page.T("mp"), before.Mana, c.Mana, c.Stats.MaxMana, Theme.Blue500, compact ? 4 : 6, dark: true));
         if (c.Defending) bars.Add(IconRow(Icon(Ico.Shield, 11, Theme.Gold500), Txt("En garde", 10, Theme.Gold500, bold: true)));
         if (c.StatusText is { Length: > 0 } status)
-            bars.Add(IconRow(Icon(Ico.Sparkles, 11, Theme.Purple600), Txt(status, 10, Theme.Stone300, bold: true)));
+            bars.Add(IconRow(Icon(Ico.Sparkles, 11, Theme.Purple600), Txt(status, 10, Night.Stone300, bold: true)));
 
         var row = new Grid
         {
@@ -203,8 +203,8 @@ public sealed class BattleView : ContentView
         var cards = _battle.Enemies.Select(e =>
         {
             var glyph = e.IsAlive ? (e.IsBoss ? Ico.Crown : Ico.Skull) : Ico.X;
-            var accent = e.IsAlive ? Theme.Red500 : Theme.Stone600;
-            return Fighter(e, glyph, accent, Theme.Stone900, Color.FromArgb("#7F1D1D"), single ? 64 : 38, compact: !single);
+            var accent = e.IsAlive ? Theme.Red500 : Night.Stone600;
+            return Fighter(e, glyph, accent, Night.Stone900, Color.FromArgb("#7F1D1D"), single ? 64 : 38, compact: !single);
         }).ToList();
         return TileGrid(cards, single ? 1 : 2);
     }
@@ -218,7 +218,7 @@ public sealed class BattleView : ContentView
             var current = a == _battle.CurrentActor;
             var def = a.Character is { } c ? _page.Session.DefOf(c) : null;
             var accent = current ? Theme.Gold500 : Theme.AvatarColor(def?.Id ?? a.Name);
-            return Fighter(a, null, accent, Theme.Stone800, current ? Theme.Gold500 : Theme.Stone700,
+            return Fighter(a, null, accent, Night.Stone800, current ? Theme.Gold500 : Night.Stone700,
                 _battle.Allies.Count == 1 ? 48 : 30, compact: _battle.Allies.Count > 1);
         }).ToList();
         return TileGrid(cards, Math.Clamp(cards.Count, 1, 3));
@@ -290,10 +290,10 @@ public sealed class BattleView : ContentView
                 new Label
                 {
                     Text = label.ToUpperInvariant(), FontSize = 11, FontAttributes = FontAttributes.Bold, CharacterSpacing = 2,
-                    TextColor = Theme.Stone100, VerticalTextAlignment = TextAlignment.Center,
+                    TextColor = Night.Stone100, VerticalTextAlignment = TextAlignment.Center,
                 },
             },
-        }, Theme.Stone800, Theme.Stone700, 12);
+        }, Night.Stone800, Night.Stone700, 12);
         tile.Padding = new Thickness(6, 14);
         tile.Opacity = enabled ? 1 : 0.35;
         if (enabled) OnTap(tile, onTap);
@@ -303,9 +303,9 @@ public sealed class BattleView : ContentView
     private static Button DarkBtn(string text, Action onClick, bool enabled = true)
     {
         var b = Btn(text, onClick, enabled);
-        b.BackgroundColor = Theme.Stone800;
-        b.BorderColor = Theme.Stone700;
-        b.TextColor = Theme.Stone100;
+        b.BackgroundColor = Night.Stone800;
+        b.BorderColor = Night.Stone700;
+        b.TextColor = Night.Stone100;
         return b;
     }
 
@@ -339,7 +339,7 @@ public sealed class BattleView : ContentView
                     var s = skill;
                     buttons.Add(DarkBtn(skill.Name + cost, () => PickSkill(s), enabled: _battle.CanUse(skill)));
                 }
-                var stack = Stack(Caps($"{actor.Name} — {actor.Mana} PM", 9, Theme.Stone500));
+                var stack = Stack(Caps($"{actor.Name} — {actor.Mana} PM", 9, Night.Stone500));
                 if (buttons.Count > 0) stack.Add(TileGrid(buttons));
                 stack.Add(ButtonRow(
                     DarkBtn("Passer", () => { _battle.Wait(); SetMode(Mode.Main); }),
@@ -349,8 +349,8 @@ public sealed class BattleView : ContentView
             case Mode.Items:
             {
                 var items = _page.Session.Bag().Where(b => b.Item.IsConsumable).ToList();
-                var stack = Stack(Caps("Objets", 9, Theme.Stone500));
-                if (items.Count == 0) stack.Add(Txt("Aucun objet utilisable.", 13, Theme.Stone400));
+                var stack = Stack(Caps("Objets", 9, Night.Stone500));
+                if (items.Count == 0) stack.Add(Txt("Aucun objet utilisable.", 13, Night.Stone400));
                 else
                 {
                     stack.Add(TileGrid(items.Select(b =>
@@ -365,7 +365,7 @@ public sealed class BattleView : ContentView
             case Mode.Target:
             {
                 var targets = _skill is not null ? _battle.TargetsFor(_skill) : _battle.Allies.Where(a => a.IsAlive).ToList();
-                var stack = Stack(Caps("Choisir la cible", 9, Theme.Stone500));
+                var stack = Stack(Caps("Choisir la cible", 9, Night.Stone500));
                 stack.Add(TileGrid(targets.Select(t =>
                 {
                     var target = t;

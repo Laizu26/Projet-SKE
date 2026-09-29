@@ -77,7 +77,7 @@ public static class EquipmentDoll
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
             StrokeThickness = selected ? 2.5 : 1.5,
             Stroke = selected ? Theme.Gold500 : item is not null ? Theme.Gold700 : Theme.Stone300,
-            BackgroundColor = item is not null ? Theme.Stone900 : Theme.Stone100,
+            BackgroundColor = item is not null ? Night.Stone900 : Theme.Stone100,
             Content = Icon(item is not null ? Theme.ItemIcon(item) : SlotIcon(slot), 24, item is not null ? Theme.Gold400 : Theme.Stone400),
         };
         var top = new Grid { HorizontalOptions = LayoutOptions.Center, Children = { box } };
@@ -131,7 +131,7 @@ public static class EquipmentDoll
         }
         if (options.Count == 0) list.Add(Muted("Aucune pièce de ce type dans le sac.", 12));
 
-        var panel = Card(list, Color.FromArgb("#FEF9C3"), Theme.Gold500);
+        var panel = Card(list, Theme.Highlight, Theme.Gold500);
         panel.Padding = new Thickness(12, 10);
         return panel;
     }
@@ -170,7 +170,7 @@ public static class EquipmentDoll
             }
 
             // Silhouette.
-            canvas.StrokeColor = Color.FromArgb("#44403C");
+            canvas.StrokeColor = Theme.Stone700;
             canvas.StrokeSize = 5;
             canvas.DrawCircle(head, 22 * scale);
             canvas.DrawLine(neck, hip);
@@ -186,12 +186,12 @@ public static class EquipmentDoll
 
         private static void Link(ICanvas canvas, PointF from, PointF to, bool filled)
         {
-            canvas.StrokeColor = filled ? Color.FromArgb("#CA8A04") : Color.FromArgb("#D6D3D1");
+            canvas.StrokeColor = filled ? Color.FromArgb("#CA8A04") : Theme.Stone300;
             canvas.StrokeSize = filled ? 2 : 1.5f;
             if (!filled) canvas.StrokeDashPattern = [4, 4];
             canvas.DrawLine(from, to);
             canvas.StrokeDashPattern = null;
-            canvas.FillColor = filled ? Color.FromArgb("#EAB308") : Color.FromArgb("#D6D3D1");
+            canvas.FillColor = filled ? Color.FromArgb("#EAB308") : Theme.Stone300;
             canvas.FillCircle(to, 3.5f);
         }
     }

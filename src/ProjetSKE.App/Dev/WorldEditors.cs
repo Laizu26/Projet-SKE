@@ -272,7 +272,7 @@ public sealed class ImageEditor : EditorPage
         {
             WidthRequest = w,
             HeightRequest = h,
-            BackgroundColor = Theme.Stone900,
+            BackgroundColor = Night.Stone900,
             Stroke = Theme.Gold600,
             StrokeThickness = 1.5,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },

@@ -11,7 +11,7 @@ public sealed class LoadingPage : ContentPage
 {
     public LoadingPage(string message)
     {
-        BackgroundColor = Theme.Stone900;
+        BackgroundColor = Night.Stone900;
         var spinner = new ActivityIndicator
         {
             IsRunning = true,

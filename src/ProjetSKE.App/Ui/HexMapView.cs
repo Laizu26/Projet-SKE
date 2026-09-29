@@ -201,7 +201,7 @@ public sealed class HexMapView : ContentView
                     MaximumWidthRequest = w - 8,
                 };
                 if (tile.Icon is not null)
-                    content.Add(new Label { Text = tile.Icon, FontFamily = Ico.Font, FontSize = size * 0.42, TextColor = Theme.Stone900, Opacity = 0.85, HorizontalTextAlignment = TextAlignment.Center });
+                    content.Add(new Label { Text = tile.Icon, FontFamily = Ico.Font, FontSize = size * 0.42, TextColor = Theme.InkOn(tile.Fill), Opacity = 0.85, HorizontalTextAlignment = TextAlignment.Center });
                 if (tile.Label is not null)
                 {
                     content.Add(new Label
@@ -209,7 +209,7 @@ public sealed class HexMapView : ContentView
                         Text = tile.Label,
                         FontSize = Math.Max(7, size * 0.21),
                         FontAttributes = FontAttributes.Bold,
-                        TextColor = tile.IsCurrent ? Color.FromArgb("#B45309") : Theme.Stone800,
+                        TextColor = tile.IsCurrent ? (Theme.IsLight(tile.Fill) ? Color.FromArgb("#B45309") : Theme.Amber500) : Theme.InkOn(tile.Fill),
                         HorizontalTextAlignment = TextAlignment.Center,
                         LineBreakMode = LineBreakMode.TailTruncation,
                         MaxLines = 2,
@@ -226,7 +226,7 @@ public sealed class HexMapView : ContentView
                     HeightRequest = 18,
                     StrokeShape = new Ellipse(),
                     StrokeThickness = 0,
-                    BackgroundColor = Theme.Stone900,
+                    BackgroundColor = Night.Stone900,
                     HorizontalOptions = LayoutOptions.End,
                     VerticalOptions = LayoutOptions.Start,
                     Margin = new Thickness(0, size * 0.25, 2, 0),

@@ -92,7 +92,7 @@ public sealed class CharacterSelectPage : ContentPage
         {
             var arrow = new Border
             {
-                WidthRequest = 40, HeightRequest = 40, BackgroundColor = Theme.Stone900, Stroke = Theme.Gold600, StrokeThickness = 1,
+                WidthRequest = 40, HeightRequest = 40, BackgroundColor = Night.Stone900, Stroke = Theme.Gold600, StrokeThickness = 1,
                 StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 20 },
                 Content = Icon(glyph, 18, Theme.Gold500),
             };
@@ -133,7 +133,7 @@ public sealed class CharacterSelectPage : ContentPage
         if (db.Starts.Count > 1)
         {
             startInfo.Add(IconCaps(Ico.Compass, start.Name, Theme.Gold500, 9));
-            if (start.Description.Length > 0) startInfo.Add(Txt(start.Description, 12, Theme.Stone400));
+            if (start.Description.Length > 0) startInfo.Add(Txt(start.Description, 12, Night.Stone400));
         }
         View portrait = def.PortraitId is { } pid && db.Portraits.TryGetValue(pid, out var image)
             ? new Border
@@ -150,9 +150,9 @@ public sealed class CharacterSelectPage : ContentPage
             Children =
             {
                 portrait,
-                new Label { Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
+                new Label { Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 28, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
                 new Label { Text = def.ClassAndTitle.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = Theme.Gold500, CharacterSpacing = 4, HorizontalTextAlignment = TextAlignment.Center },
-                new Label { Text = def.Description, FontSize = 14, TextColor = Theme.Stone400, FontAttributes = FontAttributes.Italic, HorizontalTextAlignment = TextAlignment.Center },
+                new Label { Text = def.Description, FontSize = 14, TextColor = Night.Stone400, FontAttributes = FontAttributes.Italic, HorizontalTextAlignment = TextAlignment.Center },
                 TileGrid(
                 [
                     StatCell(Ico.Heart, "PV", st.MaxHp, Theme.Hp),
@@ -162,7 +162,7 @@ public sealed class CharacterSelectPage : ContentPage
                     StatCell(Ico.Sparkles, "MAG", st.Magic, Theme.Xp),
                     StatCell(Ico.Wind, "VIT", st.Speed, Theme.Good),
                 ], 3),
-                Txt("Compétences : " + string.Join(", ", skills), 13, Theme.Stone400),
+                Txt("Compétences : " + string.Join(", ", skills), 13, Night.Stone400),
                 startInfo,
                 StartButton("Commencer avec " + def.Name, () => Launch(slot, db, id, null)),
             },
@@ -186,7 +186,7 @@ public sealed class CharacterSelectPage : ContentPage
         var b = Primary(text, onClick);
         b.BackgroundColor = Theme.Gold500;
         b.BorderColor = Theme.Gold400;
-        b.TextColor = Theme.Stone900;
+        b.TextColor = Night.Stone900;
         return b;
     }
 
