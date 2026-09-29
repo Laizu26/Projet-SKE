@@ -141,7 +141,8 @@ public sealed class EntityListPage<T> : ContentPage where T : class
         string? help = null,
         Func<T, string>? sortKey = null,
         Func<T, int>? depth = null,
-        Func<T, string>? group = null)
+        Func<T, string>? group = null,
+        Func<T, string?>? parentOf = null)
     {
         Background = Theme.PageBackground;
         var stack = new VerticalStackLayout { Padding = new Thickness(12), Spacing = 6 };
@@ -165,16 +166,38 @@ public sealed class EntityListPage<T> : ContentPage where T : class
         var empty = Muted("Aucun résultat.");
         empty.IsVisible = false;
 
-        var rows = new List<(View Panel, string Text, View? Header)>();
+        var rows = new List<(View Panel, string Text, View? Header, string Id)>();
         var headers = new List<View>();
         var ordered = items.Where(i => filter?.Invoke(i) ?? true)
             .OrderBy(i => group?.Invoke(i) ?? "", StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(sortKey ?? label, StringComparer.CurrentCultureIgnoreCase);
+            .ThenBy(sortKey ?? label, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        // Arbre repliable (ex : lieux et sous-lieux) : les enfants sont cachés tant que leur parent n'est pas déplié.
+        var parents = new Dictionary<string, string?>();
+        foreach (var i in ordered) parents.TryAdd(id(i), parentOf?.Invoke(i)); // un identifiant en double ne fait pas planter
+        var childCount = ordered.Select(i => parentOf?.Invoke(i)).Where(p => p is not null && parents.ContainsKey(p))
+            .GroupBy(p => p!).ToDictionary(g => g.Key, g => g.Count());
+        var searching = false;
+        bool AncestorsOpen(string itemId)
+        {
+            for (var (p, guard) = (parents.GetValueOrDefault(itemId), 0); p is not null && guard < 32; p = parents.GetValueOrDefault(p), guard++)
+            {
+                if (!parents.ContainsKey(p)) return true; // parent hors de la liste : on affiche
+                if (!Expanded.Contains(title + "|" + p)) return false;
+            }
+            return true;
+        }
+        void RefreshTree()
+        {
+            if (searching || parentOf is null) return;
+            foreach (var (panel, _, _, rowId) in rows) panel.IsVisible = AncestorsOpen(rowId);
+        }
         string? currentGroup = null;
         View? header = null;
         foreach (var item in ordered)
         {
             var it = item;
+            var itemId = id(item);
             // Regroupement (ex : compétences par pouvoir) : un titre avant chaque groupe.
             if (group is not null && group(item) is var g && g != currentGroup)
             {
@@ -187,23 +210,44 @@ public sealed class EntityListPage<T> : ContentPage where T : class
             var level = Math.Min(depth?.Invoke(item) ?? 0, 6);
             var details = id(item) + (subtitle is null ? "" : " · " + subtitle(item));
             var info = Stack(Txt((level > 0 ? "↳ " : "") + label(item), 15, Theme.Text, bold: true), Muted(details));
-            var panel = Panel(Row(info, Form.SmallButton("Modifier", () => SkeApp.GoTo(editor(it)))));
+            var actions = new HorizontalStackLayout { Spacing = 6, VerticalOptions = LayoutOptions.Center };
+            if (childCount.TryGetValue(itemId, out var children))
+            {
+                // « ▸ 3 » : déplier / replier ses 3 sous-éléments.
+                var key = title + "|" + itemId;
+                Button? toggle = null;
+                toggle = Form.SmallButton($"{(Expanded.Contains(key) ? "▾" : "▸")} {children}", () =>
+                {
+                    if (!Expanded.Remove(key)) Expanded.Add(key);
+                    toggle!.Text = $"{(Expanded.Contains(key) ? "▾" : "▸")} {children}";
+                    RefreshTree();
+                });
+                actions.Add(toggle);
+            }
+            actions.Add(Form.SmallButton("Modifier", () => SkeApp.GoTo(editor(it))));
+            var panel = Panel(Row(info, actions));
             panel.Margin = new Thickness(level * 18, 0, 0, 0);
             stack.Add(panel);
-            rows.Add((panel, $"{label(item)} {details} {group?.Invoke(item)}", header));
+            rows.Add((panel, $"{label(item)} {details} {group?.Invoke(item)}", header, itemId));
         }
         stack.Add(empty);
+        RefreshTree();
         search.TextChanged += (_, e) =>
         {
             var words = (e.NewTextValue ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            searching = words.Length > 0;
             bool Match(string text) => words.All(w => text.Contains(w, StringComparison.CurrentCultureIgnoreCase)
                 || Plain(text).Contains(Plain(w), StringComparison.OrdinalIgnoreCase));
-            foreach (var (panel, text, _) in rows) panel.IsVisible = Match(text);
+            // Pendant une recherche, tout ce qui correspond s'affiche (même replié) ; sinon, l'arbre reprend.
+            foreach (var (panel, text, _, rowId) in rows) panel.IsVisible = searching ? Match(text) : parentOf is null || AncestorsOpen(rowId);
             foreach (var h in headers) h.IsVisible = rows.Any(r => r.Header == h && r.Panel.IsVisible);
             empty.IsVisible = rows.Count > 0 && rows.All(r => !r.Panel.IsVisible);
         };
         Content = new ScrollView { Content = stack };
     }
+
+    /// <summary>Éléments dépliés (« liste|id »), gardés en revenant sur la liste.</summary>
+    private static readonly HashSet<string> Expanded = [];
 
     /// <summary>Texte sans accents (« epee » trouve « Épée »).</summary>
     private static string Plain(string text)

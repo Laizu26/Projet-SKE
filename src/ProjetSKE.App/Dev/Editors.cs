@@ -114,7 +114,8 @@ public static class Editors
         help: "La carte est une liste de lieux reliés entre eux. Un lieu peut en contenir d'autres (une taverne dans une ville, "
             + "une salle dans un donjon...) : ils sont rangés dessous, comme des salons dans une catégorie.",
         sortKey: x => string.Join(" / ", DevState.PathOf(x).Select(l => l.Name)),
-        depth: x => DevState.PathOf(x).Count - 1);
+        depth: x => DevState.PathOf(x).Count - 1,
+        parentOf: x => DevState.ParentOf(x)?.Id);
 }
 
 // ====================================================================== PJ
