@@ -112,7 +112,7 @@ public static partial class DialogueScript
         ("amitie", ConditionType.Friendship, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
-        ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"),
+        ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"), ("evenement", ConditionType.EventActive, "a"),
         ("lieu", ConditionType.AtLocation, "a"), ("visite", ConditionType.Visited, "a"),
         ("connu", ConditionType.MetNpc, "a"), ("chance", ConditionType.Chance, "n"),
         ("au_camp", ConditionType.CampMember, "a"), ("grade", ConditionType.CampRank, "ao"), ("tache", ConditionType.CampTask, "ab"),

@@ -958,6 +958,41 @@ public sealed class GameContent
     public List<PassiveDef> Passives { get; set; } = [];
     /// <summary>Pouvoirs : familles de compétences données d'un coup à un PJ.</summary>
     public List<PowerDef> Powers { get; set; } = [];
+    /// <summary>Événements du calendrier (fêtes, marchés, éclipses...), réglés dans le calendrier du mode développeur.</summary>
+    public List<CalendarEventDef> Events { get; set; } = [];
+}
+
+/// <summary>
+/// Événement du calendrier : il a lieu à une date (chaque année, chaque mois, un jour de la semaine...),
+/// dure un ou plusieurs jours (éventuellement de telle heure à telle heure), et peut lancer des effets au début
+/// et à la fin. Pendant qu'il a lieu, la condition « Événement en cours » est remplie (PNJ, dialogues, lieux...).
+/// </summary>
+public sealed class CalendarEventDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    /// <summary>Mois (1 = premier mois ; 0 = tous les mois).</summary>
+    public int Month { get; set; } = 1;
+    /// <summary>Jour du mois (1 = premier ; 0 = tous les jours du mois).</summary>
+    public int Day { get; set; } = 1;
+    /// <summary>Année précise (0 = chaque année).</summary>
+    public int Year { get; set; }
+    /// <summary>Jour de la semaine exigé (nom, vide = n'importe lequel).</summary>
+    public string WeekDay { get; set; } = "";
+    /// <summary>Durée en jours (1 = seulement ce jour-là).</summary>
+    public int Days { get; set; } = 1;
+    /// <summary>Heure de début le premier jour, et heure de fin le dernier jour (fin 0 = jusqu'à minuit).</summary>
+    public int FromHour { get; set; }
+    public int ToHour { get; set; }
+    /// <summary>L'événement n'a lieu que si ces conditions sont remplies.</summary>
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Prévenir le joueur quand il commence (message à l'écran).</summary>
+    public bool Announce { get; set; } = true;
+    /// <summary>Message affiché au début (vide = « Événement : nom »).</summary>
+    public string Message { get; set; } = "";
+    public List<GameAction> StartActions { get; set; } = [];
+    public List<GameAction> EndActions { get; set; } = [];
 }
 
 /// <summary>

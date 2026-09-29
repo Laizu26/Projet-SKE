@@ -12,6 +12,7 @@ public sealed class GameDatabase
     public IReadOnlyDictionary<string, MonsterDef> Monsters { get; }
     public IReadOnlyDictionary<string, CharacterGaugeDef> Gauges { get; }
     public IReadOnlyDictionary<string, PassiveDef> Passives { get; }
+    public IReadOnlyDictionary<string, CalendarEventDef> Events { get; }
     public IReadOnlyDictionary<string, PowerDef> Powers { get; }
 
     /// <summary>Compétences d'un pouvoir, par niveau d'apprentissage.</summary>
@@ -88,6 +89,7 @@ public sealed class GameDatabase
         Portraits = Index(content.Portraits, p => p.Id);
         Gauges = Index(content.Gauges, g => g.Id);
         Passives = Index(content.Passives, p => p.Id);
+        Events = Index(content.Events, e => e.Id);
         Powers = Index(content.Powers, p => p.Id);
     }
 
@@ -157,6 +159,18 @@ public sealed class GameDatabase
         CheckIds(Content.Monsters.Select(x => x.Id), "Monstre");
         CheckIds(Content.Gauges.Select(x => x.Id), "Jauge");
         CheckIds(Content.Passives.Select(x => x.Id), "Passif");
+        CheckIds(Content.Events.Select(x => x.Id), "Événement");
+        foreach (var e in Content.Events)
+        {
+            var w = $"Événement « {e.Name} »";
+            Check(e.Month >= 0 && e.Month <= Math.Max(1, Content.Time.Months.Count), $"{w} : mois {e.Month} inexistant");
+            Check(e.Day >= 0 && e.Day <= Math.Max(1, Content.Time.DaysPerMonth), $"{w} : jour {e.Day} inexistant");
+            Check(e.WeekDay.Length == 0 || Content.Time.WeekDays.Any(d => string.Equals(d, e.WeekDay, StringComparison.OrdinalIgnoreCase)),
+                $"{w} : jour de la semaine « {e.WeekDay} » inconnu");
+            CheckConditions(e.Conditions, w);
+            CheckActions(e.StartActions, w);
+            CheckActions(e.EndActions, w);
+        }
         CheckIds(Content.Powers.Select(x => x.Id), "Pouvoir");
         foreach (var s in Content.Skills) Ref(Powers, s.PowerId, $"Compétence {s.Id}", "pouvoir");
         foreach (var c in Content.Characters)
@@ -436,6 +450,7 @@ public sealed class GameDatabase
                         Ref(Characters, c.Arg, w, "personnage"); break;
                     case ConditionType.AtLocation or ConditionType.Visited: Ref(Locations, c.Arg, w, "lieu"); break;
                     case ConditionType.MetNpc: Ref(Npcs, c.Arg, w, "PNJ"); break;
+                    case ConditionType.EventActive: Ref(Events, c.Arg, w, "événement"); break;
                     case ConditionType.Karma when !c.Arg.StartsWith('@'): Ref(Characters, c.Arg, w, "personnage"); break;
                     case ConditionType.HasPower:
                         Check(Powers.ContainsKey(c.Arg2), $"{w} : pouvoir « {c.Arg2} » introuvable");

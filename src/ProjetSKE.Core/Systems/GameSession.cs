@@ -91,6 +91,8 @@ public sealed partial class GameSession
         session.DiscoverLocation(state.CurrentLocationId);
         foreach (var action in start.Actions.Where(a => a.Type != ActionType.StartBattle)) session.Execute(action);
         foreach (var action in (heroDef?.StartActions ?? []).Where(a => a.Type != ActionType.StartBattle)) session.Execute(action);
+        // Événement déjà en cours au départ (ex : on commence un jour de fête).
+        session.UpdateEvents(state.Minutes - 1);
         session.UpdateQuests();
         session.Notifications.Clear();
         return session;
@@ -194,6 +196,7 @@ public sealed partial class GameSession
         ConditionType.Period => SameName(Clock.Period, c.Arg),
         ConditionType.WeekDay => SameName(Clock.WeekDay, c.Arg),
         ConditionType.Month => SameName(Clock.Month, c.Arg),
+        ConditionType.EventActive => IsEventActive(c.Arg),
         // Être dans une taverne de Havrefort, c'est aussi être à Havrefort.
         ConditionType.AtLocation => Db.IsWithin(State.CurrentLocationId, c.Arg),
         ConditionType.Visited => State.SeenLocations.Contains(c.Arg),
@@ -456,8 +459,49 @@ public sealed partial class GameSession
     public void AdvanceTime(long minutes)
     {
         if (!Db.Content.Time.Enabled || minutes <= 0) return;
+        var before = State.Minutes;
         State.Minutes += minutes;
         UpdateCamp();
+        UpdateEvents(before);
+    }
+
+    // ------------------------------------------------------------------ Événements du calendrier
+
+    /// <summary>L'événement a lieu en ce moment (date, heure et conditions).</summary>
+    public bool IsEventActive(string id) =>
+        Db.Events.TryGetValue(id, out var e) && Db.Content.Time.Enabled
+        && Calendar.IsOn(e, State.Minutes, Db.Content.Time) && CheckAll(e.Conditions);
+
+    /// <summary>Événements en cours (pour les afficher).</summary>
+    public IEnumerable<CalendarEventDef> ActiveEvents => Db.Content.Events.Where(e => IsEventActive(e.Id));
+
+    /// <summary>
+    /// Le temps a passé depuis <paramref name="before"/> : les événements qui ont commencé lancent leurs effets de début
+    /// (une fois par occurrence, si leurs conditions sont remplies), ceux qui sont finis leurs effets de fin.
+    /// </summary>
+    public void UpdateEvents(long before)
+    {
+        var time = Db.Content.Time;
+        if (!time.Enabled || Db.Content.Events.Count == 0) return;
+        var now = State.Minutes;
+        foreach (var e in Db.Content.Events)
+        {
+            foreach (var day in Calendar.CandidateDays(e, before, now, time))
+            {
+                var (start, end) = Calendar.Window(e, day, time);
+                var key = $"{e.Id}@{day}";
+                // Début : l'occurrence a commencé et n'était pas déjà finie au dernier passage.
+                if (start <= now && end > before && !State.EventLog.Contains(key) && CheckAll(e.Conditions))
+                {
+                    State.EventLog.Add(key);
+                    if (e.Announce) Notifications.Add(e.Message.Length > 0 ? FormatText(e.Message) : $"Événement : {e.Name}");
+                    foreach (var action in e.StartActions) Execute(action);
+                }
+                // Fin : effets de fin d'une occurrence qui avait commencé.
+                if (end <= now && State.EventLog.Contains(key) && State.EventLog.Add(key + ":fin"))
+                    foreach (var action in e.EndActions) Execute(action);
+            }
+        }
     }
 
     // ------------------------------------------------------------------ Variables

@@ -305,6 +305,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Section("Monde"));
         stack.Add(Nav("Monde et textes (pays, vocabulaire)", () => new WorldEditor()));
         stack.Add(Nav("Temps et calendrier", () => new TimeEditor()));
+        stack.Add(Nav($"Calendrier des événements ({c.Events.Count})", () => new CalendarPage()));
         stack.Add(Nav("Karma", () => new ScaleEditor(karma: true)));
         stack.Add(Nav("Amitié", () => new ScaleEditor(karma: false)));
         stack.Add(Nav($"Jauges de personnage : folie... ({c.Gauges.Count})", WorldLists.GaugeList));

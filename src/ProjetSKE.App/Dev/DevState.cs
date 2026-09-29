@@ -232,6 +232,7 @@ public static class DevState
     public static IEnumerable<(string Id, string Name)> Npcs => Draft.Npcs.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> Events => Draft.Events.Select(x => (x.Id, x.Name));
 
     /// <summary>Choix d'un dialogue, pour la condition « A choisi » : « réplique:choix ».</summary>
     public static IEnumerable<(string Id, string Name)> ChoicesOf(string dialogueId) =>
@@ -398,6 +399,7 @@ public static class DevState
         ConditionType.Period => "Moment de la journée",
         ConditionType.WeekDay => "Jour de la semaine",
         ConditionType.Month => "Mois",
+        ConditionType.EventActive => "Événement en cours (calendrier)",
         ConditionType.AtLocation => "Se trouve à un lieu",
         ConditionType.Visited => "A déjà visité un lieu",
         ConditionType.MetNpc => "A déjà parlé à un PNJ",

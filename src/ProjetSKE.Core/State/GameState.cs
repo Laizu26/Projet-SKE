@@ -116,6 +116,8 @@ public sealed class GameState
     public string CurrentLocationId { get; set; } = "";
     public string LastCityId { get; set; } = "";
     public HashSet<string> Flags { get; set; } = [];
+    /// <summary>Événements du calendrier déjà commencés (« id@jour ») et terminés (« id@jour:fin »).</summary>
+    public HashSet<string> EventLog { get; set; } = [];
     public HashSet<string> SeenCharacters { get; set; } = [];
     public HashSet<string> SeenMonsters { get; set; } = [];
     public HashSet<string> SeenLocations { get; set; } = [];

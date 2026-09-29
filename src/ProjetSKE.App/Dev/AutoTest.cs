@@ -314,6 +314,13 @@ public static class AutoTest
             await Step("éditeur : accueil", () => SkeApp.GoTo(new DevHomePage()));
             await Step("éditeur : monde", () => SkeApp.GoTo(new WorldEditor()));
             await Step("éditeur : temps", () => SkeApp.GoTo(new TimeEditor()));
+            await Step("éditeur : calendrier des événements", () =>
+            {
+                if (DevState.Draft.Events.Count == 0)
+                    DevState.Draft.Events.Add(new Core.Models.CalendarEventDef { Id = "autotest_fete", Name = "Fête (test)", Month = 1, Day = 3, Days = 2 });
+                SkeApp.GoTo(CalendarPage.At(DevState.Draft.Events[0]));
+            });
+            await Step("éditeur : événement du calendrier", () => SkeApp.GoTo(new CalendarEventEditor(DevState.Draft.Events[0])));
             await Step("éditeur : karma", () => SkeApp.GoTo(new ScaleEditor(karma: true)));
             await Step("éditeur : campement", () => SkeApp.GoTo(new CampEditor()));
             await Step("éditeur : tâche", () => SkeApp.GoTo(new CampTaskEditor(DevState.Draft.Camp.Tasks[0])));

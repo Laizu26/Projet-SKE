@@ -122,6 +122,8 @@ public enum ConditionType
     HasPassive,
     // A un pouvoir
     HasPower,
+    // Événement du calendrier en cours
+    EventActive,
 }
 
 /// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>
