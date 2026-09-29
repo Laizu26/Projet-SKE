@@ -666,3 +666,26 @@ public class PowerTests
         Assert.True(s.IsLocked(UiFeature.CampBag));
     }
 }
+
+public class HiddenLocationTests
+{
+    [Fact]
+    public void HiddenAtStart_AppearsOnlyOnceRevealed()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Locations.First(l => l.Id == "taverne_sanglier").HiddenAtStart = true;
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        s.State.CurrentLocationId = "havrefort";
+        s.State.Config.TravelEncounters = TravelEncounterMode.None;
+        Assert.DoesNotContain(s.SubLocations, l => l.Id == "taverne_sanglier");
+        Assert.False(s.Travel("taverne_sanglier").Success);
+
+        s.Execute(new GameAction(ActionType.RevealLocation, "taverne_sanglier"));
+        Assert.Contains(s.SubLocations, l => l.Id == "taverne_sanglier");
+        Assert.True(s.Travel("taverne_sanglier").Success);
+
+        s.Travel("havrefort");
+        s.Execute(new GameAction(ActionType.HideLocation, "taverne_sanglier"));
+        Assert.DoesNotContain(s.SubLocations, l => l.Id == "taverne_sanglier");
+    }
+}

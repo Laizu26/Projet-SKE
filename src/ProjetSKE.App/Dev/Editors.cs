@@ -109,7 +109,8 @@ public static class Editors
         "Lieux et carte", C.Locations, x => x.Id, x => x.Name,
         (id, name) => new LocationDef { Id = id, Name = name, Type = LocationType.Wild },
         x => new LocationEditor(x),
-        subtitle: x => DevState.Name(x.Type) + (DevState.ParentOf(x) is { } p ? $" · dans {p.Name}" : $" · {x.ConnectedIds.Count} lien(s)"),
+        subtitle: x => DevState.Name(x.Type) + (DevState.ParentOf(x) is { } p ? $" · dans {p.Name}" : $" · {x.ConnectedIds.Count} lien(s)")
+            + (x.HiddenAtStart ? " · caché" : x.VisibleConditions.Count > 0 ? " · secret (conditions)" : ""),
         help: "La carte est une liste de lieux reliés entre eux. Un lieu peut en contenir d'autres (une taverne dans une ville, "
             + "une salle dans un donjon...) : ils sont rangés dessous, comme des salons dans une catégorie.",
         sortKey: x => string.Join(" / ", DevState.PathOf(x).Select(l => l.Name)),
@@ -678,6 +679,15 @@ public sealed class LocationEditor : EditorPage
 
     private LocationDef? Find(string id) => DevState.Draft.Locations.FirstOrDefault(l => l.Id == id);
 
+    /// <summary>Lieu caché : simple case, puis l'effet « Lieu : révéler » le fait apparaître (et « Lieu : cacher » le recache).</summary>
+    private void HiddenField(Form f)
+    {
+        f.BoolField("Caché au début (apparaît avec l'effet « Lieu : révéler »)", _x.HiddenAtStart, v => _x.HiddenAtStart = v);
+        if (_x.HiddenAtStart)
+            f.Note($"Pour le faire apparaître : effet « Lieu : révéler » → {_x.Name} (dans un dialogue, une quête...), ou [revele {_x.Id}] en mode texte. "
+                + $"Pour le recacher : « Lieu : cacher », ou [cache {_x.Id}].");
+    }
+
     protected override void Build(Form f)
     {
         f.Note("Identifiant : " + _x.Id);
@@ -714,6 +724,7 @@ public sealed class LocationEditor : EditorPage
         {
             f.Note("Un sous-lieu n'est pas sur la carte du royaume : on y entre depuis le lieu qui le contient, et on en sort vers lui. "
                 + "Les conditions (« Se trouve à un lieu », objectif « Atteindre ») comptent aussi quand on est dans un sous-lieu.");
+            HiddenField(f);
             f.Conditions("Visible seulement si (sous-lieu secret)", _x.VisibleConditions);
             Form.OptionalInt(f, "Durée pour y entrer (minutes)", _x.TravelMinutes, v => _x.TravelMinutes = v, "par défaut : 0");
         }
@@ -735,6 +746,7 @@ public sealed class LocationEditor : EditorPage
         f.IdList("Lieux reliés", _x.ConnectedIds, DevState.Draft.Locations.Where(l => l != _x && DevState.ParentOf(l) is null).Select(l => (l.Id, l.Name)),
             onAdded: id => { if (Find(id) is { } other && !other.ConnectedIds.Contains(_x.Id)) other.ConnectedIds.Add(_x.Id); },
             onRemoved: id => Find(id)?.ConnectedIds.Remove(_x.Id));
+        HiddenField(f);
         f.Conditions("Visible sur la carte seulement si (lieu secret)", _x.VisibleConditions);
         Form.OptionalInt(f, "Durée du voyage pour venir ici (minutes)", _x.TravelMinutes, v => _x.TravelMinutes = v, $"par défaut : {DevState.Draft.Time.TravelMinutes}");
         }

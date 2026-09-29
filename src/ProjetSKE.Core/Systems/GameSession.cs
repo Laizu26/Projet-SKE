@@ -1340,11 +1340,14 @@ public sealed partial class GameSession
     /// <summary>Le lieu contient le lieu actuel (en sortir est toujours possible).</summary>
     private bool IsExit(LocationDef dest) => dest.Id != State.CurrentLocationId && Db.IsWithin(State.CurrentLocationId, dest.Id);
 
-    /// <summary>Le lieu apparaît sur la carte : révélé/caché par un effet, sinon selon ses conditions de visibilité.</summary>
+    /// <summary>
+    /// Le lieu apparaît sur la carte : révélé/caché par un effet, sinon caché s'il l'est au début,
+    /// sinon selon ses conditions de visibilité.
+    /// </summary>
     public bool IsVisible(LocationDef loc)
     {
         if (loc.Id == State.CurrentLocationId || State.RevealedLocations.Contains(loc.Id)) return true;
-        if (State.HiddenLocations.Contains(loc.Id)) return false;
+        if (State.HiddenLocations.Contains(loc.Id) || loc.HiddenAtStart) return false;
         return CheckAll(loc.VisibleConditions);
     }
 

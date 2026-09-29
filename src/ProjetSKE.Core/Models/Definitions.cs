@@ -307,6 +307,8 @@ public sealed class LocationDef
     /// une taverne dans une ville, une salle dans un donjon... Un sous-lieu peut lui-même en contenir d'autres.
     /// </summary>
     public string? ParentId { get; set; }
+    /// <summary>Caché au début de la partie : n'apparaît qu'une fois révélé par l'effet « Lieu : révéler ».</summary>
+    public bool HiddenAtStart { get; set; }
 
     [JsonIgnore] public bool IsCity => Type == LocationType.City;
 }
