@@ -133,6 +133,8 @@ public sealed class GameState
     public Dictionary<string, int> Variables { get; set; } = [];
     /// <summary>Amitiés : « qui>envers qui » → valeur (voir GameSession.GetFriendship).</summary>
     public Dictionary<string, int> Relations { get; set; } = [];
+    /// <summary>Amour : « qui>envers qui » → valeur (voir GameSession.GetLove).</summary>
+    public Dictionary<string, int> Love { get; set; } = [];
     /// <summary>PJ qui parle aux PNJ (vide = le héros).</summary>
     public string? SpeakerId { get; set; }
     /// <summary>PNJ déplacés par un effet : id du PNJ → lieu.</summary>

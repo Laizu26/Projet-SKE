@@ -54,6 +54,7 @@ public static class ContentMerger
             Time = MergeValue("Temps", "time", @base.Time, local.Time, remote.Time, ctx.TimeSettings, conflicts),
             Karma = MergeValue("Karma", "karma", @base.Karma, local.Karma, remote.Karma, ctx.ScaleSettings, conflicts),
             Friendship = MergeValue("Amitié", "friendship", @base.Friendship, local.Friendship, remote.Friendship, ctx.ScaleSettings, conflicts),
+            Love = MergeValue("Amour", "love", @base.Love, local.Love, remote.Love, ctx.ScaleSettings, conflicts),
             Camp = MergeValue("Campement", "camp", @base.Camp, local.Camp, remote.Camp, ctx.CampSettings, conflicts),
             Portraits = MergeList("Portrait", @base.Portraits, local.Portraits, remote.Portraits, x => x.Id, x => x.Name, ctx.PortraitDef, conflicts),
             Variables = MergeList("Variable", @base.Variables, local.Variables, remote.Variables, x => x.Id, x => x.Name, ctx.VariableDef, conflicts),
@@ -237,9 +238,11 @@ public static class ContentMerger
             case "Temps":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.TimeSettings) is { } time) { content.Time = time; return true; }
                 return false;
-            case "Karma" or "Amitié":
+            case "Karma" or "Amitié" or "Amour":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.ScaleSettings) is not { } scale) return false;
-                if (conflict.Kind == "Karma") content.Karma = scale; else content.Friendship = scale;
+                if (conflict.Kind == "Karma") content.Karma = scale;
+                else if (conflict.Kind == "Amour") content.Love = scale;
+                else content.Friendship = scale;
                 return true;
             case "Titre":
                 if (JsonSerializer.Deserialize(conflict.LocalJson, ctx.String) is { } title) { content.Title = title; return true; }
@@ -269,7 +272,7 @@ public static class ContentMerger
             + Lists(a.ExtraStarts, b.ExtraStarts, x => x.Id, ctx.StartSettings)
             + Value(a.Start, b.Start, ctx.StartSettings) + Value(a.Balance, b.Balance, ctx.BalanceSettings)
             + Value(a.Title, b.Title, ctx.String) + Value(a.World, b.World, ctx.WorldSettings) + Value(a.Time, b.Time, ctx.TimeSettings)
-            + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings)
+            + Value(a.Karma, b.Karma, ctx.ScaleSettings) + Value(a.Friendship, b.Friendship, ctx.ScaleSettings) + Value(a.Love, b.Love, ctx.ScaleSettings)
             + Value(a.Camp, b.Camp, ctx.CampSettings)
             + Lists(a.Gauges, b.Gauges, x => x.Id, ctx.CharacterGaugeDef) + Lists(a.Passives, b.Passives, x => x.Id, ctx.PassiveDef)
             + Lists(a.Powers, b.Powers, x => x.Id, ctx.PowerDef) + Lists(a.Events, b.Events, x => x.Id, ctx.CalendarEventDef) + Value(a.Tutorial, b.Tutorial, ctx.TutorialSettings);

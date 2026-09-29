@@ -188,6 +188,7 @@ public sealed partial class GameSession
         ConditionType.HasPassive => HasActivePassive(c.Arg, c.Arg2),
         ConditionType.HasPower => Db.Powers.TryGetValue(c.Arg2, out var pw) && ConditionTargets(c.Arg).Any(p => PowersOf(p).Contains(pw)),
         ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
+        ConditionType.Love => Compare(GetLove(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
         ConditionType.PartySize => Compare(State.Party.Count, c.Op, c.Amount),
@@ -361,6 +362,15 @@ public sealed partial class GameSession
                 var now = GetFriendship(a.Arg, a.Arg2);
                 if (Db.Content.Friendship.Visible && now != before)
                     Notifications.Add($"{CharacterName(a.Arg)} : {Db.Content.Friendship.Name} {Signed(now - before)}");
+                break;
+            }
+            case ActionType.AddLove or ActionType.SetLove:
+            {
+                var before = GetLove(a.Arg, a.Arg2);
+                SetLove(a.Arg, a.Arg2, a.Type == ActionType.AddLove ? before + a.Amount : a.Amount);
+                var now = GetLove(a.Arg, a.Arg2);
+                if (Db.Content.Love.Visible && now != before)
+                    Notifications.Add($"{CharacterName(a.Arg)} : {Db.Content.Love.Name} {Signed(now - before)}");
                 break;
             }
             case ActionType.AdvanceTime:
@@ -649,6 +659,23 @@ public sealed partial class GameSession
         State.Relations[RelationKey(who, ResolveToward(toward))] = ClampScale(Db.Content.Friendship, value);
     }
 
+    /// <summary>Amour d'un personnage (PNJ ou PJ) envers l'équipe ou un PJ précis (comme l'amitié).</summary>
+    public int GetLove(string who, string toward = "")
+    {
+        who = ResolveWho(who);
+        if (State.Love.TryGetValue(RelationKey(who, ResolveToward(toward)), out var value)) return value;
+        return Db.Npcs.TryGetValue(who, out var npc) && npc.BaseLove is { } nb ? nb
+            : Db.Characters.TryGetValue(who, out var pj) && pj.BaseLove is { } pb ? pb
+            : Db.Content.Love.Default;
+    }
+
+    public void SetLove(string who, string toward, int value)
+    {
+        who = ResolveWho(who);
+        if (string.IsNullOrEmpty(who)) return;
+        State.Love[RelationKey(who, ResolveToward(toward))] = ClampScale(Db.Content.Love, value);
+    }
+
     public string CharacterName(string id)
     {
         id = ResolveWho(id);
@@ -684,6 +711,7 @@ public sealed partial class GameSession
                 "jauge" => GetGauge("@parle", arg).ToString(),
                 "var" => GetVariable(arg).ToString(),
                 "amitie" => GetFriendship(arg).ToString(),
+                "amour" => GetLove(arg).ToString(),
                 "nom" => CharacterName(arg),
                 "membre" => CharacterName("@membre"),
                 "classe" => Db.Characters.TryGetValue(ResolveWho(arg), out var pc) ? pc.Class : "",

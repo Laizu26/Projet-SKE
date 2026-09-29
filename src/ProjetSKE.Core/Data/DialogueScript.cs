@@ -35,13 +35,13 @@ public static partial class DialogueScript
         Les répliques d'un même bloc s'enchaînent toutes seules.
 
         Balises dans les textes : %pj% (qui parle) %heros% %pays% %monnaie%
-        %heure% %date% %periode% %lieu% %or% %karma% %jauge:folie% %var:id% %amitie:pnj% %nom:id% %classe% %titre%
+        %heure% %date% %periode% %lieu% %or% %karma% %jauge:folie% %var:id% %amitie:pnj% %amour:pnj% %nom:id% %classe% %titre%
 
         Actions : [flag x] [sans_flag x] [recrute perso] [depart perso]
         [objet id 2] [prendre id 1] [or 50] [payer 50] [xp 30]
         [combat loup,loup] [quete id] [finir_quete id] [soin] [teleport lieu]
         [var x 5] [ajoute x 2] [karma 5] [karma -5 @equipe] [fixe_karma 0 perso]
-        [amitie pnj 5] [amitie pnj 5 @parle] [fixe_amitie pnj 0]
+        [amitie pnj 5] [amitie pnj 5 @parle] [fixe_amitie pnj 0] [amour pnj 5 @parle] [fixe_amour pnj 0]
         [jauge folie 10] [jauge folie -5 @heros] [fixe_jauge folie 0 @equipe]
         [passif transe @heros] [retirer_passif transe lyra] [pouvoir pyromancie @heros]
         [debloquer carte] [verrouiller fuite] (carte, camp, quetes, encyclopedie, boutique, journal, menu, royaume,
@@ -57,7 +57,7 @@ public static partial class DialogueScript
         Conditions : {flag x} {sans_flag x} {quete_dispo id} {quete_active id}
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
-        {amitie pnj >= 30} {amitie pnj > 50 @parle} {taille_equipe >= 2}
+        {amitie pnj >= 30} {amitie pnj > 50 @parle} {amour pnj >= 50 @parle} {taille_equipe >= 2}
         {jauge folie >= 50} {jauge folie < 20 @heros} {passif transe @heros}
         {parle perso} {etre perso} {choisi dialogue replique:2} (2 = 2e choix, ou son #identifiant) {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
         {mois Givrelune} {lieu id} {visite id} {connu pnj} {chance 25}
@@ -82,6 +82,7 @@ public static partial class DialogueScript
         ("var", ActionType.SetVariable, "an"), ("ajoute", ActionType.AddVariable, "an"),
         ("karma", ActionType.AddKarma, "na"), ("fixe_karma", ActionType.SetKarma, "na"),
         ("amitie", ActionType.AddFriendship, "anb"), ("fixe_amitie", ActionType.SetFriendship, "anb"),
+        ("amour", ActionType.AddLove, "anb"), ("fixe_amour", ActionType.SetLove, "anb"),
         ("temps", ActionType.AdvanceTime, "n"), ("attendre", ActionType.WaitUntilHour, "n"),
         ("message", ActionType.ShowMessage, "t"),
         ("deplace", ActionType.MoveNpc, "ab"), ("revele", ActionType.RevealLocation, "a"), ("cache", ActionType.HideLocation, "a"),
@@ -109,7 +110,7 @@ public static partial class DialogueScript
         ("or", ConditionType.GoldAtLeast, "n"), ("niveau", ConditionType.LevelAtLeast, "n"),
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
-        ("amitie", ConditionType.Friendship, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
+        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"), ("evenement", ConditionType.EventActive, "a"),

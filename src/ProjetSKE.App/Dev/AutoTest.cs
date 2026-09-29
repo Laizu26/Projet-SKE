@@ -325,6 +325,8 @@ public static class AutoTest
             });
             await Step("éditeur : événement du calendrier", () => SkeApp.GoTo(new CalendarEventEditor(DevState.Draft.Events[0])));
             await Step("éditeur : karma", () => SkeApp.GoTo(new ScaleEditor(karma: true)));
+            await Step("éditeur : folie (par PJ)", () => SkeApp.GoTo(new GaugeEditor(WorldLists.Folie())));
+            await Step("éditeur : amour", () => SkeApp.GoTo(new ScaleEditor(karma: false, love: true)));
             await Step("éditeur : campement", () => SkeApp.GoTo(new CampEditor()));
             await Step("éditeur : tâche", () => SkeApp.GoTo(new CampTaskEditor(DevState.Draft.Camp.Tasks[0])));
             await Step("éditeur : lieu du camp", () =>

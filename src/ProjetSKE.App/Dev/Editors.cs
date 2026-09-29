@@ -167,6 +167,8 @@ public sealed class CharacterEditor : EditorPage
         f.Header("Personnalité");
         f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
         Form.OptionalInt(f, "Karma de départ", _x.BaseKarma, v => _x.BaseKarma = v, $"par défaut : {DevState.Draft.Karma.Default}");
+        if (!DevState.Draft.Gauges.Any(g => g.Id == "folie"))
+            f.Add(Form.SmallButton("+ Folie (une valeur par PJ, comme le karma)", () => { WorldLists.Folie(); Render(); }));
         foreach (var gauge in DevState.Draft.Gauges)
         {
             var g = gauge;
@@ -176,6 +178,7 @@ public sealed class CharacterEditor : EditorPage
             }, $"par défaut : {g.Default}");
         }
         Form.OptionalInt(f, "Amitié de départ envers les autres", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
+        Form.OptionalInt(f, "Amour de départ envers les autres", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
         f.Resistances("Faiblesses et résistances", _x.Resistances);
         f.BattleLines("Répliques de combat", _x.BattleLines);
     }
@@ -208,6 +211,7 @@ public sealed class NpcEditor : EditorPage
             pf.Conditions("Quand", p.Conditions);
         }, "+ Placement");
         Form.OptionalInt(f, "Amitié de départ envers l'équipe", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
+        Form.OptionalInt(f, "Amour de départ envers l'équipe", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
         f.RefField("Dialogue par défaut", _x.DefaultDialogueId, DevState.Dialogues, v => _x.DefaultDialogueId = v);
         f.Note("Dialogues selon la situation : le premier dont les conditions sont remplies est joué, sinon le dialogue par défaut. "
             + "Condition « Qui parle » = dialogue spécial selon le PJ qui s'adresse au PNJ ; « Amitié », « Karma », « Entre deux heures »... pour le reste.");

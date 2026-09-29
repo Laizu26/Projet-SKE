@@ -199,6 +199,8 @@ public sealed class CharacterDef
     public Dictionary<string, int> BaseGauges { get; set; } = [];
     /// <summary>Amitié de départ envers les autres (vide = valeur par défaut des réglages d'amitié).</summary>
     public int? BaseFriendship { get; set; }
+    /// <summary>Amour de départ (null = valeur par défaut de l'amour).</summary>
+    public int? BaseLove { get; set; }
     /// <summary>Répliques de combat du personnage.</summary>
     public List<BattleLine> BattleLines { get; set; } = [];
     public List<ElementModifier> Resistances { get; set; } = [];
@@ -330,6 +332,8 @@ public sealed class NpcDef
     public List<NpcPlacement> Placements { get; set; } = [];
     /// <summary>Amitié de départ envers l'équipe (vide = valeur par défaut des réglages d'amitié).</summary>
     public int? BaseFriendship { get; set; }
+    /// <summary>Amour de départ (null = valeur par défaut de l'amour).</summary>
+    public int? BaseLove { get; set; }
     /// <summary>Caché au début de la partie : n'apparaît qu'avec l'effet « PNJ : montrer ».</summary>
     public bool HiddenAtStart { get; set; }
     /// <summary>Le PNJ n'apparaît que si ces conditions sont remplies.</summary>
@@ -953,6 +957,12 @@ public sealed class GameContent
     {
         Name = "Amitié",
         Tiers = [new("Ennemi", -100), new("Hostile", -50), new("Méfiant", -15), new("Neutre", -14), new("Amical", 15), new("Ami", 50), new("Inséparable", 90)],
+    };
+    /// <summary>Amour : comme l'amitié (d'un PNJ ou PJ envers l'équipe ou un PJ), réglé à part.</summary>
+    public ScaleSettings Love { get; set; } = new()
+    {
+        Name = "Amour", Min = 0,
+        Tiers = [new("Indifférent", 0), new("Attiré", 20), new("Épris", 50), new("Amoureux", 80), new("Âme sœur", 100)],
     };
     public List<VariableDef> Variables { get; set; } = [];
     public List<PortraitDef> Portraits { get; set; } = [];

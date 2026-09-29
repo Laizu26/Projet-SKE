@@ -561,6 +561,10 @@ public sealed class GamePage : ContentPage
                 var f = Session.GetFriendship(npcId, id);
                 details.Add($"{friendship.Name} {f} {friendship.TierName(f)}".Trim());
             }
+            var love = Session.Db.Content.Love;
+            // Amour : affiché dès qu'il a bougé (pas « 0 » partout).
+            if (love.Enabled && love.Visible && Session.GetLove(npcId, id) is var l && l != love.Default)
+                details.Add($"{love.Name} {l} {love.TierName(l)}".Trim());
             info.Add(Caps(string.Join(" · ", details), 8, Night.Stone400));
             var card = Card(IconRow(Avatar(def.Name, id == Session.SpeakerId ? Theme.Gold500 : Theme.AvatarColor(id), 40), info),
                 Night.Stone800, id == Session.SpeakerId ? Theme.Gold500 : Night.Stone700, 12);

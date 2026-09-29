@@ -404,8 +404,8 @@ public sealed class Form
                 RefField("De qui", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
                 Compare(c, "Valeur");
                 break;
-            case ConditionType.Friendship:
-                RefField("Amitié de", c.Arg, DevState.Persons, v => c.Arg = v ?? "", allowNone: false);
+            case ConditionType.Friendship or ConditionType.Love:
+                RefField(c.Type == ConditionType.Love ? "Amour de" : "Amitié de", c.Arg, DevState.Persons, v => c.Arg = v ?? "", allowNone: false);
                 RefField("Envers", c.Arg2, DevState.Toward, v => c.Arg2 = v ?? "", allowNone: false);
                 Compare(c, "Valeur");
                 break;
@@ -568,10 +568,10 @@ public sealed class Form
                 RefField("Karma de", a.Arg, DevState.KarmaWho, v => a.Arg = v ?? "", allowNone: false);
                 IntField(a.Type == ActionType.AddKarma ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
                 break;
-            case ActionType.AddFriendship or ActionType.SetFriendship:
-                RefField("Amitié de", a.Arg, DevState.Persons, v => a.Arg = v ?? "", allowNone: false);
+            case ActionType.AddFriendship or ActionType.SetFriendship or ActionType.AddLove or ActionType.SetLove:
+                RefField(a.Type is ActionType.AddLove or ActionType.SetLove ? "Amour de" : "Amitié de", a.Arg, DevState.Persons, v => a.Arg = v ?? "", allowNone: false);
                 RefField("Envers", a.Arg2, DevState.Toward, v => a.Arg2 = v ?? "", allowNone: false);
-                IntField(a.Type == ActionType.AddFriendship ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
+                IntField(a.Type is ActionType.AddFriendship or ActionType.AddLove ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
                 break;
             case ActionType.AdvanceTime:
                 IntField("Minutes (60 = 1 h, 1440 = 1 jour)", a.Amount, v => a.Amount = v);

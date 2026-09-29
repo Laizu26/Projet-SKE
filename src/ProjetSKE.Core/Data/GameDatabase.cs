@@ -464,7 +464,7 @@ public sealed class GameDatabase
                         Check(Gauges.ContainsKey(c.Arg2), $"{w} : jauge « {c.Arg2} » introuvable");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
                         break;
-                    case ConditionType.Friendship:
+                    case ConditionType.Friendship or ConditionType.Love:
                         Check(c.Arg.StartsWith('@') || Npcs.ContainsKey(c.Arg) || Characters.ContainsKey(c.Arg), $"{w} : personnage « {c.Arg} » introuvable");
                         break;
                     case ConditionType.QuestAtStage or ConditionType.QuestStageReached or ConditionType.QuestEnding or ConditionType.QuestFailed:

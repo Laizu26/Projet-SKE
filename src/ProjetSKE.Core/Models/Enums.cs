@@ -52,6 +52,8 @@ public enum ActionType
     GivePower, RemovePower,
     // PNJ : faire apparaître / cacher
     ShowNpc, HideNpc,
+    // Amour : comme l'amitié
+    AddLove, SetLove,
 }
 
 /// <summary>
@@ -124,6 +126,8 @@ public enum ConditionType
     HasPower,
     // Événement du calendrier en cours
     EventActive,
+    // Amour (comme l'amitié)
+    Love,
 }
 
 /// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>

@@ -210,6 +210,10 @@ public static class CampPeople
             var value = s.GetFriendship(m.Id);
             info.Add(Caps($"{friendship.Name} {value} {friendship.TierName(value)}".Trim(), 8, Theme.Stone500));
         }
+        var love = s.Db.Content.Love;
+        // Amour : affiché dès qu'il a bougé (pas « 0 » partout).
+        if (love.Enabled && love.Visible && s.GetLove(m.Id) is var loveValue && loveValue != love.Default)
+            info.Add(Caps($"{love.Name} {loveValue} {love.TierName(loveValue)}".Trim(), 8, Theme.Stone500));
         var card = Card(IconRow(Face(page, m.Id, name, 44, Theme.AvatarColor(m.Id)), info, Icon(Ico.ChevronRight, 18, Theme.Stone400)));
         card.Padding = new Thickness(12, 10);
         var id = m.Id;

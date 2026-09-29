@@ -25,6 +25,24 @@ public static class WorldLists
         help: "Stats propres à chaque personnage, comme le karma : folie, peur, corruption... Les effets « Jauge : ajouter / fixer » "
             + "les font évoluer, la condition « Jauge » fait réagir dialogues et PNJ, %jauge:id% les affiche.");
 
+    /// <summary>La jauge « Folie » (créée si le contenu n'en a pas encore), comme le karma : une valeur par PJ.</summary>
+    public static CharacterGaugeDef Folie()
+    {
+        var gauge = C.Gauges.FirstOrDefault(g => g.Id == "folie");
+        if (gauge is null)
+        {
+            gauge = new CharacterGaugeDef
+            {
+                Id = "folie", Name = "Folie", Default = 0, Min = 0, Max = 100,
+                Description = "Santé mentale du personnage : elle monte avec les horreurs vécues.",
+                Tiers = [new("Lucide", 0), new("Troublé", 25), new("Tourmenté", 50), new("Dément", 80)],
+            };
+            C.Gauges.Insert(0, gauge);
+            DevState.Touch();
+        }
+        return gauge;
+    }
+
     public static Page ImageList() => new EntityListPage<PortraitDef>(
         "Banque d'images", C.Portraits, x => x.Id, x => x.Name,
         (id, name) => new PortraitDef { Id = id, Name = name },
@@ -128,9 +146,10 @@ public sealed class TimeEditor : EditorPage
 public sealed class ScaleEditor : EditorPage
 {
     private readonly bool _karma;
-    public ScaleEditor(bool karma) { _karma = karma; Render(); }
-    private ScaleSettings S => _karma ? DevState.Draft.Karma : DevState.Draft.Friendship;
-    protected override string PageTitle => _karma ? "Karma" : "Amitié";
+    private readonly bool _love;
+    public ScaleEditor(bool karma, bool love = false) { _karma = karma && !love; _love = love; Render(); }
+    private ScaleSettings S => _karma ? DevState.Draft.Karma : _love ? DevState.Draft.Love : DevState.Draft.Friendship;
+    protected override string PageTitle => _karma ? "Karma" : _love ? "Amour" : "Amitié";
     protected override void GoBack() => SkeApp.GoTo(new DevHomePage());
 
     protected override void Build(Form f)
@@ -138,6 +157,9 @@ public sealed class ScaleEditor : EditorPage
         var s = S;
         f.Note(_karma
             ? "Chaque PJ a son propre karma, qui évolue avec les effets « Karma : ajouter ». Les conditions « Karma » font réagir PNJ et dialogues."
+            : _love
+            ? "Amour d'un PNJ (ou PJ) envers l'équipe ou envers un PJ précis, à part de l'amitié. Il évolue avec les effets « Amour : ajouter », "
+                + "la condition « Amour » fait réagir dialogues et PNJ, %amour:id% l'affiche. Valeur de départ réglable sur chaque PNJ et PJ."
             : "Amitié d'un PNJ (ou PJ) envers l'équipe ou envers un PJ précis. Elle évolue avec les effets « Amitié : ajouter ».");
         f.BoolField("Activé", s.Enabled, v => s.Enabled = v);
         f.TextField("Nom affiché", s.Name, v => s.Name = v);

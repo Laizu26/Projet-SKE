@@ -254,7 +254,7 @@ public static class DevState
         var text = Name(c.Type);
         if (c.Arg.Length > 0) text += " " + c.Arg;
         if (c.Arg2.Length > 0) text += " › " + c.Arg2;
-        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Gauge or ConditionType.Friendship or ConditionType.Gold
+        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Gauge or ConditionType.Friendship or ConditionType.Love or ConditionType.Gold
             or ConditionType.Level or ConditionType.PartySize or ConditionType.Day or ConditionType.CampRank or ConditionType.CampResource)
             text += " " + Name(c.Op).Split(' ').Last().Trim('(', ')') + " " + c.Amount;
         if (c.Type is ConditionType.AnyOf or ConditionType.AllOf) text += $" ({c.Children?.Count ?? 0})";
@@ -321,6 +321,8 @@ public static class DevState
         ActionType.SetGauge => "Jauge (folie...) : fixer",
         ActionType.AddFriendship => "Amitié : ajouter",
         ActionType.SetFriendship => "Amitié : fixer",
+        ActionType.AddLove => "Amour : ajouter",
+        ActionType.SetLove => "Amour : fixer",
         ActionType.AdvanceTime => "Temps : faire passer",
         ActionType.WaitUntilHour => "Temps : attendre une heure précise",
         ActionType.ShowMessage => "Message : afficher",
@@ -388,6 +390,7 @@ public static class DevState
         ConditionType.HasPassive => "A un passif (qui agit)",
         ConditionType.HasPower => "A un pouvoir",
         ConditionType.Friendship => "Amitié",
+        ConditionType.Love => "Amour",
         ConditionType.Gold => "Or (comparaison)",
         ConditionType.Level => "Niveau (comparaison)",
         ConditionType.PartySize => "Taille de l'équipe",
