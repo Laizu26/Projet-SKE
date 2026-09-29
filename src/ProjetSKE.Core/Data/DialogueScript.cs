@@ -12,6 +12,7 @@ public static partial class DialogueScript
     public const string Help =
         """
         Nom: texte              → réplique d'un personnage
+        Nom: texte #choix       → si Nom est le héros joué : proposée en choix ; sinon il la dit
         + texte / + - texte / + Nom: texte → suite de la même réplique (bulles séparées en jeu)
         - texte                 → narration (le récit, personne ne parle)
         * texte  ou  Narration: texte → narration aussi
@@ -281,6 +282,14 @@ public static partial class DialogueScript
                     lineText = lineText[..otherwise.Index];
                 }
             }
+            // « #choix » en fin de réplique : proposée en choix si celui qui parle est le héros joué.
+            var heroChoice = false;
+            var trimmed = lineText.TrimEnd();
+            if (trimmed.EndsWith("#choix", StringComparison.OrdinalIgnoreCase))
+            {
+                heroChoice = true;
+                lineText = trimmed[..^"#choix".Length].TrimEnd();
+            }
             var (nodeSpeaker, nodeText) = SplitSpeaker(lineText);
 
             string id;
@@ -289,7 +298,7 @@ public static partial class DialogueScript
             else { do { id = $"_{++autoId}"; } while (used.Contains(id)); }
             if (!used.Add(id)) errors.Add($"Ligne {lineNumber} : étiquette « {id} » déjà utilisée");
 
-            var node = new DialogueNode { Id = id, Speaker = nodeSpeaker, Text = nodeText.Trim(), Actions = actions, Conditions = onlyIf, ElseId = elseId };
+            var node = new DialogueNode { Id = id, Speaker = nodeSpeaker, Text = nodeText.Trim(), Actions = actions, Conditions = onlyIf, ElseId = elseId, HeroChoice = heroChoice };
             if (chainOpen && last is { NextId: null, Choices.Count: 0 }) last.NextId = id;
             nodes.Add(node);
             last = node;
@@ -547,6 +556,7 @@ public static partial class DialogueScript
             // Texte sur plusieurs lignes (plusieurs bulles) : les lignes suivantes commencent par « + ».
             var lines = n.Text.Replace("\r", "").Split('\n');
             sb.Append(n.Speaker.Length > 0 ? $"{n.Speaker}: {lines[0]}" : $"- {lines[0]}");
+            if (n.HeroChoice) sb.Append(" #choix");
             if (n.Conditions.Count > 0 && n.ElseId is not null) sb.Append(" sinon -> ").Append(n.ElseId);
             AppendActions(sb, n.Actions);
             foreach (var extra in lines.Skip(1)) sb.AppendLine().Append("+ ").Append(extra);

@@ -337,7 +337,7 @@ public sealed class DialogueView : ContentView
     }
 
     /// <summary>Texte de la réplique en cours, tel que joué (variante choisie, balises remplacées).</summary>
-    private string FullText() => _runner.Speaker.Length > 0 ? $"« {_runner.Text} »" : _runner.Text;
+    private string FullText() => _runner.Text.Length == 0 ? "" : _runner.Speaker.Length > 0 ? $"« {_runner.Text} »" : _runner.Text;
     /// <summary>Narration : le récit, sans personnage (texte centré sur un bandeau sombre, sans nom ni portrait).</summary>
     private bool Narration => _runner.Current is not null && _runner.Speaker.Length == 0;
     private bool Typing => _shownNode is not null && _revealed < FullText().Length;

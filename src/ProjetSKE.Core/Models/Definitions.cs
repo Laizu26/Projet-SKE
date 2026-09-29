@@ -476,6 +476,11 @@ public sealed class DialogueNode
     /// « dialogue:etiquette » continue dans un autre dialogue (les histoires peuvent se croiser).
     /// </summary>
     public string? NextId { get; set; }
+    /// <summary>
+    /// Réplique d'un PJ : si ce PJ est le héros joué, elle est proposée au joueur comme un choix (avec les autres
+    /// choix de la réplique, s'il y en a) ; sinon (un compagnon), il la dit simplement et la suite s'enchaîne.
+    /// </summary>
+    public bool HeroChoice { get; set; }
     public List<DialogueChoice> Choices { get; set; } = [];
     public List<GameAction> Actions { get; set; } = [];
     /// <summary>Aiguillages testés avant NextId (le premier qui passe gagne).</summary>

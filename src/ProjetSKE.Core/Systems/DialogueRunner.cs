@@ -82,20 +82,65 @@ public sealed class DialogueRunner
     }
 
     /// <summary>Encore des bulles dans cette réplique avant ses choix ou sa suite.</summary>
-    public bool HasMoreSegments => Current is not null && _segment < Segments.Count - 1;
+    public bool HasMoreSegments => Current is not null && !IsHeroLine && _segment < Segments.Count - 1;
 
-    public string Speaker => Line.Speaker;
-    public string Text => Line.Text;
+    public string Speaker => IsHeroLine ? _session.CharacterName("@heros") : Line.Speaker;
+    /// <summary>Texte dit (vide pour une réplique du héros proposée en choix : c'est au joueur de la dire).</summary>
+    public string Text => IsHeroLine ? "" : Line.Text;
+
+    /// <summary>
+    /// Réplique « choix si c'est le héros » dite par le héros joué : elle est proposée au joueur comme un choix
+    /// au lieu d'être dite. (Dite par un compagnon, elle se joue normalement.)
+    /// </summary>
+    public bool IsHeroLine => _echo is null && Current is { HeroChoice: true } && SpeakerIsHero();
+
+    private bool SpeakerIsHero()
+    {
+        var speaker = Segments[0].Speaker;
+        var hero = _session.CharacterName("@heros");
+        if (speaker.Length == 0 || hero.Length == 0) return false;
+        return speaker == hero || hero.StartsWith(speaker + " ", StringComparison.Ordinal);
+    }
+
+    // Le choix qui représente la réplique du héros (recréé à chaque nouvelle réplique).
+    private DialogueChoice? _heroChoice;
+    private int _heroChoiceStep = -1;
+
+    private DialogueChoice HeroLineChoice()
+    {
+        if (_heroChoice is null || _heroChoiceStep != Step)
+        {
+            // Toute la réplique (toutes ses bulles) devient la réponse proposée.
+            _heroChoice = new DialogueChoice { Id = "replique", Text = string.Join(" ", Segments.Select(s => s.Text).Where(t => t.Length > 0)) };
+            _heroChoiceStep = Step;
+        }
+        return _heroChoice;
+    }
 
     /// <summary>Portrait de celui qui parle (null = pas d'image). L'image choisie sur la réplique vaut pour sa première bulle.</summary>
     public PortraitDef? Portrait => Current is null ? null : _session.Db.PortraitFor(Speaker, _segment == 0 ? Current.PortraitId : null);
 
     /// <summary>Choix affichés : disponibles, ou grisés quand la réplique le demande.</summary>
-    public IReadOnlyList<ChoiceOption> Options => HasMoreSegments ? [] :
-        Current?.Choices
-            .Select(c => new ChoiceOption(c, _session.FormatText(c.Text), _session.CheckAll(c.Conditions), _session.FormatText(c.LockedText)))
-            .Where(o => o.Enabled || o.Choice.ShowLocked)
-            .ToList() ?? [];
+    public IReadOnlyList<ChoiceOption> Options
+    {
+        get
+        {
+            if (HasMoreSegments || Current is null) return [];
+            // Réplique « choix si c'est le héros » : dite par un compagnon, pas de choix (elle s'enchaîne) ;
+            // par le héros, elle est proposée en premier, avant les autres réponses de la réplique.
+            if (Current.HeroChoice && !IsHeroLine) return [];
+            var options = Current.Choices
+                .Select(c => new ChoiceOption(c, _session.FormatText(c.Text), _session.CheckAll(c.Conditions), _session.FormatText(c.LockedText)))
+                .Where(o => o.Enabled || o.Choice.ShowLocked)
+                .ToList();
+            if (IsHeroLine)
+            {
+                var line = HeroLineChoice();
+                options.Insert(0, new ChoiceOption(line, line.Text, true, ""));
+            }
+            return options;
+        }
+    }
 
     /// <summary>Choix disponibles (ceux dont les conditions sont remplies).</summary>
     public IReadOnlyList<DialogueChoice> Choices => Options.Where(o => o.Enabled).Select(o => o.Choice).ToList();
@@ -145,12 +190,20 @@ public sealed class DialogueRunner
     private void Pick(DialogueChoice choice)
     {
         // On retient le choix : la suite (ou une autre histoire, plus tard) peut en dépendre (« A choisi »).
-        if (Current is { } node) _session.State.Choices.Add($"{Dialogue.Id}:{node.Id}:{node.ChoiceKey(choice)}");
+        var heroLine = IsHeroLine && ReferenceEquals(choice, _heroChoice);
+        if (Current is { } node)
+            _session.State.Choices.Add($"{Dialogue.Id}:{node.Id}:{(heroLine ? "replique" : node.ChoiceKey(choice))}");
         // Le choix est dit (ou raconté) : on retient qui parle avant que la suite ne change quoi que ce soit.
         var echoText = EchoChoices ? _session.FormatText(choice.Text).Trim() : "";
-        var echoSpeaker = choice.Narration ? "" : _session.CharacterName("@parle");
+        var echoSpeaker = choice.Narration ? "" : heroLine ? _session.CharacterName("@heros") : _session.CharacterName("@parle");
         Apply(choice.Actions);
-        Enter(choice.NextId);
+        if (heroLine && Current is { } line)
+        {
+            // Le héros a choisi de dire sa réplique : la suite normale de la réplique (aiguillages compris).
+            var branch = line.Branches.FirstOrDefault(b => _session.CheckAll(b.Conditions));
+            Enter(branch is not null ? branch.NextId : line.NextId);
+        }
+        else Enter(choice.NextId);
         if (echoText.Length > 0)
         {
             _echo = new DialogueNode { Id = "~choix", Speaker = echoSpeaker, Text = echoText, NextId = _current?.Id };

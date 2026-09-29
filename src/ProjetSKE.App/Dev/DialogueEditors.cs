@@ -370,6 +370,14 @@ public sealed class DialogueNodeEditor : EditorPage
             Btn("Suivante ▸", () => SkeApp.GoTo(new DialogueNodeEditor(_d, _d.Nodes[index + 1])), enabled: index < _d.Nodes.Count - 1)));
 
         Speaker(f);
+        if (_x.Speaker.Length > 0)
+        {
+            f.BoolField("Choix si c'est le héros joué (sinon il le dit)", _x.HeroChoice, v => _x.HeroChoice = v, rerender: true);
+            if (_x.HeroChoice)
+                f.Note("Si celui qui parle est le héros choisi par le joueur, cette réplique lui est proposée comme une réponse "
+                    + "(en premier, avant les autres choix ci-dessous). Si c'est un compagnon, il la dit simplement et on passe à la suite. "
+                    + "En mode texte : « #choix » en fin de réplique.");
+        }
         f.TextField(_x.Speaker.Length == 0 ? "Texte du récit" : "Ce qu'il dit", _x.Text, v => _x.Text = v, multiline: true);
         // Mêler narration et paroles dans la même réplique : chaque morceau devient une bulle à part en jeu.
         var bubbles = DialogueScript.Segments(_x.Speaker, _x.Text);
@@ -398,8 +406,8 @@ public sealed class DialogueNodeEditor : EditorPage
             Render();
         }));
 
-        // Suite (sans choix).
-        if (_x.Choices.Count == 0)
+        // Suite (sans choix, ou réplique du héros : la suite quand il la dit, ou quand un compagnon la dit).
+        if (_x.Choices.Count == 0 || _x.HeroChoice)
         {
             f.Header("Ensuite");
             f.RefField("Réplique suivante (aucune = fin du dialogue)", _x.NextId, targets.Where(t => t.Id != _x.Id), v => _x.NextId = v, rerender: true);
