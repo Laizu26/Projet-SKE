@@ -41,6 +41,8 @@ public sealed class GamePage : ContentPage
     public bool ShopSelling { get; set; }
     public bool QuestsShowDone { get; set; }
     public bool MenuShowDevTools { get; set; }
+    /// <summary>Journal : page du carnet ouverte.</summary>
+    public int JournalPage { get; set; }
 
     /// <summary>Partie de test lancée depuis le mode développeur : jamais sauvegardée.</summary>
     public bool IsTestGame => Slot < 0;

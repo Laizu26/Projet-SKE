@@ -1,6 +1,7 @@
 using ProjetSKE.App.Pages;
 using ProjetSKE.App.Ui;
 using ProjetSKE.Core.Models;
+using ProjetSKE.Core.Systems;
 using static ProjetSKE.App.Ui.UiKit;
 
 namespace ProjetSKE.App.Views;
@@ -134,43 +135,173 @@ public sealed class ShopView : ContentView
     }
 }
 
-/// <summary>Journal : une page de parchemin où le joueur écrit librement.</summary>
+/// <summary>
+/// Journal : un carnet de pages de parchemin où le joueur écrit librement. Une page a une taille fixe : quand elle est
+/// pleine, la suite passe sur la page suivante et la page se tourne. Flèches ◂ ▸ pour feuilleter (toucher et souris).
+/// </summary>
 public sealed class JournalView : ContentView
 {
+    private const double PageHeight = 430;
+    private const double FontSize = 16;
+
+    private readonly GamePage _page;
+    private readonly List<string> _pages;
+    private readonly Editor _editor;
+    private readonly Border _sheet;
+    private readonly Label _number;
+    private readonly Label _counter;
+    private readonly Button _prev;
+    private readonly Button _next;
+    private bool _updating;
+    private bool _turning;
+
     public JournalView(GamePage page)
     {
-        var editor = new Editor
+        _page = page;
+        _pages = Notebook.Pages(page.Session.State.Journal);
+        page.JournalPage = Math.Clamp(page.JournalPage, 0, _pages.Count - 1);
+
+        _editor = new Editor
         {
-            Text = page.Session.State.Journal,
             Placeholder = "Page blanche… Note ici tes découvertes, tes pistes, tes plans.",
             PlaceholderColor = Theme.Stone400,
             TextColor = Theme.Stone900,
             FontFamily = "serif",
             BackgroundColor = Colors.Transparent,
-            FontSize = 16,
-            AutoSize = EditorAutoSizeOption.TextChanges,
-            MinimumHeightRequest = 480,
+            FontSize = FontSize,
+            AutoSize = EditorAutoSizeOption.Disabled,
+            HeightRequest = PageHeight,
         };
-        editor.TextChanged += (_, e) => page.Session.State.Journal = e.NewTextValue ?? "";
-        editor.Unfocused += (_, _) => page.AutoSave();
+        _editor.TextChanged += (_, e) => OnTextChanged(e.NewTextValue ?? "");
+        _editor.Unfocused += (_, _) => page.AutoSave();
 
-        var sheet = Card(new VerticalStackLayout
+        _number = new Label { FontFamily = "serif", FontSize = 12, FontAttributes = FontAttributes.Italic, TextColor = Theme.Stone400, HorizontalTextAlignment = TextAlignment.Center };
+        _sheet = Card(new VerticalStackLayout
         {
             Spacing = 8,
             Children =
             {
                 IconCaps(Ico.NotebookPen, "Carnet de voyage", Theme.Stone500),
                 new BoxView { HeightRequest = 1, Color = Theme.Stone200 },
-                editor,
+                _editor,
+                _number,
             },
         }, Theme.ParchmentLight, Theme.Stone300);
-        sheet.Padding = new Thickness(18, 14);
+        _sheet.Padding = new Thickness(18, 14);
+
+        _prev = Btn("◂", () => Turn(-1));
+        _next = Btn("▸", () => Turn(+1));
+        _counter = Caps("", 10, Theme.Stone500);
+        _counter.HorizontalTextAlignment = TextAlignment.Center;
+        var nav = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(new GridLength(64)), new ColumnDefinition(GridLength.Star), new ColumnDefinition(new GridLength(64)) },
+            ColumnSpacing = 8,
+        };
+        nav.Add(_prev, 0, 0);
+        _counter.VerticalOptions = LayoutOptions.Center;
+        nav.Add(_counter, 1, 0);
+        nav.Add(_next, 2, 0);
 
         Content = new VerticalStackLayout
         {
             Spacing = 14,
-            Children = { PageHeader(Ico.Feather, "Journal", "Tes notes personnelles"), sheet },
+            Children = { PageHeader(Ico.Feather, "Journal", "Tes notes personnelles"), _sheet, nav },
         };
+        Show();
+    }
+
+    private int Index { get => _page.JournalPage; set => _page.JournalPage = value; }
+
+    /// <summary>Caractères par ligne et lignes par page, d'après la largeur réelle de la page (estimation prudente).</summary>
+    private (int Chars, int Lines) Capacity()
+    {
+        var width = _editor.Width > 0 ? _editor.Width : 300;
+        var chars = (int)((width - 12) / (FontSize * 0.55));
+        var lines = (int)((PageHeight - 16) / (FontSize * 1.4));
+        return (Math.Max(8, chars), Math.Max(4, lines));
+    }
+
+    private void Show()
+    {
+        _updating = true;
+        _editor.Text = _pages[Index];
+        _updating = false;
+        _number.Text = $"— {Index + 1} —";
+        _counter.Text = $"Page {Index + 1} / {_pages.Count}";
+        _prev.IsEnabled = Index > 0;
+        _prev.Opacity = Index > 0 ? 1 : 0.45;
+        // Au-delà de la dernière page : une page blanche (seulement si la dernière n'est pas vide).
+        var canNext = Index < _pages.Count - 1 || _pages[Index].Length > 0;
+        _next.IsEnabled = canNext;
+        _next.Opacity = canNext ? 1 : 0.45;
+    }
+
+    private void Save() => _page.Session.State.Journal = Notebook.Join(_pages);
+
+    private void OnTextChanged(string text)
+    {
+        if (_updating) return;
+        _pages[Index] = text;
+        var (chars, lines) = Capacity();
+        var (fit, overflow) = Notebook.Split(text, chars, lines);
+        if (overflow.Length == 0)
+        {
+            Save();
+            _next.IsEnabled = true;
+            _next.Opacity = 1;
+            return;
+        }
+        // Page pleine : la suite passe en tête de la page suivante (et ainsi de suite si elle déborde à son tour).
+        _pages[Index] = fit;
+        var carry = overflow;
+        for (var i = Index + 1; carry.Length > 0; i++)
+        {
+            if (i >= _pages.Count) _pages.Add("");
+            var joined = _pages[i].Length == 0 ? carry : carry + (carry.EndsWith('\n') ? "" : " ") + _pages[i];
+            (_pages[i], carry) = Notebook.Split(joined, chars, lines);
+        }
+        Save();
+        var cursor = overflow.Length;
+        _ = TurnAsync(+1, cursor);
+    }
+
+    private void Turn(int direction)
+    {
+        if (Index + direction < 0) return;
+        if (Index + direction >= _pages.Count)
+        {
+            if (_pages[Index].Length == 0) return;
+            _pages.Add("");
+        }
+        _ = TurnAsync(direction, null);
+    }
+
+    /// <summary>La page se tourne (rotation), puis la suivante (ou la précédente) s'affiche.</summary>
+    private async Task TurnAsync(int direction, int? cursor)
+    {
+        if (_turning) return;
+        _turning = true;
+        try
+        {
+            _sheet.AnchorX = direction > 0 ? 0 : 1;
+            await _sheet.RotateYToAsync(direction > 0 ? -90 : 90, 140, Easing.CubicIn);
+            Index = Math.Clamp(Index + direction, 0, _pages.Count - 1);
+            Show();
+            _sheet.RotationY = direction > 0 ? 90 : -90;
+            await _sheet.RotateYToAsync(0, 160, Easing.CubicOut);
+        }
+        finally
+        {
+            _sheet.RotationY = 0;
+            _turning = false;
+        }
+        if (cursor is { } position)
+        {
+            // On continue d'écrire là où la phrase s'est arrêtée.
+            _editor.Focus();
+            _editor.CursorPosition = Math.Min(position, _editor.Text?.Length ?? 0);
+        }
     }
 }
 

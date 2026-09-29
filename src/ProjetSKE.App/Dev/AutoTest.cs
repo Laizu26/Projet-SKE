@@ -18,6 +18,15 @@ public static class AutoTest
     private static readonly List<string> Failures = [];
 
     /// <summary>Une étape en échec est notée (avec la trace complète, ligne par ligne) et le parcours continue.</summary>
+    /// <summary>Tous les éléments d'un type dans un arbre de vues.</summary>
+    private static IEnumerable<T> FindAll<T>(Element? root) where T : Element
+    {
+        if (root is null) yield break;
+        if (root is T match) yield return match;
+        foreach (var child in ((IElementController)root).LogicalChildren)
+            foreach (var found in FindAll<T>(child)) yield return found;
+    }
+
     private static async Task Step(string name, Action action, int waitMs = 1200)
     {
         Log("étape : " + name);
@@ -133,6 +142,20 @@ public static class AutoTest
 
             foreach (var tab in Enum.GetValues<GameTab>())
                 await Step("onglet " + tab, () => page!.SwitchTab(tab));
+            await Step("journal : carnet en pages (page 2)", () =>
+            {
+                page!.Session.State.Journal = "Première page du carnet.\fDeuxième page : la suite de mes notes.";
+                page.JournalPage = 1;
+                page.SwitchTab(GameTab.Journal);
+                page.Render();
+            });
+            await Step("journal : page pleine → la page se tourne", () =>
+            {
+                page!.JournalPage = 0;
+                page.Render();
+                var editor = FindAll<Editor>(page.Content).FirstOrDefault();
+                if (editor is not null) editor.Text = string.Concat(Enumerable.Repeat("Une longue note qui remplit toute la page du carnet. ", 60));
+            }, 2000);
 
             await Step("carte du royaume", () => { page!.SwitchTab(GameTab.Map); page.MapShowCountry = true; page.Render(); }, 2000);
             await Step("carte du royaume : mise en page", CheckMapLayout);
