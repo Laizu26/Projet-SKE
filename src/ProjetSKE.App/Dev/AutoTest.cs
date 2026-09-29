@@ -138,6 +138,9 @@ public static class AutoTest
             await Step("carte du royaume : mise en page", CheckMapLayout);
             await Step("carte du lieu", () => { page!.MapShowCountry = false; page.Render(); }, 2000);
             await Step("carte du lieu : mise en page", CheckMapLayout);
+            await Step("carte du lieu : entrée de la ville (sortir vers la carte)", () => { page!.MapSelectedBuilding = "exit"; page.Render(); });
+            await Step("carte du lieu : sortie par l'entrée", () => { page!.MapSelectedBuilding = null; page.MapShowCountry = true; page.Render(); });
+            await Step("carte du lieu : retour", () => { page!.MapShowCountry = false; page.Render(); });
             // Lieux dans des lieux : entrer dans un sous-lieu, voir la carte du royaume depuis l'intérieur, ressortir.
             var subLoc = db.Content.Locations.FirstOrDefault(l => db.ParentOf(l) is not null);
             if (subLoc is not null)

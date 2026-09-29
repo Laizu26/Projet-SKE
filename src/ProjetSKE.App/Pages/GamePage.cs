@@ -244,7 +244,7 @@ public sealed class GamePage : ContentPage
     {
         var loc = Session.CurrentLocation;
         _root.BackgroundColor = Theme.Parchment; // suit le mode sombre (réglage du Menu)
-        if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
+        if (Tab == GameTab.Shop && !Session.HasShop) Tab = GameTab.Map;
         if (Tab == GameTab.Quests && !Session.Db.Content.World.ShowQuestTab) Tab = GameTab.Map;
         // Onglet verrouillé (prologue...) : on passe au premier onglet ouvert.
         if (Session.IsLocked(TabFeature(Tab)) && VisibleTabs().FirstOrDefault() is { Tab: var open }) Tab = open;
@@ -373,7 +373,7 @@ public sealed class GamePage : ContentPage
         {
             var t = tabs[i];
             var label = T(t.Key);
-            var enabled = t.Tab != GameTab.Shop || Session.InCity;
+            var enabled = t.Tab != GameTab.Shop || Session.HasShop;
             var selected = Tab == t.Tab;
             _tabBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 

@@ -159,6 +159,9 @@ public sealed partial class GameSession
     public BalanceSettings Balance => Db.Balance;
     public LocationDef CurrentLocation => Db.Locations[State.CurrentLocationId];
     public bool InCity => CurrentLocation.IsCity;
+    /// <summary>Le lieu actuel a une auberge / une boutique (réglé lieu par lieu dans l'éditeur).</summary>
+    public bool HasInn => CurrentLocation.HasInn;
+    public bool HasShop => CurrentLocation.HasShop;
     public bool HasFlag(string flag) => State.Flags.Contains(flag);
     public void SetFlag(string flag) => State.Flags.Add(flag);
 
@@ -1320,12 +1323,12 @@ public sealed partial class GameSession
     // ------------------------------------------------------------------ Ville : boutique, auberge, habitants
 
     public IReadOnlyList<ItemDef> ShopStock =>
-        InCity ? CurrentLocation.ShopItemIds.Where(Db.Items.ContainsKey).Select(id => Db.Items[id]).ToList() : [];
+        HasShop ? CurrentLocation.ShopItemIds.Where(Db.Items.ContainsKey).Select(id => Db.Items[id]).ToList() : [];
 
     public int SellPrice(ItemDef item) => item.Price * Math.Clamp(Balance.SellPercent, 0, 100) / 100;
 
     public bool CanBuy(ItemDef item) =>
-        InCity && CurrentLocation.ShopItemIds.Contains(item.Id) && State.Gold >= item.Price
+        HasShop && CurrentLocation.ShopItemIds.Contains(item.Id) && State.Gold >= item.Price
         && !(item.IsUnique && OwnsItem(item.Id));
 
     public bool Buy(string itemId)
@@ -1338,7 +1341,7 @@ public sealed partial class GameSession
 
     public bool Sell(string itemId)
     {
-        if (!InCity || !Db.Items.TryGetValue(itemId, out var item) || !item.IsSellable) return false;
+        if (!HasShop || !Db.Items.TryGetValue(itemId, out var item) || !item.IsSellable) return false;
         if (!RemoveItem(itemId)) return false;
         State.Gold += SellPrice(item);
         return true;
@@ -1352,7 +1355,7 @@ public sealed partial class GameSession
 
     public bool Rest()
     {
-        if (!InCity || State.Gold < CurrentLocation.InnPrice) return false;
+        if (!HasInn || State.Gold < CurrentLocation.InnPrice) return false;
         State.Gold -= CurrentLocation.InnPrice;
         HealAll();
         AdvanceTime(Clock.MinutesUntilHour(Db.Content.Time.InnWakeHour));

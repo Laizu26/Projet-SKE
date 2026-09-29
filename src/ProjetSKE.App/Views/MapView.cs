@@ -272,7 +272,7 @@ public sealed class MapView : ContentView
     {
         var loc = S.CurrentLocation;
         var list = new List<Building>();
-        if (S.InCity)
+        if (S.HasInn)
         {
             list.Add(new Building("inn", Ico.Bed, "Auberge", $"Repos complet pour {loc.InnPrice} or.", Theme.Blue600, "Dormir", () =>
             {
@@ -280,8 +280,9 @@ public sealed class MapView : ContentView
                 _page.AutoSave();
                 _page.Render();
             }));
-            list.Add(new Building("shop", Ico.Store, "Boutique", "Acheter et revendre de l'équipement.", Theme.Gold600, "Entrer", () => _page.SwitchTab(GameTab.Shop)));
         }
+        if (S.HasShop)
+            list.Add(new Building("shop", Ico.Store, "Boutique", "Acheter et revendre de l'équipement.", Theme.Gold600, "Entrer", () => _page.SwitchTab(GameTab.Shop)));
         if (S.PendingFixedBattle is { } fb)
         {
             var names = string.Join(", ", fb.MonsterIds.Distinct().Where(S.Db.Monsters.ContainsKey).Select(id => S.Db.Monsters[id].Name));
@@ -309,6 +310,14 @@ public sealed class MapView : ContentView
             var parentId = parent.Id;
             list.Insert(0, new Building("exit", Ico.DoorOpen, "Sortir", $"Retourner à {parent.Name}.", Theme.Stone600, $"Sortir vers {parent.Name}",
                 () => _page.Travel(parentId)));
+        }
+        else if (!S.IsLocked(UiFeature.WorldMap))
+        {
+            // Lieu principal : on en sort par l'entrée, vers la carte du pays (pour voyager ailleurs).
+            var country = S.Db.Content.World.CountryName;
+            list.Insert(0, new Building("exit", Ico.DoorOpen, loc.IsCity ? "Entrée de la ville" : "Sortie",
+                $"Quitter {loc.Name} : retour à la carte ({country}).", Theme.Stone600, $"Sortir de {loc.Name}",
+                () => { _page.MapShowCountry = true; _page.Render(); }));
         }
         foreach (var npc in S.VisibleNpcs)
         {

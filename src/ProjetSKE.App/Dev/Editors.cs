@@ -761,12 +761,12 @@ public sealed class LocationEditor : EditorPage
             f.TextField("Message si bloqué", _x.LockedMessage, v => _x.LockedMessage = v);
         f.RefField("Dialogue à la première visite", _x.FirstVisitDialogueId, DevState.Dialogues, v => _x.FirstVisitDialogueId = v);
 
-        if (_x.IsCity)
-        {
-            f.Header("Ville");
-            f.IntField("Prix de l'auberge", _x.InnPrice, v => _x.InnPrice = v);
-            f.IdList("Articles de la boutique", _x.ShopItemIds, DevState.Items());
-        }
+        // Auberge et boutique : lieu par lieu (une ville n'en a pas forcément, un sous-lieu peut en avoir).
+        f.Header("Auberge et boutique");
+        f.BoolField("Auberge (dormir contre de l'or)", _x.HasInn, v => _x.Inn = v, rerender: true);
+        if (_x.HasInn) f.IntField("Prix de l'auberge", _x.InnPrice, v => _x.InnPrice = v);
+        f.BoolField("Boutique (onglet Boutique)", _x.HasShop, v => _x.Shop = v, rerender: true);
+        if (_x.HasShop) f.IdList("Articles de la boutique", _x.ShopItemIds, DevState.Items());
 
         f.Header("Combats");
         f.DoubleField("Chance de rencontre en arrivant (0 à 1)", _x.EncounterChance, v => _x.EncounterChance = v);

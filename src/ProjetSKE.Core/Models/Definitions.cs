@@ -287,6 +287,10 @@ public sealed class LocationDef
     public List<string> ConnectedIds { get; set; } = [];
     public List<string> ShopItemIds { get; set; } = [];
     public int InnPrice { get; set; } = 10;
+    /// <summary>Auberge dans ce lieu (null = réglage d'avant : oui pour une ville principale, non ailleurs).</summary>
+    public bool? Inn { get; set; }
+    /// <summary>Boutique dans ce lieu (null = réglage d'avant : oui pour une ville principale, non ailleurs).</summary>
+    public bool? Shop { get; set; }
     public List<EncounterGroup> RandomEncounters { get; set; } = [];
     /// <summary>Probabilité (0 à 1) d'une rencontre aléatoire en arrivant ici.</summary>
     public double EncounterChance { get; set; }
@@ -311,6 +315,8 @@ public sealed class LocationDef
     public bool HiddenAtStart { get; set; }
 
     [JsonIgnore] public bool IsCity => Type == LocationType.City;
+    [JsonIgnore] public bool HasInn => Inn ?? (IsCity && ParentId is null);
+    [JsonIgnore] public bool HasShop => Shop ?? (IsCity && ParentId is null);
 }
 
 /// <summary>Personnage non joueur : un habitant placé dans un lieu, avec ses dialogues.</summary>
