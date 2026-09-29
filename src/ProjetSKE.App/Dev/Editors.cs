@@ -29,7 +29,7 @@ public static class Editors
         "PNJ", C.Npcs, x => x.Id, x => x.Name,
         (id, name) => new NpcDef { Id = id, Name = name, LocationId = C.Start.LocationId },
         x => new NpcEditor(x),
-        subtitle: x => C.Locations.FirstOrDefault(l => l.Id == x.LocationId)?.Name ?? "sans lieu",
+        subtitle: x => (C.Locations.FirstOrDefault(l => l.Id == x.LocationId)?.Name ?? "sans lieu") + (x.HiddenAtStart ? " · caché" : ""),
         help: "Habitants placés dans un lieu. Leur dialogue peut changer selon l'avancement (quêtes, flags).");
 
     public static Page DialogueList() => new EntityListPage<DialogueDef>(
@@ -215,6 +215,10 @@ public sealed class NpcEditor : EditorPage
             sf.RefField("Dialogue", d.DialogueId, DevState.Dialogues, v => d.DialogueId = v ?? "", allowNone: false);
             sf.Conditions("Si", d.Conditions);
         }, "+ Dialogue conditionnel");
+        f.BoolField("Caché au début (apparaît avec l'effet « PNJ : montrer »)", _x.HiddenAtStart, v => _x.HiddenAtStart = v, rerender: true);
+        if (_x.HiddenAtStart)
+            f.Note($"Pour le faire apparaître : effet « PNJ : montrer » → {_x.Name} (dans un dialogue, une quête...), ou [montre_pnj {_x.Id}] en mode texte. "
+                + $"Pour le recacher : « PNJ : cacher », ou [cache_pnj {_x.Id}].");
         f.Conditions("Visible seulement si", _x.VisibleConditions);
 
         f.Header("Combat");

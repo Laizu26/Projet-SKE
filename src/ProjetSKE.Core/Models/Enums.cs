@@ -50,6 +50,8 @@ public enum ActionType
     GivePassive, RemovePassive,
     // Pouvoirs : donner / retirer (le PJ apprend toutes les compétences du pouvoir)
     GivePower, RemovePower,
+    // PNJ : faire apparaître / cacher
+    ShowNpc, HideNpc,
 }
 
 /// <summary>

@@ -138,6 +138,9 @@ public sealed class GameState
     /// <summary>Lieux révélés ou cachés par un effet (prioritaires sur leurs conditions de visibilité).</summary>
     public HashSet<string> RevealedLocations { get; set; } = [];
     public HashSet<string> HiddenLocations { get; set; } = [];
+    /// <summary>PNJ montrés ou cachés par un effet (prioritaires sur « caché au début » et leurs conditions).</summary>
+    public HashSet<string> ShownNpcs { get; set; } = [];
+    public HashSet<string> HiddenNpcs { get; set; } = [];
     /// <summary>Partie de prologue (tutoriel) : jamais sauvegardée, finie par l'effet « Prologue : terminer ».</summary>
     public bool IsTutorial { get; set; }
     public bool TutorialDone { get; set; }

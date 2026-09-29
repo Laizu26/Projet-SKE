@@ -480,6 +480,7 @@ public sealed class GameDatabase
                 {
                     case ActionType.Recruit or ActionType.LeaveParty: Ref(Characters, a.Arg, w, "personnage"); break;
                     case ActionType.RevealLocation or ActionType.HideLocation: Ref(Locations, a.Arg, w, "lieu"); break;
+                    case ActionType.ShowNpc or ActionType.HideNpc: Check(Npcs.ContainsKey(a.Arg), $"{w} : PNJ « {a.Arg} » introuvable"); break;
                     case ActionType.MoveNpc:
                         Ref(Npcs, a.Arg, w, "PNJ");
                         Ref(Locations, a.Arg2, w, "lieu");

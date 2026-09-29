@@ -325,6 +325,8 @@ public static class DevState
         ActionType.ShowMessage => "Message : afficher",
         ActionType.LeaveParty => "Équipe : un PJ s'en va",
         ActionType.MoveNpc => "PNJ : déplacer",
+        ActionType.ShowNpc => "PNJ : montrer (faire apparaître un PNJ caché)",
+        ActionType.HideNpc => "PNJ : cacher (le faire disparaître)",
         ActionType.RevealLocation => "Lieu : révéler (faire apparaître un lieu caché)",
         ActionType.HideLocation => "Lieu : cacher (le faire disparaître de la carte)",
         ActionType.JoinCamp => "Camp : rejoindre",

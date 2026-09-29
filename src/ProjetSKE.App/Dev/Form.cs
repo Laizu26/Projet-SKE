@@ -528,6 +528,9 @@ public sealed class Form
                     emptyHint: "Aucune quête en plusieurs parties. Pour une quête normale, prends plutôt l'effet « Quête : ajouter / terminer ». Sinon, dans la quête, choisis la forme « Parties en parallèle ».");
                 RefField("Partie", a.Arg2, DevState.PartsOf(a.Arg), v => a.Arg2 = v ?? "", allowNone: false);
                 break;
+            case ActionType.ShowNpc or ActionType.HideNpc:
+                RefField("PNJ", a.Arg, DevState.Npcs, v => a.Arg = v ?? "", allowNone: false);
+                break;
             case ActionType.Teleport or ActionType.RevealLocation or ActionType.HideLocation:
                 RefField("Lieu", a.Arg, DevState.Locations, v => a.Arg = v ?? "", allowNone: false);
                 break;

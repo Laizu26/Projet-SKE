@@ -324,6 +324,8 @@ public sealed class NpcDef
     public List<NpcPlacement> Placements { get; set; } = [];
     /// <summary>Amitié de départ envers l'équipe (vide = valeur par défaut des réglages d'amitié).</summary>
     public int? BaseFriendship { get; set; }
+    /// <summary>Caché au début de la partie : n'apparaît qu'avec l'effet « PNJ : montrer ».</summary>
+    public bool HiddenAtStart { get; set; }
     /// <summary>Le PNJ n'apparaît que si ces conditions sont remplies.</summary>
     public List<Condition> VisibleConditions { get; set; } = [];
     /// <summary>Dialogues selon l'avancement : le premier dont les conditions passent est joué.</summary>

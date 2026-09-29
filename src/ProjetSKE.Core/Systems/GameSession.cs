@@ -376,6 +376,14 @@ public sealed partial class GameSession
                 if (State.RevealedLocations.Add(a.Arg) && Db.Locations.TryGetValue(a.Arg, out var revealed))
                     Notifications.Add($"Nouveau lieu sur la carte : {revealed.Name}");
                 break;
+            case ActionType.ShowNpc:
+                State.HiddenNpcs.Remove(a.Arg);
+                State.ShownNpcs.Add(a.Arg);
+                break;
+            case ActionType.HideNpc:
+                State.ShownNpcs.Remove(a.Arg);
+                State.HiddenNpcs.Add(a.Arg);
+                break;
             case ActionType.HideLocation:
                 State.RevealedLocations.Remove(a.Arg);
                 State.HiddenLocations.Add(a.Arg);
@@ -1272,7 +1280,15 @@ public sealed partial class GameSession
     }
 
     public IEnumerable<NpcDef> VisibleNpcs =>
-        Db.Content.Npcs.Where(n => NpcLocation(n) == State.CurrentLocationId && CheckAll(n.VisibleConditions)).ToList();
+        Db.Content.Npcs.Where(n => NpcLocation(n) == State.CurrentLocationId && IsNpcVisible(n)).ToList();
+
+    /// <summary>Le PNJ se montre : montré/caché par un effet, sinon caché s'il l'est au début, sinon selon ses conditions.</summary>
+    public bool IsNpcVisible(NpcDef npc)
+    {
+        if (State.HiddenNpcs.Contains(npc.Id)) return false;
+        if (State.ShownNpcs.Contains(npc.Id)) return true;
+        return !npc.HiddenAtStart && CheckAll(npc.VisibleConditions);
+    }
 
     /// <summary>Parler à un PNJ : fait avancer les quêtes puis renvoie le dialogue à jouer (selon l'avancement et qui parle).</summary>
     public string? Talk(string npcId, string? speakerId = null)

@@ -83,6 +83,7 @@ public static partial class DialogueScript
         ("temps", ActionType.AdvanceTime, "n"), ("attendre", ActionType.WaitUntilHour, "n"),
         ("message", ActionType.ShowMessage, "t"),
         ("deplace", ActionType.MoveNpc, "ab"), ("revele", ActionType.RevealLocation, "a"), ("cache", ActionType.HideLocation, "a"),
+        ("montre_pnj", ActionType.ShowNpc, "a"), ("cache_pnj", ActionType.HideNpc, "a"),
         ("camp", ActionType.JoinCamp, "ab"), ("quitte_camp", ActionType.LeaveCamp, "a"),
         ("grade", ActionType.SetCampRank, "ab"), ("tache", ActionType.SetCampTask, "ab"),
         ("ressource", ActionType.AddCampResource, "an"), ("construit", ActionType.BuildCampBuilding, "a"),

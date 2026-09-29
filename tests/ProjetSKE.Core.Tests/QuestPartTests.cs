@@ -689,3 +689,24 @@ public class HiddenLocationTests
         Assert.DoesNotContain(s.SubLocations, l => l.Id == "taverne_sanglier");
     }
 }
+
+public class HiddenNpcTests
+{
+    [Fact]
+    public void HiddenNpc_AppearsOnlyWhenShown()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Npcs.First(n => n.Id == "capitaine_hardin").HiddenAtStart = true;
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        s.State.CurrentLocationId = "havrefort";
+        Assert.DoesNotContain(s.VisibleNpcs, n => n.Id == "capitaine_hardin");
+
+        var nodes = DialogueScript.Parse("- Une silhouette approche. [montre_pnj capitaine_hardin]", out var errors);
+        Assert.Empty(errors);
+        foreach (var a in nodes.SelectMany(n => n.Actions)) s.Execute(a);
+        Assert.Contains(s.VisibleNpcs, n => n.Id == "capitaine_hardin");
+
+        s.Execute(new GameAction(ActionType.HideNpc, "capitaine_hardin"));
+        Assert.DoesNotContain(s.VisibleNpcs, n => n.Id == "capitaine_hardin");
+    }
+}
