@@ -388,6 +388,11 @@ public sealed class Form
                 RefField("Karma de", c.Arg, DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
                 Compare(c, "Valeur");
                 break;
+            case ConditionType.HasPassive:
+                RefField("Passif", c.Arg2, DevState.Passives, v => c.Arg2 = v ?? "", allowNone: false,
+                    emptyHint: "Aucun passif : crée-en un dans « Passifs » (menu du mode dev).");
+                RefField("Qui", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
+                break;
             case ConditionType.Gauge:
                 RefField("Jauge", c.Arg2, DevState.Gauges, v => c.Arg2 = v ?? "", allowNone: false,
                     emptyHint: "Aucune jauge : crée-en une dans « Jauges de personnage » (menu du mode dev).");
@@ -529,6 +534,11 @@ public sealed class Form
             case ActionType.SetVariable or ActionType.AddVariable:
                 RefField("Variable", a.Arg, DevState.Variables, v => a.Arg = v ?? "", allowNone: false);
                 IntField(a.Type == ActionType.AddVariable ? "Ajouter (négatif = retirer)" : "Nouvelle valeur", a.Amount, v => a.Amount = v);
+                break;
+            case ActionType.GivePassive or ActionType.RemovePassive:
+                RefField("Passif", a.Arg, DevState.Passives, v => a.Arg = v ?? "", allowNone: false,
+                    emptyHint: "Aucun passif : crée-en un dans « Passifs » (menu du mode dev).");
+                RefField("À qui", a.Arg2.Length > 0 ? a.Arg2 : "@parle", DevState.KarmaWho, v => a.Arg2 = v ?? "", allowNone: false);
                 break;
             case ActionType.AddGauge or ActionType.SetGauge:
                 RefField("Jauge", a.Arg, DevState.Gauges, v => a.Arg = v ?? "", allowNone: false,

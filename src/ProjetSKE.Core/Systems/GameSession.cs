@@ -179,6 +179,7 @@ public sealed partial class GameSession
         ConditionType.Variable => Compare(GetVariable(c.Arg), c.Op, c.Amount),
         ConditionType.Karma => Compare(GetKarma(c.Arg), c.Op, c.Amount),
         ConditionType.Gauge => Compare(GetGauge(c.Arg, c.Arg2), c.Op, c.Amount),
+        ConditionType.HasPassive => HasActivePassive(c.Arg, c.Arg2),
         ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
@@ -309,6 +310,17 @@ public sealed partial class GameSession
                     c.Karma = ClampScale(Db.Content.Karma, a.Type == ActionType.AddKarma ? c.Karma + a.Amount : a.Amount);
                     if (Db.Content.Karma.Visible && c.Karma != before)
                         Notifications.Add($"{DefOf(c).Name} : {Db.Content.Karma.Name} {Signed(c.Karma - before)}");
+                }
+                break;
+            case ActionType.GivePassive or ActionType.RemovePassive:
+                if (!Db.Passives.TryGetValue(a.Arg, out var passive)) break;
+                foreach (var c in KarmaTargets(a.Arg2.Length > 0 ? a.Arg2 : "@parle"))
+                {
+                    var had = PassivesOf(c).Contains(passive);
+                    if (a.Type == ActionType.GivePassive) { c.LostPassives.Remove(passive.Id); c.GainedPassives.Add(passive.Id); }
+                    else { c.GainedPassives.Remove(passive.Id); c.LostPassives.Add(passive.Id); }
+                    var has = PassivesOf(c).Contains(passive);
+                    if (had != has) Notifications.Add($"{DefOf(c).Name} {(has ? "obtient" : "perd")} le passif « {passive.Name} »");
                 }
                 break;
             case ActionType.AddGauge or ActionType.SetGauge:
@@ -458,6 +470,7 @@ public sealed partial class GameSession
         "" or "@parle" => SpeakerId,
         "@heros" => State.HeroId,
         "@membre" => _campContext ?? SpeakerId,
+        "@soi" => _passiveOwner ?? SpeakerId,
         _ => who,
     };
 
@@ -470,6 +483,14 @@ public sealed partial class GameSession
             return State.Party.Count > 0 ? (int)Math.Round(State.Party.Average(c => c.Karma)) : Db.Content.Karma.Default;
         var id = ResolveWho(who);
         return State.Party.FirstOrDefault(c => c.DefId == id)?.Karma ?? Db.Content.Karma.Default;
+    }
+
+    /// <summary>Le PJ (« @parle », « @heros », id ; « @equipe » = au moins un) a ce passif, et il agit.</summary>
+    private bool HasActivePassive(string who, string passiveId)
+    {
+        if (!Db.Passives.TryGetValue(passiveId, out var p)) return false;
+        var targets = who == "@equipe" ? State.Party : State.Party.Where(c => c.DefId == ResolveWho(who.Length > 0 ? who : "@parle"));
+        return targets.Any(c => PassivesOf(c).Contains(p) && IsPassiveActive(c, p));
     }
 
     /// <summary>Valeur d'une jauge (folie...) pour un PJ.</summary>
@@ -940,6 +961,37 @@ public sealed partial class GameSession
         }
     }
 
+    // ------------------------------------------------------------------ Passifs
+
+    /// <summary>Porteur du passif dont on vérifie les conditions (« @soi »).</summary>
+    private string? _passiveOwner;
+
+    /// <summary>Passifs du personnage (fiche selon son niveau, + donnés, − retirés), qu'ils agissent ou non.</summary>
+    public IReadOnlyList<PassiveDef> PassivesOf(CharacterState c) =>
+        DefOf(c).Passives.Where(p => p.Level <= c.Level).Select(p => p.PassiveId)
+            .Concat(c.GainedPassives)
+            .Where(id => !c.LostPassives.Contains(id))
+            .Distinct()
+            .Where(Db.Passives.ContainsKey)
+            .Select(id => Db.Passives[id])
+            .ToList();
+
+    /// <summary>Le passif agit en ce moment (ses conditions passent, « @soi » = le porteur).</summary>
+    public bool IsPassiveActive(CharacterState c, PassiveDef p)
+    {
+        if (p.Conditions.Count == 0) return true;
+        var previous = _passiveOwner;
+        _passiveOwner = c.DefId;
+        try { return CheckAll(p.Conditions); }
+        finally { _passiveOwner = previous; }
+    }
+
+    /// <summary>Passifs qui agissent en ce moment.</summary>
+    public IReadOnlyList<PassiveDef> ActivePassives(CharacterState c) => PassivesOf(c).Where(p => IsPassiveActive(c, p)).ToList();
+
+    /// <summary>Bonus d'XP / d'or en % des passifs actifs de l'équipe (cumulés).</summary>
+    public int PartyPassivePercent(Func<PassiveDef, int> pick) => ActiveParty.Sum(c => ActivePassives(c).Sum(pick));
+
     public StatBlock GetStats(CharacterState c)
     {
         var def = DefOf(c);
@@ -949,6 +1001,18 @@ public sealed partial class GameSession
             if (c.GetEquipped(slot) is { } itemId && Db.Items.TryGetValue(itemId, out var item))
                 stats += item.Bonus;
         }
+        // Passifs : bonus fixes, puis en % du total.
+        var passives = ActivePassives(c);
+        foreach (var p in passives) stats += p.Bonus;
+        var percent = new StatBlock();
+        foreach (var p in passives) percent += p.Percent;
+        stats = new StatBlock(
+            stats.MaxHp + stats.MaxHp * percent.MaxHp / 100,
+            stats.MaxMana + stats.MaxMana * percent.MaxMana / 100,
+            stats.Attack + stats.Attack * percent.Attack / 100,
+            stats.Defense + stats.Defense * percent.Defense / 100,
+            stats.Magic + stats.Magic * percent.Magic / 100,
+            stats.Speed + stats.Speed * percent.Speed / 100);
         stats.MaxHp = Math.Max(1, stats.MaxHp);
         stats.MaxMana = Math.Max(0, stats.MaxMana);
         stats.Speed = Math.Max(1, stats.Speed);
@@ -1362,8 +1426,11 @@ public sealed partial class GameSession
     {
         AdvanceTime(Db.Content.Time.BattleMinutes);
         var monsters = battle.Enemies.Select(e => e.Monster!).ToList();
+        // Passifs de l'équipe : bonus d'XP et d'or en %.
         var xp = monsters.Sum(m => m.Xp);
+        xp += xp * PartyPassivePercent(p => p.XpPercent) / 100;
         var gold = monsters.Sum(m => m.Gold);
+        gold += gold * PartyPassivePercent(p => p.GoldPercent) / 100;
         State.Gold += gold;
 
         var items = new List<string>();

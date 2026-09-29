@@ -46,6 +46,8 @@ public enum ActionType
     UnlockFeature, LockFeature, EndTutorial,
     // Jauges de personnage (folie...) : comme le karma
     AddGauge, SetGauge,
+    // Passifs : donner / retirer à un personnage
+    GivePassive, RemovePassive,
 }
 
 /// <summary>
@@ -87,6 +89,8 @@ public enum ConditionType
     AnyOf, AllOf,
     // Jauges de personnage (folie...)
     Gauge,
+    // A un passif (actif)
+    HasPassive,
 }
 
 /// <summary>Affichage d'un dialogue : classique (boîte en bas, le jeu visible derrière) ou cinématique (plein écran noir).</summary>

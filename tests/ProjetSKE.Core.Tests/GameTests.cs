@@ -143,6 +143,8 @@ public class GameTests
         var s = NewGame();
         var hero = s.State.Party[0];
         Assert.Equal("bouclier_bois", hero.ShieldId); // pièce de départ
+        // Sans passif en % (Sang-froid), pour mesurer les bonus des pièces seules.
+        s.Execute(new GameAction(ActionType.RemovePassive, "sang_froid") { Arg2 = hero.DefId });
         var before = s.GetStats(hero);
         foreach (var id in new[] { "casque_fer", "gants_cuir", "jambieres", "bottes_voyage", "amulette_cuivre" })
         {

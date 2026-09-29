@@ -554,3 +554,73 @@ public class MergerCoversEverythingTests
         return dir?.FullName ?? throw new DirectoryNotFoundException("racine du dépôt");
     }
 }
+
+public class PassiveTests
+{
+    private static GameSession Game()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var db = new GameDatabase(content);
+        Assert.Empty(db.Validate());
+        var s = GameSession.NewGame(db, "aldric", new Random(1));
+        s.Recruit("lyra");
+        return s;
+    }
+
+    private static ProjetSKE.Core.State.CharacterState Pc(GameSession s, string id) => s.State.Party.First(c => c.DefId == id);
+
+    [Fact]
+    public void Passive_AddsPercentStats_AndBattleStartShield()
+    {
+        var s = Game();
+        var aldric = Pc(s, "aldric");
+        Assert.Contains(s.ActivePassives(aldric), p => p.Id == "sang_froid");
+        s.Execute(new GameAction(ActionType.RemovePassive, "sang_froid") { Arg2 = "aldric" });
+        var without = s.GetStats(aldric).Defense;
+        s.Execute(new GameAction(ActionType.GivePassive, "sang_froid") { Arg2 = "aldric" });
+        Assert.Equal(without + without * 10 / 100, s.GetStats(aldric).Defense);
+
+        var battle = s.StartBattle(["loup"]);
+        var ally = battle.Allies.First(a => a.Character == aldric);
+        Assert.Contains(ally.Effects, e => e.Source == "passif:sang_froid" && e.Def.Type == EffectType.Shield);
+        Assert.Contains(battle.Log, l => l.StartsWith("Sang-froid"));
+    }
+
+    [Fact]
+    public void ConditionalPassive_WorksOnlyWhenItsOwnerMeetsIt()
+    {
+        var s = Game();
+        var lyra = Pc(s, "lyra");
+        var transe = s.Db.Passives["transe"];
+        Assert.Contains(transe, s.PassivesOf(lyra));
+        Assert.False(s.IsPassiveActive(lyra, transe)); // Folie 10 < 50
+        var magic = s.GetStats(lyra).Magic;
+
+        s.Execute(new GameAction(ActionType.AddGauge, "folie", 45) { Arg2 = "lyra" });
+        Assert.True(s.IsPassiveActive(lyra, transe));
+        Assert.Equal(magic + magic * 25 / 100, s.GetStats(lyra).Magic);
+        Assert.True(s.Check(new Condition(ConditionType.HasPassive, "lyra") { Arg2 = "transe" }));
+        Assert.False(s.Check(new Condition(ConditionType.HasPassive, "aldric") { Arg2 = "transe" }));
+    }
+
+    [Fact]
+    public void Passive_GiveAndRemove_WithNotifications()
+    {
+        var s = Game();
+        var aldric = Pc(s, "aldric");
+        s.Execute(new GameAction(ActionType.GivePassive, "transe") { Arg2 = "aldric" });
+        Assert.Contains(s.PassivesOf(aldric), p => p.Id == "transe");
+        Assert.Contains(s.Notifications, n => n.Contains("obtient le passif « Transe »"));
+        s.Execute(new GameAction(ActionType.RemovePassive, "sang_froid") { Arg2 = "aldric" });
+        Assert.DoesNotContain(s.PassivesOf(aldric), p => p.Id == "sang_froid");
+    }
+
+    [Fact]
+    public void Passive_ScriptWords()
+    {
+        var nodes = DialogueScript.Parse("- Une force t'envahit. [passif transe @heros]", out var errors);
+        Assert.Empty(errors);
+        var a = nodes.SelectMany(n => n.Actions).Single();
+        Assert.Equal((ActionType.GivePassive, "transe", "@heros"), (a.Type, a.Arg, a.Arg2));
+    }
+}

@@ -292,6 +292,9 @@ public static class AutoTest
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
             await Step("éditeur : lieux rangés (sous-lieux)", () => SkeApp.GoTo(Editors.LocationList()));
             await Step("éditeur : jauges de personnage", () => SkeApp.GoTo(WorldLists.GaugeList()));
+            await Step("éditeur : passifs", () => SkeApp.GoTo(Editors.PassiveList()));
+            if (DevState.Draft.Passives.Count > 0)
+                await Step("éditeur : passif", () => SkeApp.GoTo(new PassiveEditor(DevState.Draft.Passives[^1])));
             if (DevState.Draft.Gauges.Count > 0)
                 await Step("éditeur : jauge (folie)", () => SkeApp.GoTo(new GaugeEditor(DevState.Draft.Gauges[0])));
             await Step("éditeur : lieu avec sous-lieux", () =>

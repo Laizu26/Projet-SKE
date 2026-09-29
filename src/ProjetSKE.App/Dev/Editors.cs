@@ -76,6 +76,14 @@ public static class Editors
         x => new MonsterEditor(x),
         subtitle: x => (x.IsBoss ? "boss · " : "") + $"PV {x.Stats.MaxHp}");
 
+    public static Page PassiveList() => new EntityListPage<PassiveDef>(
+        "Passifs", C.Passives, x => x.Id, x => x.Name,
+        (id, name) => new PassiveDef { Id = id, Name = name },
+        x => new PassiveEditor(x),
+        subtitle: x => x.Conditions.Count > 0 ? "sous conditions" : "toujours actif",
+        help: "Effets permanents d'un personnage : bonus de stats (fixes ou en %), résistances, effets au début du combat, "
+            + "PV/PM par tour, bonus d'XP et d'or. On les donne sur la fiche d'un PJ (selon le niveau) ou avec l'effet « Passif : donner ».");
+
     public static Page SkillList() => new EntityListPage<SkillDef>(
         "Compétences", C.Skills, x => x.Id, x => x.Name,
         (id, name) => new SkillDef { Id = id, Name = name },
@@ -134,6 +142,12 @@ public sealed class CharacterEditor : EditorPage
             sf.RefField("Compétence", s.SkillId, DevState.Skills, v => s.SkillId = v ?? "", allowNone: false);
             sf.IntField("Apprise au niveau", s.Level, v => s.Level = v);
         }, "+ Compétence");
+        f.ObjectList("Passifs", _x.Passives, () => new PassiveUnlock(1, ""), (pf, p, _) =>
+        {
+            pf.RefField("Passif", p.PassiveId, DevState.Passives, v => p.PassiveId = v ?? "", allowNone: false,
+                emptyHint: "Aucun passif : crée-en un dans « Passifs » (menu du mode dev).");
+            pf.IntField("Obtenu au niveau", p.Level, v => p.Level = v);
+        }, "+ Passif");
         f.Header("Personnalité");
         f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
         Form.OptionalInt(f, "Karma de départ", _x.BaseKarma, v => _x.BaseKarma = v, $"par défaut : {DevState.Draft.Karma.Default}");
@@ -456,6 +470,58 @@ public sealed class MonsterEditor : EditorPage
         }, "+ Butin");
         f.Resistances("Faiblesses et résistances", _x.Resistances);
         f.BattleLines("Répliques de combat", _x.BattleLines);
+    }
+}
+
+// ====================================================================== Passifs
+
+public sealed class PassiveEditor : EditorPage
+{
+    private readonly PassiveDef _x;
+    public PassiveEditor(PassiveDef x) { _x = x; Render(); }
+    protected override string PageTitle => "Passif : " + _x.Name;
+    protected override void GoBack() => SkeApp.GoTo(Editors.PassiveList());
+    protected override Action Delete => () =>
+    {
+        DevState.Draft.Passives.Remove(_x);
+        foreach (var c in DevState.Draft.Characters) c.Passives.RemoveAll(p => p.PassiveId == _x.Id);
+    };
+
+    protected override void Build(Form f)
+    {
+        f.Note("Identifiant : " + _x.Id);
+        f.TextField("Nom", _x.Name, v => _x.Name = v);
+        f.TextField("Description (fiche du perso)", _x.Description, v => _x.Description = v, multiline: true);
+        f.Note("Conditions : le passif n'agit que si elles passent (vide = toujours). « Le porteur du passif » (@soi) = le personnage qui l'a, "
+            + "ex : Jauge Folie de @soi ≥ 50.");
+        f.Conditions("Agit seulement si", _x.Conditions);
+
+        f.Header("Stats");
+        f.StatsField("Bonus fixes (négatif = malus)", _x.Bonus);
+        f.StatsField("Bonus en % (ex : ATQ 20 = +20 %)", _x.Percent);
+        f.Resistances("Faiblesses et résistances", _x.Resistances);
+
+        f.Header("En combat");
+        f.IntField("PV par tour (négatif = en perd)", _x.HpPerTurn, v => _x.HpPerTurn = v);
+        f.IntField("PM par tour", _x.ManaPerTurn, v => _x.ManaPerTurn = v);
+        f.Note("Effets posés sur le porteur au début de chaque combat (régénération, bouclier, bonus...).");
+        f.ObjectList("Au début du combat", _x.BattleStart, () => new SkillEffect { Type = EffectType.StatUp, Amount = 10, Turns = 3, OnSelf = true }, (ef, e, _) =>
+        {
+            ef.EnumField("Effet", e.Type, v => e.Type = v, DevState.Name, rerender: true);
+            if (e.Type is EffectType.StatUp or EffectType.StatDown) ef.EnumField("Statistique", e.Stat, v => e.Stat = v, DevState.Name);
+            if (e.Type != EffectType.Cleanse && e.Type != EffectType.Stun)
+                ef.IntField(e.Type switch
+                {
+                    EffectType.Poison or EffectType.Regen => "PV par tour",
+                    EffectType.Shield => "Points absorbés",
+                    _ => "Pourcentage",
+                }, e.Amount, v => e.Amount = v);
+            if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
+        }, "+ Effet");
+
+        f.Header("Récompenses");
+        f.IntField("Bonus d'XP en combat (%)", _x.XpPercent, v => _x.XpPercent = v);
+        f.IntField("Bonus d'or en combat (%)", _x.GoldPercent, v => _x.GoldPercent = v);
     }
 }
 

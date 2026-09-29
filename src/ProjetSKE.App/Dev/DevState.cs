@@ -271,10 +271,11 @@ public static class DevState
         Draft.Npcs.Select(x => (x.Id, "PNJ " + x.Name)).Concat(Draft.Characters.Select(x => (x.Id, "PJ " + x.Name)));
 
     public static IEnumerable<(string Id, string Name)> Gauges => Draft.Gauges.Select(x => (x.Id, x.Name));
+    public static IEnumerable<(string Id, string Name)> Passives => Draft.Passives.Select(x => (x.Id, x.Name));
 
     /// <summary>De qui (karma) : celui qui parle par défaut.</summary>
     public static IEnumerable<(string Id, string Name)> KarmaWho =>
-        new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (moyenne / chacun)"), ("@membre", "Celui qui fait la tâche (camp)") }
+        new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (moyenne / chacun)"), ("@membre", "Celui qui fait la tâche (camp)"), ("@soi", "Le porteur du passif (conditions d'un passif)") }
             .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
 
     /// <summary>Envers qui (amitié) : l'équipe entière par défaut.</summary>
@@ -306,6 +307,8 @@ public static class DevState
         ActionType.AddVariable => "Variable : ajouter",
         ActionType.AddKarma => "Karma : ajouter",
         ActionType.SetKarma => "Karma : fixer",
+        ActionType.GivePassive => "Passif : donner",
+        ActionType.RemovePassive => "Passif : retirer",
         ActionType.AddGauge => "Jauge (folie...) : ajouter",
         ActionType.SetGauge => "Jauge (folie...) : fixer",
         ActionType.AddFriendship => "Amitié : ajouter",
@@ -370,6 +373,7 @@ public static class DevState
         ConditionType.Variable => "Variable",
         ConditionType.Karma => "Karma",
         ConditionType.Gauge => "Jauge (folie...)",
+        ConditionType.HasPassive => "A un passif (qui agit)",
         ConditionType.Friendship => "Amitié",
         ConditionType.Gold => "Or (comparaison)",
         ConditionType.Level => "Niveau (comparaison)",

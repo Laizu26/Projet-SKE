@@ -41,6 +41,7 @@ public static partial class DialogueScript
         [var x 5] [ajoute x 2] [karma 5] [karma -5 @equipe] [fixe_karma 0 perso]
         [amitie pnj 5] [amitie pnj 5 @parle] [fixe_amitie pnj 0]
         [jauge folie 10] [jauge folie -5 @heros] [fixe_jauge folie 0 @equipe]
+        [passif transe @heros] [retirer_passif transe lyra]
         [temps 60] [attendre 8] [message texte libre]
         [deplace pnj lieu] [revele lieu] [cache lieu]
         [camp pnj] [camp pnj grade] [quitte_camp pnj] [grade pnj grade] [tache pnj tache]
@@ -53,7 +54,7 @@ public static partial class DialogueScript
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
         {amitie pnj >= 30} {amitie pnj > 50 @parle} {taille_equipe >= 2}
-        {jauge folie >= 50} {jauge folie < 20 @heros}
+        {jauge folie >= 50} {jauge folie < 20 @heros} {passif transe @heros}
         {parle perso} {etre perso} {choisi dialogue replique:2} (2 = 2e choix, ou son #identifiant) {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
         {mois Givrelune} {lieu id} {visite id} {connu pnj} {chance 25}
         {au_camp pnj} {grade pnj >= 2} {tache pnj rondes}
@@ -90,6 +91,7 @@ public static partial class DialogueScript
         ("debloquer", ActionType.UnlockFeature, "a"), ("verrouiller", ActionType.LockFeature, "a"),
         ("fin_prologue", ActionType.EndTutorial, ""),
         ("jauge", ActionType.AddGauge, "anb"), ("fixe_jauge", ActionType.SetGauge, "anb"),
+        ("passif", ActionType.GivePassive, "ab"), ("retirer_passif", ActionType.RemovePassive, "ab"),
     ];
 
     private static readonly (string Word, ConditionType Type, string Sig)[] ConditionWords =
@@ -101,7 +103,7 @@ public static partial class DialogueScript
         ("or", ConditionType.GoldAtLeast, "n"), ("niveau", ConditionType.LevelAtLeast, "n"),
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
-        ("amitie", ConditionType.Friendship, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("taille_equipe", ConditionType.PartySize, "o"),
+        ("amitie", ConditionType.Friendship, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"),

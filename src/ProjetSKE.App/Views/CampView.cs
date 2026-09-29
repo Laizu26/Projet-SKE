@@ -475,6 +475,28 @@ public sealed class CampView : ContentView
             stack.Add(DarkStat(Ico.Sparkles, gauge.Name, tier.Length > 0 ? $"{value} · {tier}" : value.ToString()));
         }
 
+        // Passifs : ceux qui agissent en or, ceux en sommeil (conditions non remplies) grisés.
+        var passives = s.PassivesOf(c);
+        if (passives.Count > 0)
+        {
+            stack.Add(Section("Passifs"));
+            foreach (var p in passives)
+            {
+                var active = s.IsPassiveActive(c, p);
+                var row = IconRow(Icon(Ico.Sparkles, 16, active ? Theme.Gold500 : Theme.Stone400), new VerticalStackLayout
+                {
+                    Spacing = 1,
+                    Children =
+                    {
+                        Txt(p.Name + (active ? "" : " · en sommeil"), 14, active ? Theme.Stone900 : Theme.Stone500, bold: true),
+                        Muted(p.Description, 12),
+                    },
+                });
+                row.Opacity = active ? 1 : 0.7;
+                stack.Add(Card(row));
+            }
+        }
+
         stack.Add(Section("Statistiques"));
         stack.Add(TileGrid(
         [

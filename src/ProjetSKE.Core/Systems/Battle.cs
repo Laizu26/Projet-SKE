@@ -32,6 +32,8 @@ public sealed class Combatant
     public IReadOnlyList<BattleLine> Lines { get; init; } = [];
     /// <summary>Faiblesses et résistances aux éléments.</summary>
     public IReadOnlyList<ElementModifier> Resistances { get; init; } = [];
+    /// <summary>Passifs qui agissent pendant ce combat (personnages de l'équipe).</summary>
+    public IReadOnlyList<PassiveDef> Passives { get; init; } = [];
     public List<ActiveEffect> Effects { get; } = [];
     /// <summary>Tours restants avant de pouvoir réutiliser une compétence (id → tours).</summary>
     public Dictionary<string, int> Cooldowns { get; } = [];
@@ -124,6 +126,7 @@ public sealed class Battle
         {
             var stats = session.GetStats(c);
             var def = session.DefOf(c);
+            var passives = session.ActivePassives(c);
             return new Combatant
             {
                 Name = def.Name,
@@ -134,7 +137,9 @@ public sealed class Battle
                 Hp = Math.Min(c.CurrentHp, stats.MaxHp),
                 Mana = Math.Min(c.CurrentMana, stats.MaxMana),
                 Lines = def.BattleLines,
-                Resistances = def.Resistances,
+                // Les résistances des passifs passent avant celles de la fiche (la première trouvée compte).
+                Resistances = [.. passives.SelectMany(p => p.Resistances), .. def.Resistances],
+                Passives = passives,
             };
         }).ToList();
 
@@ -165,6 +170,11 @@ public sealed class Battle
             _fixedLines = session.Db.Content.Locations.Select(l => l.FixedBattle).FirstOrDefault(f => f?.Id == fixedBattleId)?.BattleLines ?? [];
 
         Log.Add(Enemies.Count > 0 ? $"Combat ! {string.Join(", ", Enemies.Select(e => e.Name))}" : "Aucun ennemi.");
+        // Passifs : effets posés sur le porteur au début du combat.
+        foreach (var ally in Allies)
+            foreach (var p in ally.Passives)
+                foreach (var effect in p.BattleStart)
+                    Log.Add($"{p.Name} : {ApplyEffect(ally, effect, "passif:" + p.Id)}");
         SayAll(BattleTrigger.Start);
         CheckEnd();
         NextTurn();
@@ -306,6 +316,15 @@ public sealed class Battle
     {
         foreach (var key in c.Cooldowns.Keys.ToList())
             if (--c.Cooldowns[key] <= 0) c.Cooldowns.Remove(key);
+
+        // Passifs : PV / PM rendus (ou perdus) à chaque tour du porteur.
+        foreach (var p in c.Passives.Where(p => p.HpPerTurn != 0 || p.ManaPerTurn != 0))
+        {
+            var hp = c.Hp;
+            c.Hp = Math.Clamp(c.Hp + p.HpPerTurn, 0, c.Stats.MaxHp);
+            c.Mana = Math.Clamp(c.Mana + p.ManaPerTurn, 0, c.Stats.MaxMana);
+            if (c.Hp != hp) Log.Add($"{p.Name} : {c.Name} {(c.Hp > hp ? "+" : "")}{c.Hp - hp} PV");
+        }
 
         var stunned = c.IsStunned;
         foreach (var e in c.Effects.ToList())

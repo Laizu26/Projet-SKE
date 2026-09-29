@@ -37,6 +37,9 @@ public sealed class CharacterState
     public int Karma { get; set; }
     /// <summary>Jauges propres à ce personnage (folie...) : id de jauge → valeur.</summary>
     public Dictionary<string, int> Gauges { get; set; } = [];
+    /// <summary>Passifs donnés / retirés en cours de partie (en plus / à la place de ceux de sa fiche).</summary>
+    public HashSet<string> GainedPassives { get; set; } = [];
+    public HashSet<string> LostPassives { get; set; } = [];
 
     public string? GetEquipped(EquipSlot slot) => slot switch
     {

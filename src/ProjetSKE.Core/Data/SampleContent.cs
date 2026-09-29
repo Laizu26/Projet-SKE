@@ -29,6 +29,25 @@ internal static class SampleContent
                 Tiers = [new("Lucide", 0), new("Troublé", 25), new("Tourmenté", 50), new("Dément", 75), new("Perdu", 95)],
             },
         ],
+        // Passifs : effets permanents des personnages (sur leur fiche, selon le niveau).
+        Passives =
+        [
+            new()
+            {
+                Id = "sang_froid", Name = "Sang-froid",
+                Description = "Rien ne l'ébranle : +10 % DEF, et un bouclier au début de chaque combat.",
+                Percent = new(Defense: 10),
+                BattleStart = [new() { Type = EffectType.Shield, Amount = 15, Turns = 2, OnSelf = true }],
+            },
+            new()
+            {
+                Id = "transe", Name = "Transe",
+                Description = "Quand sa Folie atteint 50, sa magie déborde (+25 % MAG), mais la brûle (-2 PV par tour).",
+                Conditions = [new(ConditionType.Gauge, "@soi", 50) { Arg2 = "folie", Op = CompareOp.AtLeast }],
+                Percent = new(Magic: 25),
+                HpPerTurn = -2,
+            },
+        ],
         Start = new()
         {
             LocationId = "havrefort",
@@ -270,6 +289,7 @@ internal static class SampleContent
         new()
         {
             Id = "aldric", Name = "Aldric", Class = "Chevalier", Title = "Chevalier errant", IsStarter = true,
+            Passives = [new(1, "sang_froid")],
             Description = "Chevalier sans seigneur, parti sur les routes pour sauver Valdor.",
             BaseStats = new(MaxHp: 120, MaxMana: 20, Attack: 14, Defense: 10, Magic: 4, Speed: 8),
             GrowthPerLevel = new(MaxHp: 12, MaxMana: 2, Attack: 2, Defense: 2, Magic: 0, Speed: 1),
@@ -280,6 +300,7 @@ internal static class SampleContent
         {
             Id = "lyra", Name = "Lyra", Class = "Mage", Title = "Mage de Brume",
             BaseGauges = new() { ["folie"] = 10 },
+            Passives = [new(1, "transe")],
             Description = "Jeune mage qui s'ennuie à mourir à Bourg-de-Brume.",
             BaseStats = new(MaxHp: 70, MaxMana: 50, Attack: 5, Defense: 5, Magic: 16, Speed: 10),
             GrowthPerLevel = new(MaxHp: 7, MaxMana: 5, Attack: 1, Defense: 1, Magic: 3, Speed: 1),

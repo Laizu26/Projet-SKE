@@ -98,6 +98,43 @@ public sealed class ItemDef
         && !(Type == ItemType.Relic && RelicUsage == RelicUsage.Quest);
 }
 
+/// <summary>
+/// Passif : un effet permanent d'un personnage (« Sang-froid », « Rage du désespoir »...). Il peut ne marcher
+/// que sous conditions (ex : Folie ≥ 50, de nuit, sous un flag) — « @soi » y désigne le porteur du passif.
+/// </summary>
+public sealed class PassiveDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    /// <summary>Le passif n'agit que si ces conditions sont remplies (vide = toujours).</summary>
+    public List<Condition> Conditions { get; set; } = [];
+    /// <summary>Bonus fixes aux stats (peuvent être négatifs).</summary>
+    public StatBlock Bonus { get; set; } = new();
+    /// <summary>Bonus en % des stats (ex : ATQ 20 = +20 %).</summary>
+    public StatBlock Percent { get; set; } = new();
+    /// <summary>Faiblesses et résistances ajoutées.</summary>
+    public List<ElementModifier> Resistances { get; set; } = [];
+    /// <summary>Effets posés sur le porteur au début de chaque combat (régénération, bouclier, bonus...).</summary>
+    public List<SkillEffect> BattleStart { get; set; } = [];
+    /// <summary>PV rendus (ou perdus si négatif) au porteur au début de chacun de ses tours.</summary>
+    public int HpPerTurn { get; set; }
+    public int ManaPerTurn { get; set; }
+    /// <summary>Bonus d'XP et d'or gagnés en combat, en % (cumulés sur l'équipe).</summary>
+    public int XpPercent { get; set; }
+    public int GoldPercent { get; set; }
+}
+
+/// <summary>Passif d'un personnage, obtenu à un niveau.</summary>
+public sealed class PassiveUnlock
+{
+    public int Level { get; set; } = 1;
+    public string PassiveId { get; set; } = "";
+
+    public PassiveUnlock() { }
+    public PassiveUnlock(int level, string passiveId) { Level = level; PassiveId = passiveId; }
+}
+
 public sealed class SkillUnlock
 {
     public int Level { get; set; } = 1;
@@ -124,6 +161,8 @@ public sealed class CharacterDef
     public StatBlock BaseStats { get; set; } = new();
     public StatBlock GrowthPerLevel { get; set; } = new();
     public List<SkillUnlock> Skills { get; set; } = [];
+    /// <summary>Passifs du personnage, chacun obtenu à un niveau.</summary>
+    public List<PassiveUnlock> Passives { get; set; } = [];
     public string? StartingWeaponId { get; set; }
     public string? StartingArmorId { get; set; }
     public string? StartingRelicId { get; set; }
@@ -877,6 +916,8 @@ public sealed class GameContent
     public TutorialSettings Tutorial { get; set; } = new();
     /// <summary>Jauges propres à chaque personnage (folie...), en plus du karma.</summary>
     public List<CharacterGaugeDef> Gauges { get; set; } = [];
+    /// <summary>Passifs, attribués aux personnages (fiche du PJ ou effet « Passif : donner »).</summary>
+    public List<PassiveDef> Passives { get; set; } = [];
 }
 
 /// <summary>

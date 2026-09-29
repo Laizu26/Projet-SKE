@@ -210,6 +210,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Nav($"Reliques ({c.Items.Count(i => i.Type == Core.Models.ItemType.Relic)})", Editors.RelicList));
         stack.Add(Nav($"Monstres ({c.Monsters.Count})", Editors.MonsterList));
         stack.Add(Nav($"Compétences ({c.Skills.Count})", Editors.SkillList));
+        stack.Add(Nav($"Passifs ({c.Passives.Count})", Editors.PassiveList));
         stack.Add(Nav($"Lieux et carte ({c.Locations.Count})", Editors.LocationList));
         stack.Add(Nav($"Départs de partie ({1 + c.ExtraStarts.Count})", () => new StartsPage()));
         stack.Add(Nav("Prologue (tutoriel)" + (c.Tutorial.Enabled ? " · proposé" : " · désactivé"), () => new TutorialEditor()));
