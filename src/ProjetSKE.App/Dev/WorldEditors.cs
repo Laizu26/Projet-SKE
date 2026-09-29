@@ -64,7 +64,6 @@ public sealed class WorldEditor : EditorPage
         var w = DevState.Draft.World;
         f.TextField("Titre du jeu", DevState.Draft.Title, v => DevState.Draft.Title = v);
         f.TextField("Nom du pays (carte, %pays%)", w.CountryName, v => w.CountryName = v);
-        f.BoolField("Demander quel PJ parle aux PNJ", w.AskSpeaker, v => w.AskSpeaker = v);
         f.BoolField("Afficher l'onglet Quêtes (journal des quêtes)", w.ShowQuestTab, v => w.ShowQuestTab = v);
 
         f.Header("Écran fissuré");

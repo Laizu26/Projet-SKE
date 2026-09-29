@@ -647,87 +647,14 @@ public sealed class GamePage : ContentPage
         Render();
     }
 
-    /// <summary>
-    /// Parler à un PNJ. Si l'équipe compte plusieurs PJ, on choisit d'abord qui prend la parole :
-    /// le dialogue (et la réaction du PNJ) peut en dépendre.
-    /// </summary>
+    /// <summary>Parler à un PNJ : c'est toujours le héros (le PP, celui qu'on joue) qui prend la parole.</summary>
     public void TalkTo(string npcId)
     {
-        if (Session.Db.Content.World.AskSpeaker && Session.State.Party.Count > 1)
-        {
-            ShowOverlay(SpeakerPicker(npcId));
-            return;
-        }
-        TalkAs(npcId, null);
-    }
-
-    private void TalkAs(string npcId, string? speakerId)
-    {
         HideOverlay();
-        var dialogue = Session.Talk(npcId, speakerId);
+        var dialogue = Session.Talk(npcId, Session.State.HeroId.Length > 0 ? Session.State.HeroId : null);
         if (dialogue is not null) ShowDialogue(dialogue);
         else Notify("Cette personne n'a rien à dire.");
         Render();
-    }
-
-    private View SpeakerPicker(string npcId)
-    {
-        var npc = Session.Db.Npcs[npcId];
-        var list = new VerticalStackLayout { Spacing = 8 };
-        foreach (var c in Session.State.Party)
-        {
-            var def = Session.DefOf(c);
-            var id = c.DefId;
-            var info = new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center };
-            info.Add(Txt(def.Name, 15, Night.Stone100, bold: true));
-            var details = new List<string>();
-            if (def.ClassAndTitle.Length > 0) details.Add(def.ClassAndTitle);
-            var karma = Session.Db.Content.Karma;
-            if (karma.Enabled && karma.Visible) details.Add($"{karma.Name} {c.Karma} {karma.TierName(c.Karma)}".Trim());
-            foreach (var gauge in Session.Db.Content.Gauges.Where(g => g.Visible))
-            {
-                var value = Session.GaugeOf(c, gauge);
-                details.Add($"{gauge.Name} {value} {gauge.TierName(value)}".Trim());
-            }
-            var friendship = Session.Db.Content.Friendship;
-            if (friendship.Enabled && friendship.Visible)
-            {
-                var f = Session.GetFriendship(npcId, id);
-                details.Add($"{friendship.Name} {f} {friendship.TierName(f)}".Trim());
-            }
-            var love = Session.Db.Content.Love;
-            // Amour : affiché dès qu'il a bougé (pas « 0 » partout).
-            if (love.Enabled && love.Visible && Session.GetLove(npcId, id) is var l && l != love.Default)
-                details.Add($"{love.Name} {l} {love.TierName(l)}".Trim());
-            info.Add(Caps(string.Join(" · ", details), 8, Night.Stone400));
-            var card = Card(IconRow(Avatar(def.Name, id == Session.SpeakerId ? Theme.Gold500 : Theme.AvatarColor(id), 40), info),
-                Night.Stone800, id == Session.SpeakerId ? Theme.Gold500 : Night.Stone700, 12);
-            card.Padding = new Thickness(12, 10);
-            list.Add(OnTap(card, () => TalkAs(npcId, id)));
-        }
-        var cancel = Btn("Annuler", () => { HideOverlay(); Render(); });
-        var panel = new Border
-        {
-            BackgroundColor = Night.Stone900,
-            Stroke = Theme.Gold600,
-            StrokeThickness = 1.5,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
-            Padding = new Thickness(16, 18),
-            Margin = new Thickness(20),
-            VerticalOptions = LayoutOptions.Center,
-            Content = new VerticalStackLayout
-            {
-                Spacing = 12,
-                Children =
-                {
-                    IconCaps(Ico.MessageCircle, npc.Name, Theme.Gold500, 10),
-                    new Label { Text = T("speaker.ask"), FontFamily = "serif", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Night.Stone100 },
-                    list,
-                    cancel,
-                },
-            },
-        };
-        return new ScrollView { Content = panel };
     }
 
     /// <summary>Combat fixe du lieu actuel, précédé de son dialogue d'introduction.</summary>

@@ -260,7 +260,7 @@ public static class AutoTest
                 world.SelectedCampMember = world.Session.CampMembers.FirstOrDefault()?.Id;
                 world.Render();
             });
-            await Step("parler : choix de qui parle", () =>
+            await Step("parler à un PNJ (le héros parle)", () =>
             {
                 var npc = world!.Session.VisibleNpcs.FirstOrDefault() ?? testDb.Content.Npcs[0];
                 world.TalkTo(npc.Id);
