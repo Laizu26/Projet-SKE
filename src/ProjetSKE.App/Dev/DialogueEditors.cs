@@ -10,6 +10,12 @@ namespace ProjetSKE.App.Dev;
 /// <summary>Outils communs aux écrans d'édition des dialogues : libellés lisibles, liens, test.</summary>
 internal static class DialogueTools
 {
+    /// <summary>Noms des PJ (complets et prénoms) : « > Nom: texte » en fait un choix réservé à ce PJ.</summary>
+    public static IReadOnlyCollection<string> PjNames() => DevState.Draft.Characters
+        .SelectMany(c => new[] { c.Name, c.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "" })
+        .Where(n => n.Length > 0)
+        .ToHashSet();
+
     public static string Short(string text, int max = 40)
     {
         text = text.Replace('\n', ' ').Trim();
@@ -311,7 +317,7 @@ public sealed class DialogueEditor : EditorPage
         _check.IsRepeating = false;
         _check.Tick += (_, _) =>
         {
-            DialogueScript.Parse(_script ?? "", out _errors);
+            DialogueScript.Parse(_script ?? "", out _errors, DialogueTools.PjNames());
             ShowStatus();
         };
         editor.TextChanged += (_, e) =>
@@ -320,7 +326,7 @@ public sealed class DialogueEditor : EditorPage
             _check.Stop();
             _check.Start();
         };
-        DialogueScript.Parse(_script, out _errors);
+        DialogueScript.Parse(_script, out _errors, DialogueTools.PjNames());
         ShowStatus();
         f.Add(editor);
         f.Add(Panel(status));
@@ -333,7 +339,7 @@ public sealed class DialogueEditor : EditorPage
     private bool ApplyText()
     {
         if (_script is null) return true;
-        var nodes = DialogueScript.Parse(_script, out _errors);
+        var nodes = DialogueScript.Parse(_script, out _errors, DialogueTools.PjNames());
         if (nodes.Count == 0)
         {
             Render();
@@ -488,6 +494,15 @@ public sealed class DialogueNodeEditor : EditorPage
     {
         var box = new Form(Render);
         box.TextField(c.Narration ? "Action décrite (ex : Tu t'éloignes sans un mot.)" : $"Choix {i + 1}", c.Text, v => c.Text = v);
+        if (!c.Narration)
+        {
+            // Choix réservé à un PJ : proposé si c'est le héros joué, sinon ce PJ le dit (comme « #choix » sur une réplique).
+            var pjs = DevState.Draft.Characters.Select(pc => (pc.Name, "PJ")).DistinctBy(p => p.Name).ToList();
+            box.RefField("Choix d'un PJ (aucun = le joueur, quel que soit son héros)", c.Speaker, pjs, v => c.Speaker = v ?? "", rerender: true);
+            if (c.Speaker.Length > 0)
+                box.Note($"Si le héros joué est {c.Speaker}, ce choix lui est proposé. Sinon il est retiré ; et s'il ne reste aucun choix, "
+                    + $"{c.Speaker} (s'il est là) le dit tout seul. En mode texte : « > {c.Speaker}: texte ».");
+        }
         box.RefField("Mène à (aucune = fin du dialogue)", c.NextId, targets, v => c.NextId = v, rerender: true);
         var actions = new HorizontalStackLayout { Spacing = 4 };
         if (c.NextId is null)

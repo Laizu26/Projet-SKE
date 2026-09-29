@@ -20,6 +20,7 @@ public static partial class DialogueScript
         >~ texte {cond} ((raison)) → choix affiché grisé si la condition manque
         > * texte -> etiquette  → choix-narration : une action décrite, pas une parole
         > texte #id -> etiquette → choix avec un identifiant (condition {choisi dialogue replique:id})
+        > Nom: texte -> etiquette → choix réservé au PJ Nom : proposé si c'est le héros joué, sinon il le dit
         ? {cond} -> etiquette   → aiguillage après la réplique (le 1er qui passe gagne)
         ~ {cond} Nom: texte     → autre version de la réplique si la condition passe
         si {cond} Nom: texte    → réplique jouée seulement si la condition passe (sinon : sautée)
@@ -156,7 +157,8 @@ public static partial class DialogueScript
 
     // ------------------------------------------------------------------ Texte → dialogue
 
-    public static List<DialogueNode> Parse(string script, out List<string> errors)
+    /// <param name="pjNames">Noms des PJ (« > Nom: texte » n'est un choix réservé que pour eux) ; null = tout « Nom: ».</param>
+    public static List<DialogueNode> Parse(string script, out List<string> errors, IReadOnlyCollection<string>? pjNames = null)
     {
         errors = [];
         var nodes = new List<DialogueNode>();
@@ -259,6 +261,13 @@ public static partial class DialogueScript
                 {
                     choice.Narration = true;
                     choice.Text = choice.Text.Length > 1 ? choice.Text[2..].Trim() : "";
+                }
+                // « > Nom: texte » : choix réservé à ce PJ (proposé si c'est le héros joué, sinon il le dit).
+                else if (SplitSpeaker(choice.Text) is { Speaker.Length: > 0 } said
+                    && (pjNames is null || pjNames.Contains(said.Speaker)))
+                {
+                    choice.Speaker = said.Speaker;
+                    choice.Text = said.Text.Trim();
                 }
                 last.Choices.Add(choice);
                 chainOpen = false;
@@ -571,7 +580,7 @@ public static partial class DialogueScript
 
             foreach (var c in n.Choices)
             {
-                sb.Append(c.ShowLocked ? ">~ " : "> ").Append(c.Narration ? "* " : "").Append(c.Text);
+                sb.Append(c.ShowLocked ? ">~ " : "> ").Append(c.Narration ? "* " : c.Speaker.Length > 0 ? c.Speaker + ": " : "").Append(c.Text);
                 if (c.Id.Length > 0) sb.Append(" #").Append(c.Id);
                 if (c.NextId is not null) sb.Append(" -> ").Append(c.NextId);
                 AppendConditions(sb, c.Conditions);

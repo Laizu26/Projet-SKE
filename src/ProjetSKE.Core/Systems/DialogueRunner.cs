@@ -96,9 +96,12 @@ public sealed class DialogueRunner
     /// </summary>
     public bool IsHeroLine => _echo is null && Current is { HeroChoice: true } && SpeakerIsHero();
 
-    private bool SpeakerIsHero()
+    private bool SpeakerIsHero() => IsHero(Segments[0].Speaker);
+
+    /// <summary>Ce nom (complet, ou le prénom) est celui du héros joué.</summary>
+    private bool IsHero(string speaker)
     {
-        var speaker = Segments[0].Speaker;
+        speaker = _session.FormatText(speaker).Trim();
         var hero = _session.CharacterName("@heros");
         if (speaker.Length == 0 || hero.Length == 0) return false;
         return speaker == hero || hero.StartsWith(speaker + " ", StringComparison.Ordinal);
@@ -132,6 +135,7 @@ public sealed class DialogueRunner
             // par le héros, elle est proposée en premier, avant les autres réponses de la réplique.
             if (Current.HeroChoice && !IsHeroLine) return [];
             var options = Current.Choices
+                .Where(c => c.Speaker.Length == 0 || IsHero(c.Speaker)) // choix d'un autre PJ : pas pour le joueur
                 .Select(c => new ChoiceOption(c, _session.FormatText(c.Text), _session.CheckAll(c.Conditions), _session.FormatText(c.LockedText)))
                 .Where(o => o.Enabled || o.Choice.ShowLocked)
                 .ToList();
@@ -142,6 +146,28 @@ public sealed class DialogueRunner
             }
             return options;
         }
+    }
+
+    /// <summary>
+    /// Choix qu'un PJ dit tout seul : la réplique n'a plus de choix pour le joueur, mais un de ses choix est réservé
+    /// à un PJ présent qui n'est pas le héros joué (le premier dont les conditions passent).
+    /// </summary>
+    public DialogueChoice? AutoChoice
+    {
+        get
+        {
+            if (HasMoreSegments || Current is null || _echo is not null || HasOptions) return null;
+            return Current.Choices.FirstOrDefault(c => c.Speaker.Length > 0 && !IsHero(c.Speaker)
+                && _session.CheckAll(c.Conditions) && SpeakerPresent(c.Speaker));
+        }
+    }
+
+    /// <summary>Le PJ de ce nom est là (groupe ou scène) ; un nom qui n'est pas un PJ compte comme présent.</summary>
+    private bool SpeakerPresent(string speaker)
+    {
+        speaker = _session.FormatText(speaker).Trim();
+        var pj = _session.Db.Content.Characters.FirstOrDefault(c => c.Name == speaker || c.Name.StartsWith(speaker + " ", StringComparison.Ordinal));
+        return pj is null || _session.IsPresent(pj.Id);
     }
 
     /// <summary>Choix disponibles (ceux dont les conditions sont remplies).</summary>
@@ -169,6 +195,12 @@ public sealed class DialogueRunner
             return;
         }
         if (HasOptions) return;
+        if (AutoChoice is { } said)
+        {
+            // Un autre PJ dit « son » choix : il est joué comme s'il avait été choisi.
+            Pick(said, alwaysEcho: true);
+            return;
+        }
         var branch = Current.Branches.FirstOrDefault(b => _session.CheckAll(b.Conditions));
         Enter(branch is not null ? branch.NextId : Current.NextId);
     }
@@ -189,15 +221,18 @@ public sealed class DialogueRunner
         Pick(options[index].Choice);
     }
 
-    private void Pick(DialogueChoice choice)
+    private void Pick(DialogueChoice choice, bool alwaysEcho = false)
     {
         // On retient le choix : la suite (ou une autre histoire, plus tard) peut en dépendre (« A choisi »).
         var heroLine = IsHeroLine && ReferenceEquals(choice, _heroChoice);
         if (Current is { } node)
             _session.State.Choices.Add($"{Dialogue.Id}:{node.Id}:{(heroLine ? "replique" : node.ChoiceKey(choice))}");
         // Le choix est dit (ou raconté) : on retient qui parle avant que la suite ne change quoi que ce soit.
-        var echoText = EchoChoices ? _session.FormatText(choice.Text).Trim() : "";
-        var echoSpeaker = choice.Narration ? "" : heroLine ? _session.CharacterName("@heros") : _session.CharacterName("@parle");
+        var echoText = EchoChoices || alwaysEcho ? _session.FormatText(choice.Text).Trim() : "";
+        var echoSpeaker = choice.Narration ? ""
+            : heroLine ? _session.CharacterName("@heros")
+            : choice.Speaker.Length > 0 ? SpeakerName(choice.Speaker)
+            : _session.CharacterName("@parle");
         Apply(choice.Actions);
         if (heroLine && Current is { } line)
         {
@@ -212,6 +247,13 @@ public sealed class DialogueRunner
             _segment = 0;
             Step++;
         }
+    }
+
+    /// <summary>Nom complet du PJ d'un choix (le prénom suffit pour l'écrire).</summary>
+    private string SpeakerName(string speaker)
+    {
+        speaker = _session.FormatText(speaker).Trim();
+        return _session.Db.Content.Characters.FirstOrDefault(c => c.Name.StartsWith(speaker + " ", StringComparison.Ordinal))?.Name ?? speaker;
     }
 
     /// <summary>Va à une réplique : « etiquette » dans ce dialogue, « dialogue:etiquette » ou « dialogue: » (début) dans un autre.</summary>

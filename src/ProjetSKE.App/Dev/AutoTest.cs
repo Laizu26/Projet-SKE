@@ -232,6 +232,20 @@ public static class AutoTest
                 scene.ScenePjIds = [.. testDb.Content.Characters.Select(c => c.Id).Take(3)];
                 world!.ShowDialogue(scene.Id);
             }, 2000);
+            await Step("dialogue : choix réservés à un PJ (héros joué / l'autre le dit)", () =>
+            {
+                // Premier choix réservé au héros joué, second à un autre PJ (retiré des choix du joueur).
+                var scene = testDb.Content.Dialogues.First(d => d.Nodes.Any(n => n.Choices.Count >= 2));
+                var node = scene.StartId is { } sid ? scene.Nodes.FirstOrDefault(n => n.Id == sid && n.Choices.Count >= 2) : null;
+                node ??= scene.Nodes.First(n => n.Choices.Count >= 2);
+                var hero = world!.Session.CharacterName("@heros");
+                var other = testDb.Content.Characters.FirstOrDefault(c => c.Name != hero)?.Name ?? "";
+                node.Choices[0].Speaker = hero;
+                node.Choices[1].Speaker = other;
+                world.ShowDialogue(scene.Id);
+                node.Choices[0].Speaker = "";
+                node.Choices[1].Speaker = "";
+            }, 2000);
             await Step("dialogue cinématique : retour au classique", () =>
             {
                 foreach (var d in testDb.Content.Dialogues) d.Style = ProjetSKE.Core.Models.DialogueStyle.Classic;

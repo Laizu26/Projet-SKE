@@ -444,6 +444,11 @@ public sealed class DialogueChoice
     public string LockedText { get; set; } = "";
     /// <summary>Choix-narration : une action décrite (« Tu t'éloignes sans un mot. ») plutôt qu'une réplique.</summary>
     public bool Narration { get; set; }
+    /// <summary>
+    /// Choix réservé à un PJ (son nom ; vide = n'importe quel héros). Si ce PJ est le héros joué, le choix lui est proposé ;
+    /// sinon il est retiré des choix, et s'il n'en reste aucun, c'est ce PJ (présent) qui le dit tout seul.
+    /// </summary>
+    public string Speaker { get; set; } = "";
 }
 
 /// <summary>Aiguillage : après la réplique, va à NextId si les conditions sont remplies (le premier qui passe gagne).</summary>

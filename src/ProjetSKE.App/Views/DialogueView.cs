@@ -318,7 +318,7 @@ public sealed class DialogueView : ContentView
             }
             else
             {
-                var hint = Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Night.Stone500);
+                var hint = Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 && _runner.AutoChoice is null ? "Toucher pour terminer" : "Toucher pour continuer", 8, Night.Stone500);
                 hint.HorizontalTextAlignment = TextAlignment.Center;
                 if (!Typing) Blink(hint);
                 center.Add(hint);
@@ -689,7 +689,7 @@ public sealed class DialogueView : ContentView
                     HorizontalOptions = LayoutOptions.End,
                     Children =
                     {
-                        Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Night.Stone400 : Theme.Stone500),
+                        Caps(Typing ? "Toucher pour tout afficher" : !_runner.HasMoreSegments && node.NextId is null && node.Branches.Count == 0 && _runner.AutoChoice is null ? "Toucher pour terminer" : "Toucher pour continuer", 8, Narration ? Night.Stone400 : Theme.Stone500),
                         Icon(Ico.ChevronRight, 14, Theme.Gold600),
                     },
                 };
