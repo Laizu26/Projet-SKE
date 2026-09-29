@@ -160,9 +160,11 @@ public static class Updates
             if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
             System.IO.Compression.ZipFile.ExtractToDirectory(zip, staging);
         });
-        if (!File.Exists(Path.Combine(staging, "ProjetSKE.App.exe")))
-            throw new IOException("le fichier téléchargé ne contient pas le jeu (ProjetSKE.App.exe)");
-        Trace("décompressée : " + staging);
+        // Le jeu est dans le dossier « ProjetSKE » du .zip (ou directement à la racine, pour les anciennes versions).
+        var source = File.Exists(Path.Combine(staging, "ProjetSKE.App.exe")) ? staging
+            : Directory.GetDirectories(staging).FirstOrDefault(d => File.Exists(Path.Combine(d, "ProjetSKE.App.exe")))
+              ?? throw new IOException("le fichier téléchargé ne contient pas le jeu (ProjetSKE.App.exe)");
+        Trace("décompressée : " + source);
         var appDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
         var exe = Environment.ProcessPath ?? Path.Combine(appDir, "ProjetSKE.App.exe");
         var pid = Environment.ProcessId;
@@ -171,7 +173,7 @@ public static class Updates
             "@echo off",
             ":attente",
             $"tasklist /FI \"PID eq {pid}\" | find \"{pid}\" >nul && (timeout /t 1 /nobreak >nul & goto attente)",
-            $"robocopy \"{staging}\" \"{appDir}\" /MIR /NFL /NDL /NJH /NJS /NP >nul",
+            $"robocopy \"{source}\" \"{appDir}\" /MIR /NFL /NDL /NJH /NJS /NP >nul",
             $"start \"\" \"{exe}\"",
             ""));
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c \"{script}\"")

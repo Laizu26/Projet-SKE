@@ -150,9 +150,12 @@ jobs:
           if (-not (Select-String -Path $log -Pattern "SKE_AUTOTEST_DONE" -Quiet)) { exit 1 }
           if (Select-String -Path $log -Pattern "SKE_SYNC_FAIL" -Quiet) { exit 1 }
 
+      # Tout dans un seul dossier « ProjetSKE » : en décompressant, rien ne s'éparpille à côté.
       - name: Préparer le .zip
         shell: pwsh
-        run: Compress-Archive -Path outwin\* -DestinationPath ProjetSKE-Windows.zip
+        run: |
+          Copy-Item -Path outwin -Destination ProjetSKE -Recurse
+          Compress-Archive -Path ProjetSKE -DestinationPath ProjetSKE-Windows.zip
 
       - name: Publier l'appli PC
         uses: actions/upload-artifact@v4
