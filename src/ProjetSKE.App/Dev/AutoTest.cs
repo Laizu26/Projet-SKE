@@ -412,6 +412,13 @@ public static class AutoTest
                 await Step("éditeur : pouvoir", () => SkeApp.GoTo(new PowerEditor(DevState.Draft.Powers[0])));
             if (DevState.Draft.Passives.Count > 0)
                 await Step("éditeur : passif", () => SkeApp.GoTo(new PassiveEditor(DevState.Draft.Passives[^1])));
+            if (DevState.Draft.Passives.Count > 0)
+                await Step("éditeur : condition « Stat » (PV sous 30 %)", () =>
+                {
+                    var p = DevState.Draft.Passives[^1];
+                    p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.Stat, "@soi", 30) { Arg2 = "pv%", Op = Core.Models.CompareOp.Less });
+                    SkeApp.GoTo(new PassiveEditor(p));
+                });
             if (DevState.Draft.Gauges.Count > 0)
                 await Step("éditeur : jauge (folie)", () => SkeApp.GoTo(new GaugeEditor(DevState.Draft.Gauges[0])));
             await Step("éditeur : lieu avec sous-lieux", () =>

@@ -1,6 +1,7 @@
 using System.Globalization;
 using ProjetSKE.App.Ui;
 using ProjetSKE.Core.Models;
+using ProjetSKE.Core.Systems;
 using Condition = ProjetSKE.Core.Models.Condition;
 using static ProjetSKE.App.Ui.UiKit;
 
@@ -397,6 +398,11 @@ public sealed class Form
                 RefField("Passif", c.Arg2, DevState.Passives, v => c.Arg2 = v ?? "", allowNone: false,
                     emptyHint: "Aucun passif : crée-en un dans « Passifs » (menu du mode dev).");
                 RefField("Qui", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
+                break;
+            case ConditionType.Stat:
+                RefField("Stat", c.Arg2.Length > 0 ? c.Arg2 : null, CharacterStats.All.Select(s => (s.Key, s.Name)), v => c.Arg2 = v ?? "pv", allowNone: false);
+                RefField("De qui (« toute l'équipe » = au moins un)", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.StatWho, v => c.Arg = v ?? "", allowNone: false);
+                Compare(c, "Valeur");
                 break;
             case ConditionType.Gauge:
                 RefField("Jauge", c.Arg2, DevState.Gauges, v => c.Arg2 = v ?? "", allowNone: false,

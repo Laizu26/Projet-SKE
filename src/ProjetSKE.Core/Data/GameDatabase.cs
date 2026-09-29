@@ -488,6 +488,10 @@ public sealed class GameDatabase
                         Check(Passives.ContainsKey(c.Arg2), $"{w} : passif « {c.Arg2} » introuvable");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
                         break;
+                    case ConditionType.Stat:
+                        Check(Systems.CharacterStats.IsKnown(c.Arg2), $"{w} : stat « {c.Arg2} » inconnue");
+                        if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
+                        break;
                     case ConditionType.Gauge:
                         Check(Gauges.ContainsKey(c.Arg2), $"{w} : jauge « {c.Arg2} » introuvable");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");

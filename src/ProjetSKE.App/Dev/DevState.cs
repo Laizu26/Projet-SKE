@@ -255,7 +255,7 @@ public static class DevState
         var text = Name(c.Type);
         if (c.Arg.Length > 0) text += " " + c.Arg;
         if (c.Arg2.Length > 0) text += " › " + c.Arg2;
-        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Gauge or ConditionType.Friendship or ConditionType.Love or ConditionType.Gold
+        if (c.Type is ConditionType.Variable or ConditionType.Karma or ConditionType.Gauge or ConditionType.Stat or ConditionType.Friendship or ConditionType.Love or ConditionType.Gold
             or ConditionType.Level or ConditionType.PartySize or ConditionType.Day or ConditionType.CampRank or ConditionType.CampResource)
             text += " " + Name(c.Op).Split(' ').Last().Trim('(', ')') + " " + c.Amount;
         if (c.Type is ConditionType.AnyOf or ConditionType.AllOf) text += $" ({c.Children?.Count ?? 0})";
@@ -285,6 +285,11 @@ public static class DevState
     /// <summary>De qui (karma) : celui qui parle par défaut.</summary>
     public static IEnumerable<(string Id, string Name)> KarmaWho =>
         new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (moyenne / chacun)"), ("@membre", "Celui qui fait la tâche (camp)"), ("@soi", "Le porteur du passif (conditions d'un passif)") }
+            .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
+
+    /// <summary>De qui (condition « Stat ») : « toute l'équipe » = au moins un membre.</summary>
+    public static IEnumerable<(string Id, string Name)> StatWho =>
+        new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (au moins un)"), ("@membre", "Celui qui fait la tâche (camp)"), ("@soi", "Le porteur du passif (conditions d'un passif)") }
             .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
 
     /// <summary>Envers qui (amitié) : l'équipe entière par défaut.</summary>
@@ -389,6 +394,7 @@ public static class DevState
         ConditionType.Variable => "Variable",
         ConditionType.Karma => "Karma",
         ConditionType.Gauge => "Jauge (folie...)",
+        ConditionType.Stat => "Stat (PV, PM, ATQ, niveau...)",
         ConditionType.HasPassive => "A un passif (qui agit)",
         ConditionType.HasPower => "A un pouvoir",
         ConditionType.Friendship => "Amitié",

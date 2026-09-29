@@ -57,6 +57,7 @@ public static partial class DialogueScript
         Conditions : {flag x} {sans_flag x} {quete_dispo id} {quete_active id}
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
+        {stat pv% < 30 @parle} {stat atq >= 20 @heros} {stat niveau >= 5 @equipe}
         {amitie pnj >= 30} {amitie pnj > 50 @parle} {amour pnj >= 50 @parle} {taille_equipe >= 2}
         {jauge folie >= 50} {jauge folie < 20 @heros} {passif transe @heros}
         {parle perso} {etre perso} {choisi dialogue replique:2} (2 = 2e choix, ou son #identifiant) {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
@@ -110,7 +111,7 @@ public static partial class DialogueScript
         ("or", ConditionType.GoldAtLeast, "n"), ("niveau", ConditionType.LevelAtLeast, "n"),
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
-        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
+        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("stat", ConditionType.Stat, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"), ("evenement", ConditionType.EventActive, "a"), ("donjon_fini", ConditionType.DungeonDone, "a"),

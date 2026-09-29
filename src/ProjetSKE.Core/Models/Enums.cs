@@ -132,6 +132,8 @@ public enum ConditionType
     Love,
     // Donjon terminé
     DungeonDone,
+    // Stat d'un personnage (PV, PM, ATQ, niveau...)
+    Stat,
 }
 
 /// <summary>Type d'étape d'un donjon.</summary>
