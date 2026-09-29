@@ -313,8 +313,16 @@ public static partial class DialogueScript
     /// quelqu'un ; une ligne vide coupe en deux bulles ; une ligne sans préfixe continue la bulle en cours.
     /// En jeu, chaque bulle s'affiche à part, l'une après l'autre.
     /// </summary>
-    public static List<(string Speaker, string Text)> Segments(string speaker, string text)
+    public static List<(string Speaker, string Text)> Segments(string speaker, string text) => Segments(speaker, text, null);
+
+    /// <summary>
+    /// Comme ci-dessus, en reconnaissant aussi les noms connus (PJ, PNJ, et leur prénom) écrits à la française
+    /// (« Julius : ... ») ou au milieu d'une ligne juste après une fin de phrase (« ...la parole. Julius : Mes frères »),
+    /// ainsi qu'une narration « - » qui suit une fin de phrase (« ...fois.- son armure »).
+    /// </summary>
+    public static List<(string Speaker, string Text)> Segments(string speaker, string text, IReadOnlyCollection<string>? names)
     {
+        text = SplitInline(text, names);
         var result = new List<(string Speaker, string Text)>();
         var currentSpeaker = speaker;
         var buffer = new List<string>();
@@ -345,6 +353,22 @@ public static partial class DialogueScript
         Flush();
         if (result.Count == 0) result.Add((speaker, ""));
         return result;
+    }
+
+    /// <summary>Met à la ligne les changements de bulle écrits dans le fil du texte (voir <see cref="Segments(string, string, IReadOnlyCollection{string}?)"/>).</summary>
+    private static string SplitInline(string text, IReadOnlyCollection<string>? names)
+    {
+        const string end = @"([.!?…»""])";
+        // « ...fois.- son armure » : narration après une fin de phrase.
+        text = System.Text.RegularExpressions.Regex.Replace(text, end + @"[ \t]*[-–—][ \t]+(?=\S)", "$1\n- ");
+        if (names is null || names.Count == 0) return text;
+        var alternatives = string.Join("|", names.Where(n => n.Length >= 2).OrderByDescending(n => n.Length).Select(System.Text.RegularExpressions.Regex.Escape));
+        if (alternatives.Length == 0) return text;
+        // « ...la parole. Julius : Mes frères » : un nom connu après une fin de phrase.
+        text = System.Text.RegularExpressions.Regex.Replace(text, end + @"[ \t]*(" + alternatives + @")[ \t]*:[ \t]+", "$1\n$2: ");
+        // « Julius : » en début de ligne (espace à la française avant les deux-points).
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^[ \t]*(" + alternatives + @")[ \t]+:[ \t]+", "$1: ");
+        return text;
     }
 
     /// <summary>Ligne qui ouvre une nouvelle bulle : narration (« - », « * ») ou « Nom: » (un à trois mots, avec une majuscule).</summary>

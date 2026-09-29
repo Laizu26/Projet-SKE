@@ -26,6 +26,8 @@ public sealed class DialogueView : ContentView
     private int _revealed;
     private IDispatcherTimer? _timer;
     private Label? _textLabel;
+    /// <summary>Défilement du texte de la boîte classique (null en cinématique).</summary>
+    private ScrollView? _textScroll;
     private bool _showHistory;
     private bool _ended;
 
@@ -284,7 +286,13 @@ public sealed class DialogueView : ContentView
                 HorizontalTextAlignment = TextAlignment.Center,
                 MinimumHeightRequest = 60,
             };
-            center.Add(_textLabel);
+            // Texte long : il défile au lieu de sortir de l'écran.
+            _textScroll = new ScrollView
+            {
+                Content = _textLabel,
+                MaximumHeightRequest = Math.Max(180, (Height > 0 ? Height : 800) * 0.45),
+            };
+            center.Add(_textScroll);
 
             var options = _runner.Options;
             if (!Typing && options.Count > 0)
@@ -585,7 +593,13 @@ public sealed class DialogueView : ContentView
                 ornament.Add(new BoxView { HeightRequest = 1, Color = Theme.Gold700, VerticalOptions = LayoutOptions.Center }, 2, 0);
                 body.Add(ornament);
             }
-            body.Add(_textLabel);
+            // Texte long : il défile dans la boîte au lieu de déborder sous les choix (et suit la machine à écrire).
+            _textScroll = new ScrollView
+            {
+                Content = _textLabel,
+                MaximumHeightRequest = Math.Max(160, (Height > 0 ? Height : 800) * 0.4),
+            };
+            body.Add(_textScroll);
 
             var options = _runner.Options;
             if (!Typing && options.Count > 0)
@@ -714,6 +728,9 @@ public sealed class DialogueView : ContentView
             var last = _revealed > 0 ? full[_revealed - 1] : ' ';
             if (_revealed < full.Length) pause = last is '.' or '!' or '?' or '…' ? 7 : last is ',' or ';' or ':' ? 3 : 0;
             if (_textLabel is not null) _textLabel.Text = full[.._revealed];
+            // Texte plus long que la boîte : on suit la dernière ligne (de temps en temps, pas à chaque lettre).
+            if (_textScroll is { } scroll && _revealed % 24 == 0 && scroll.ContentSize.Height > scroll.Height + 4)
+                _ = scroll.ScrollToAsync(0, scroll.ContentSize.Height, false);
             if (_revealed >= full.Length)
             {
                 _timer?.Stop();

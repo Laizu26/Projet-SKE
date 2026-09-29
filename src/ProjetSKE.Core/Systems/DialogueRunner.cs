@@ -65,7 +65,7 @@ public sealed class DialogueRunner
             if (_segments is not null && ReferenceEquals(_segmentsNode, Current) && _segmentsStep == Step) return _segments;
             var variant = Current.Variants.FirstOrDefault(v => _session.CheckAll(v.Conditions));
             var speaker = variant is { Speaker.Length: > 0 } ? variant.Speaker : Current.Speaker;
-            _segments = DialogueScript.Segments(speaker, variant?.Text ?? Current.Text)
+            _segments = DialogueScript.Segments(speaker, variant?.Text ?? Current.Text, _session.Db.SpeakerNames)
                 .Select(s => (_session.FormatText(s.Speaker), _session.FormatText(s.Text))).ToList();
             (_segmentsNode, _segmentsStep) = (Current, Step);
             return _segments;

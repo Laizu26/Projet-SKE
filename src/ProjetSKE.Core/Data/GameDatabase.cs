@@ -99,11 +99,28 @@ public sealed class GameDatabase
     {
         if (portraitId is not null && Portraits.TryGetValue(portraitId, out var forced)) return forced;
         if (speakerName.Length == 0) return null;
+        // Nom complet, sinon prénom seul (« Julius » pour « Julius Callius »).
+        bool Same(string name) => name == speakerName || name.StartsWith(speakerName + " ", StringComparison.Ordinal);
         var id = Content.Npcs.FirstOrDefault(n => n.Name == speakerName && n.PortraitId is not null)?.PortraitId
             ?? Content.Characters.FirstOrDefault(c => c.Name == speakerName && c.PortraitId is not null)?.PortraitId
-            ?? Content.Monsters.FirstOrDefault(m => m.Name == speakerName && m.PortraitId is not null)?.PortraitId;
+            ?? Content.Monsters.FirstOrDefault(m => m.Name == speakerName && m.PortraitId is not null)?.PortraitId
+            ?? Content.Npcs.FirstOrDefault(n => Same(n.Name) && n.PortraitId is not null)?.PortraitId
+            ?? Content.Characters.FirstOrDefault(c => Same(c.Name) && c.PortraitId is not null)?.PortraitId;
         return id is not null && Portraits.TryGetValue(id, out var p) ? p : null;
     }
+
+    private IReadOnlyCollection<string>? _speakerNames;
+
+    /// <summary>
+    /// Noms reconnus comme « Nom : » dans le fil d'une réplique : PJ, PNJ et leur prénom, plus « Narration » / « Narrateur ».
+    /// </summary>
+    public IReadOnlyCollection<string> SpeakerNames => _speakerNames ??= Content.Characters.Select(c => c.Name)
+        .Concat(Content.Npcs.Select(n => n.Name))
+        .SelectMany(n => new[] { n, n.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "" })
+        .Where(n => n.Length >= 3 && char.IsUpper(n[0]))
+        .Concat(["Narration", "Narrateur"])
+        .Distinct()
+        .ToList();
 
     /// <summary>Texte de l'interface (renommable dans le mode développeur).</summary>
     public string T(string key) => Vocabulary.Get(Content, key);

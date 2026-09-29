@@ -721,7 +721,8 @@ public sealed class LocationEditor : EditorPage
             };
             DevState.Draft.Locations.Add(sub);
             DevState.Touch();
-            SkeApp.GoTo(new LocationEditor(sub));
+            // On reste sur ce lieu pour enchaîner les sous-lieux ; « Modifier » ouvre chacun ensuite.
+            Render();
         }));
 
         if (!string.IsNullOrEmpty(_x.ParentId))
