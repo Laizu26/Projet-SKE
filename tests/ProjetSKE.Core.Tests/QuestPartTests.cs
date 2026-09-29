@@ -335,3 +335,75 @@ public class NpcCombatTests
         Assert.Null(s.HostileNpc());
     }
 }
+
+public class SubLocationTests
+{
+    private static GameSession Game(Action<GameContent>? change = null)
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Locations.Add(new LocationDef { Id = "cave", Name = "Cave", Type = LocationType.Dungeon, ParentId = "taverne_sanglier" });
+        change?.Invoke(content);
+        Assert.Empty(new GameDatabase(content).Validate());
+        var s = GameSession.NewGame(new GameDatabase(content), "aldric", new Random(1));
+        s.State.Config.TravelEncounters = TravelEncounterMode.None;
+        s.State.CurrentLocationId = "havrefort";
+        return s;
+    }
+
+    [Fact]
+    public void EnterAndExit_SubLocations()
+    {
+        var s = Game();
+        Assert.Contains(s.SubLocations, l => l.Id == "taverne_sanglier");
+        Assert.False(s.Travel("cave").Success); // pas directement : il faut passer par la taverne
+
+        Assert.True(s.Travel("taverne_sanglier").Success);
+        Assert.Equal("havrefort", s.RootLocation.Id);
+        Assert.True(s.Travel("cave").Success);
+        Assert.Equal(["havrefort", "taverne_sanglier", "cave"], s.Db.PathOf(s.CurrentLocation).Select(l => l.Id));
+
+        // Depuis la cave : voyager dans le royaume (depuis Havrefort) ou ressortir d'un coup.
+        Assert.Contains(s.Destinations, l => l.Id == "route_roi");
+        Assert.True(s.Travel("havrefort").Success);
+        Assert.Equal("havrefort", s.State.CurrentLocationId);
+    }
+
+    [Fact]
+    public void BeingInsideCountsAsBeingAtTheParent()
+    {
+        var s = Game();
+        s.Travel("taverne_sanglier");
+        Assert.True(s.Check(new Condition(ConditionType.AtLocation, "havrefort")));
+        Assert.True(s.Check(new Condition(ConditionType.AtLocation, "taverne_sanglier")));
+        Assert.False(s.Check(new Condition(ConditionType.AtLocation, "route_roi")));
+    }
+
+    [Fact]
+    public void SubLocations_AreNotOnTheKingdomMap_AndTravelFromInside()
+    {
+        var s = Game();
+        Assert.DoesNotContain("taverne_sanglier", WorldLayout.Compute(s.Db).Keys);
+        s.Travel("taverne_sanglier");
+        Assert.True(s.Travel("route_roi").Success);
+    }
+
+    [Fact]
+    public void LockedSubLocation_CannotBeEntered_ButCanAlwaysBeLeft()
+    {
+        var s = Game(c => c.Locations.First(l => l.Id == "cave").AccessConditions = [new(ConditionType.FlagSet, "cle_cave")]);
+        s.Travel("taverne_sanglier");
+        Assert.False(s.Travel("cave").Success);
+        s.SetFlag("cle_cave");
+        Assert.True(s.Travel("cave").Success);
+        s.State.Flags.Remove("cle_cave");
+        Assert.True(s.Travel("taverne_sanglier").Success);
+    }
+
+    [Fact]
+    public void ParentLoop_IsReported()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Locations.First(l => l.Id == "havrefort").ParentId = "taverne_sanglier";
+        Assert.Contains(new GameDatabase(content).Validate(), e => e.Contains("boucle"));
+    }
+}

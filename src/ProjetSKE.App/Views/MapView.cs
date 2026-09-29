@@ -66,7 +66,7 @@ public sealed class MapView : ContentView
             }), style.Icon, style.Accent, goldLine: true);
     }
 
-    /// <summary>Fil d'Ariane : [Royaume] › [Lieu].</summary>
+    /// <summary>Fil d'Ariane : [Royaume] › [Lieu] › [Sous-lieu]...</summary>
     private View Breadcrumb()
     {
         View Crumb(string glyph, string text, bool active, Action onTap)
@@ -86,16 +86,30 @@ public sealed class MapView : ContentView
             return OnTap(chip, onTap);
         }
 
-        return new HorizontalStackLayout
+        var crumbs = new HorizontalStackLayout
         {
             Spacing = 4,
             Padding = new Thickness(8, 8),
-            Children =
+            Children = { Crumb(Ico.Globe, S.Db.Content.World.CountryName, _page.MapShowCountry, () => { _page.MapShowCountry = true; _page.Render(); }) },
+        };
+        // Toucher un lieu qui contient le lieu actuel, c'est en sortir.
+        var path = S.Db.PathOf(S.CurrentLocation);
+        foreach (var loc in path)
+        {
+            var here = loc.Id == S.CurrentLocation.Id;
+            var id = loc.Id;
+            crumbs.Add(Icon(Ico.ChevronRight, 12, Theme.Stone300));
+            crumbs.Add(Crumb(here ? Ico.MapPin : Ico.DoorOpen, loc.Name, here && !_page.MapShowCountry, () =>
             {
-                Crumb(Ico.Globe, S.Db.Content.World.CountryName, _page.MapShowCountry, () => { _page.MapShowCountry = true; _page.Render(); }),
-                Icon(Ico.ChevronRight, 12, Theme.Stone300),
-                Crumb(Ico.MapPin, S.CurrentLocation.Name, !_page.MapShowCountry, () => { _page.MapShowCountry = false; _page.Render(); }),
-            },
+                if (here) { _page.MapShowCountry = false; _page.Render(); }
+                else _page.Travel(id);
+            }));
+        }
+        return new ScrollView
+        {
+            Orientation = ScrollOrientation.Horizontal,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
+            Content = crumbs,
         };
     }
 
@@ -135,7 +149,8 @@ public sealed class MapView : ContentView
     {
         var db = S.Db;
         var layout = WorldLayout.Compute(db);
-        var current = S.CurrentLocation;
+        // Dans un sous-lieu (taverne...), la carte du royaume montre le lieu qui le contient.
+        var current = S.RootLocation;
 
         // Lieux visibles : ceux déjà visités + ceux reliés à la position actuelle.
         var visible = S.State.SeenLocations.Where(db.Locations.ContainsKey).ToHashSet();
@@ -143,6 +158,7 @@ public sealed class MapView : ContentView
         visible.RemoveWhere(id => !S.IsVisible(db.Locations[id]));
         visible.Add(current.Id);
 
+        visible.RemoveWhere(id => !layout.ContainsKey(id));
         var selectedId = _page.MapSelectedLocation is { } sel && visible.Contains(sel) ? sel : current.Id;
 
         var tiles = new List<HexTileSpec>();
@@ -187,7 +203,7 @@ public sealed class MapView : ContentView
 
     private View WorldPanel(LocationDef loc)
     {
-        var current = S.CurrentLocation;
+        var current = S.RootLocation;
         var known = S.State.SeenLocations.Contains(loc.Id);
         var isHere = loc.Id == current.Id;
         var adjacent = current.ConnectedIds.Contains(loc.Id);
@@ -218,7 +234,8 @@ public sealed class MapView : ContentView
 
         if (isHere)
         {
-            panel.Add(Primary($"Entrer dans {loc.Name}", () => { _page.MapShowCountry = false; _page.Render(); }));
+            panel.Add(Primary(S.CurrentLocation.Id == loc.Id ? $"Entrer dans {loc.Name}" : $"Retour : {S.CurrentLocation.Name}",
+                () => { _page.MapShowCountry = false; _page.Render(); }));
         }
         else if (adjacent && open)
         {
@@ -272,6 +289,22 @@ public sealed class MapView : ContentView
             {
                 if (S.Explore() is { } monsters) _page.StartBattle(monsters);
             }));
+        }
+        // Sous-lieux (comme des salons dans une catégorie) : on y entre.
+        foreach (var sub in S.SubLocations)
+        {
+            var subId = sub.Id;
+            var style = Theme.LocationStyle(sub.Type);
+            var open = S.CanEnter(sub);
+            var desc = !open && sub.LockedMessage.Length > 0 ? sub.LockedMessage : sub.Description.Length > 0 ? sub.Description : "Un lieu à l'intérieur.";
+            list.Add(new Building("loc:" + sub.Id, open ? style.Icon : Ico.Lock, sub.Name, desc, style.Accent, open ? "Entrer" : "Bloqué",
+                () => _page.Travel(subId)));
+        }
+        if (S.Db.ParentOf(loc) is { } parent)
+        {
+            var parentId = parent.Id;
+            list.Insert(0, new Building("exit", Ico.DoorOpen, "Sortir", $"Retourner à {parent.Name}.", Theme.Stone600, $"Sortir vers {parent.Name}",
+                () => _page.Travel(parentId)));
         }
         foreach (var npc in S.VisibleNpcs)
         {

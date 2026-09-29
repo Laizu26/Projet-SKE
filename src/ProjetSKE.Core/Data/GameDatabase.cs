@@ -40,6 +40,30 @@ public sealed class GameDatabase
     public IEnumerable<CharacterDef> HeroesOf(StartSettings start) => Starters.Where(c => StartFor(c.Id) == start);
     public BalanceSettings Balance => Content.Balance;
 
+    // ------------------------------------------------------------------ Lieux dans des lieux
+
+    /// <summary>Lieu qui contient celui-ci (null = lieu de la carte du royaume).</summary>
+    public LocationDef? ParentOf(LocationDef loc) =>
+        loc.ParentId is { Length: > 0 } p && p != loc.Id && Locations.TryGetValue(p, out var parent) ? parent : null;
+
+    /// <summary>Chemin depuis le lieu de la carte du royaume jusqu'à ce lieu (ex : Havrefort › Taverne › Cave).</summary>
+    public IReadOnlyList<LocationDef> PathOf(LocationDef loc)
+    {
+        var path = new List<LocationDef> { loc };
+        for (var cur = ParentOf(loc); cur is not null && path.Count < 32 && !path.Contains(cur); cur = ParentOf(cur)) path.Insert(0, cur);
+        return path;
+    }
+
+    /// <summary>Lieu de la carte du royaume qui contient ce lieu (lui-même s'il est sur la carte).</summary>
+    public LocationDef RootOf(LocationDef loc) => PathOf(loc)[0];
+
+    /// <summary>Sous-lieux directs (dans l'ordre de l'éditeur).</summary>
+    public IEnumerable<LocationDef> ChildrenOf(string id) => Content.Locations.Where(l => l.ParentId == id && l.Id != id);
+
+    /// <summary>Vrai si le lieu est <paramref name="ancestorId"/> ou se trouve dedans (à n'importe quelle profondeur).</summary>
+    public bool IsWithin(string locationId, string ancestorId) =>
+        Locations.TryGetValue(locationId, out var loc) && PathOf(loc).Any(l => l.Id == ancestorId);
+
     public GameDatabase(GameContent content)
     {
         Content = content;
@@ -185,6 +209,14 @@ public sealed class GameDatabase
         foreach (var l in Content.Locations)
         {
             var w = $"Lieu {l.Id}";
+            if (!string.IsNullOrEmpty(l.ParentId))
+            {
+                Ref(Locations, l.ParentId, w, "lieu parent");
+                var loop = l.ParentId == l.Id;
+                for (var (cur, steps) = (ParentOf(l), 0); cur is not null && !loop && steps < 64; cur = ParentOf(cur), steps++)
+                    loop = cur == l;
+                Check(!loop, $"{w} : il se trouve dans lui-même (boucle de lieux parents)");
+            }
             foreach (var id in l.ConnectedIds) Ref(Locations, id, w, "lieu relié");
             foreach (var id in l.ShopItemIds) Ref(Items, id, w, "article");
             foreach (var g in l.RandomEncounters)

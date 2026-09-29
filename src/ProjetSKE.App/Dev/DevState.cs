@@ -187,10 +187,23 @@ public static class DevState
 
     public static IEnumerable<(string Id, string Name)> Skills => Draft.Skills.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Characters => Draft.Characters.Select(x => (x.Id, x.Name));
+    /// <summary>Lieu qui contient ce lieu dans le brouillon (null = sur la carte du royaume).</summary>
+    public static LocationDef? ParentOf(LocationDef loc) =>
+        loc.ParentId is { Length: > 0 } p && p != loc.Id ? Draft.Locations.FirstOrDefault(l => l.Id == p) : null;
+
+    /// <summary>Chemin depuis le lieu du royaume jusqu'à ce lieu (s'arrête en cas de boucle).</summary>
+    public static List<LocationDef> PathOf(LocationDef loc)
+    {
+        var path = new List<LocationDef> { loc };
+        for (var cur = ParentOf(loc); cur is not null && path.Count < 32 && !path.Contains(cur); cur = ParentOf(cur)) path.Insert(0, cur);
+        return path;
+    }
+
     /// <summary>Adversaires possibles : les monstres, puis les PNJ qui savent se battre.</summary>
     public static IEnumerable<(string Id, string Name)> Monsters => Draft.Monsters.Select(x => (x.Id, x.Name))
         .Concat(Draft.Npcs.Where(n => n.Combat is not null).Select(n => (n.Id, "PNJ · " + n.Name)));
-    public static IEnumerable<(string Id, string Name)> Locations => Draft.Locations.Select(x => (x.Id, x.Name));
+    /// <summary>Lieux, avec leur chemin pour les sous-lieux (ex : « Havrefort › Taverne »).</summary>
+    public static IEnumerable<(string Id, string Name)> Locations => Draft.Locations.Select(x => (x.Id, string.Join(" › ", PathOf(x).Select(l => l.Name))));
     public static IEnumerable<(string Id, string Name)> Npcs => Draft.Npcs.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Dialogues => Draft.Dialogues.Select(x => (x.Id, x.Name.Length > 0 ? x.Name : x.Id));
     public static IEnumerable<(string Id, string Name)> Quests => Draft.Quests.Select(x => (x.Id, x.Name));

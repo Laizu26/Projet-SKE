@@ -138,7 +138,9 @@ public sealed class EntityListPage<T> : ContentPage where T : class
         Func<T, Page> editor,
         Func<T, string>? subtitle = null,
         Func<T, bool>? filter = null,
-        string? help = null)
+        string? help = null,
+        Func<T, string>? sortKey = null,
+        Func<T, int>? depth = null)
     {
         Background = Theme.PageBackground;
         var stack = new VerticalStackLayout { Padding = new Thickness(12), Spacing = 6 };
@@ -156,11 +158,15 @@ public sealed class EntityListPage<T> : ContentPage where T : class
             SkeApp.GoTo(editor(item));
         }));
 
-        foreach (var item in items.Where(i => filter?.Invoke(i) ?? true).OrderBy(label))
+        foreach (var item in items.Where(i => filter?.Invoke(i) ?? true).OrderBy(sortKey ?? label, StringComparer.CurrentCultureIgnoreCase))
         {
             var it = item;
-            var info = Stack(Txt(label(item), 15, Theme.Text, bold: true), Muted(id(item) + (subtitle is null ? "" : " · " + subtitle(item))));
-            stack.Add(Panel(Row(info, Form.SmallButton("Modifier", () => SkeApp.GoTo(editor(it))))));
+            // Rangement en arbre (ex : sous-lieux décalés sous leur lieu, comme des salons dans une catégorie).
+            var level = Math.Min(depth?.Invoke(item) ?? 0, 6);
+            var info = Stack(Txt((level > 0 ? "↳ " : "") + label(item), 15, Theme.Text, bold: true), Muted(id(item) + (subtitle is null ? "" : " · " + subtitle(item))));
+            var panel = Panel(Row(info, Form.SmallButton("Modifier", () => SkeApp.GoTo(editor(it)))));
+            panel.Margin = new Thickness(level * 18, 0, 0, 0);
+            stack.Add(panel);
         }
         Content = new ScrollView { Content = stack };
     }

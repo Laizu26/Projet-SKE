@@ -88,8 +88,11 @@ public static class Editors
         "Lieux et carte", C.Locations, x => x.Id, x => x.Name,
         (id, name) => new LocationDef { Id = id, Name = name, Type = LocationType.Wild },
         x => new LocationEditor(x),
-        subtitle: x => DevState.Name(x.Type) + $" · {x.ConnectedIds.Count} lien(s)",
-        help: "La carte est une liste de lieux reliés entre eux.");
+        subtitle: x => DevState.Name(x.Type) + (DevState.ParentOf(x) is { } p ? $" · dans {p.Name}" : $" · {x.ConnectedIds.Count} lien(s)"),
+        help: "La carte est une liste de lieux reliés entre eux. Un lieu peut en contenir d'autres (une taverne dans une ville, "
+            + "une salle dans un donjon...) : ils sont rangés dessous, comme des salons dans une catégorie.",
+        sortKey: x => string.Join(" / ", DevState.PathOf(x).Select(l => l.Name)),
+        depth: x => DevState.PathOf(x).Count - 1);
 }
 
 // ====================================================================== PJ
@@ -523,6 +526,8 @@ public sealed class LocationEditor : EditorPage
     {
         DevState.Draft.Locations.Remove(_x);
         foreach (var l in DevState.Draft.Locations) l.ConnectedIds.Remove(_x.Id);
+        // Ses sous-lieux remontent d'un cran (dans le lieu qui le contenait, ou sur la carte).
+        foreach (var l in DevState.Draft.Locations.Where(l => l.ParentId == _x.Id)) l.ParentId = _x.ParentId;
     };
 
     private LocationDef? Find(string id) => DevState.Draft.Locations.FirstOrDefault(l => l.Id == id);
@@ -534,6 +539,40 @@ public sealed class LocationEditor : EditorPage
         f.TextField("Description", _x.Description, v => _x.Description = v, multiline: true);
         f.EnumField("Type", _x.Type, v => _x.Type = v, DevState.Name, rerender: true);
 
+        // Lieux dans des lieux : comme des salons dans une catégorie.
+        f.Header("Dans quel lieu");
+        var inside = DevState.Draft.Locations.Where(l => l != _x && !DevState.PathOf(l).Contains(_x)).Select(l => (l.Id, string.Join(" › ", DevState.PathOf(l).Select(p => p.Name))));
+        f.RefField("Se trouve dans (aucun = sur la carte du royaume)", _x.ParentId, inside, v => _x.ParentId = v, rerender: true);
+        var children = DevState.Draft.Locations.Where(l => l.ParentId == _x.Id && l != _x).ToList();
+        foreach (var child in children)
+        {
+            var c = child;
+            f.Add(Panel(Row(Stack(Txt("↳ " + c.Name, 14, Theme.Text, bold: true), Muted($"{c.Id} · {DevState.Name(c.Type)}")),
+                Form.SmallButton("Modifier", () => SkeApp.GoTo(new LocationEditor(c))))));
+        }
+        f.Add(Btn("+ Sous-lieu (à l'intérieur de celui-ci)", async () =>
+        {
+            var name = await DisplayPromptAsync("Nouveau sous-lieu", $"Nom (dans {_x.Name}) :", "Créer", "Annuler");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var sub = new LocationDef
+            {
+                Id = DevState.NewId(name, DevState.Draft.Locations.Select(l => l.Id)),
+                Name = name.Trim(), Type = _x.Type, ParentId = _x.Id,
+            };
+            DevState.Draft.Locations.Add(sub);
+            DevState.Touch();
+            SkeApp.GoTo(new LocationEditor(sub));
+        }));
+
+        if (!string.IsNullOrEmpty(_x.ParentId))
+        {
+            f.Note("Un sous-lieu n'est pas sur la carte du royaume : on y entre depuis le lieu qui le contient, et on en sort vers lui. "
+                + "Les conditions (« Se trouve à un lieu », objectif « Atteindre ») comptent aussi quand on est dans un sous-lieu.");
+            f.Conditions("Visible seulement si (sous-lieu secret)", _x.VisibleConditions);
+            Form.OptionalInt(f, "Durée pour y entrer (minutes)", _x.TravelMinutes, v => _x.TravelMinutes = v, "par défaut : 0");
+        }
+        else
+        {
         f.Header("Carte");
         f.BoolField("Position fixée sur la carte hexagonale", _x.HexQ is not null, v =>
         {
@@ -547,11 +586,12 @@ public sealed class LocationEditor : EditorPage
         }
         else f.Note("Sinon, le lieu est placé automatiquement à côté d'un lieu relié.");
         f.Note("Les liens sont créés dans les deux sens.");
-        f.IdList("Lieux reliés", _x.ConnectedIds, DevState.Locations.Where(l => l.Id != _x.Id),
+        f.IdList("Lieux reliés", _x.ConnectedIds, DevState.Draft.Locations.Where(l => l != _x && DevState.ParentOf(l) is null).Select(l => (l.Id, l.Name)),
             onAdded: id => { if (Find(id) is { } other && !other.ConnectedIds.Contains(_x.Id)) other.ConnectedIds.Add(_x.Id); },
             onRemoved: id => Find(id)?.ConnectedIds.Remove(_x.Id));
         f.Conditions("Visible sur la carte seulement si (lieu secret)", _x.VisibleConditions);
         Form.OptionalInt(f, "Durée du voyage pour venir ici (minutes)", _x.TravelMinutes, v => _x.TravelMinutes = v, $"par défaut : {DevState.Draft.Time.TravelMinutes}");
+        }
         f.Conditions("Accessible seulement si", _x.AccessConditions);
         if (_x.AccessConditions.Count > 0)
             f.TextField("Message si bloqué", _x.LockedMessage, v => _x.LockedMessage = v);

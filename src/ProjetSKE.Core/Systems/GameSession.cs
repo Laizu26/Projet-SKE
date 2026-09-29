@@ -169,7 +169,8 @@ public sealed partial class GameSession
         ConditionType.Period => SameName(Clock.Period, c.Arg),
         ConditionType.WeekDay => SameName(Clock.WeekDay, c.Arg),
         ConditionType.Month => SameName(Clock.Month, c.Arg),
-        ConditionType.AtLocation => State.CurrentLocationId == c.Arg,
+        // Être dans une taverne de Havrefort, c'est aussi être à Havrefort.
+        ConditionType.AtLocation => Db.IsWithin(State.CurrentLocationId, c.Arg),
         ConditionType.Visited => State.SeenLocations.Contains(c.Arg),
         ConditionType.MetNpc => State.SeenNpcs.Contains(c.Arg),
         ConditionType.Chance => Rng.Next(100) < c.Amount,
@@ -787,7 +788,7 @@ public sealed partial class GameSession
                     done = progress.Count >= Math.Max(1, o.Count);
                     break;
                 case ObjectiveType.Reach:
-                    done = State.CurrentLocationId == o.TargetId;
+                    done = Db.IsWithin(State.CurrentLocationId, o.TargetId);
                     break;
                 case ObjectiveType.TalkTo:
                     done = matches;
@@ -1130,8 +1131,27 @@ public sealed partial class GameSession
 
     // ------------------------------------------------------------------ Carte et voyage
 
+    /// <summary>Lieux du royaume où l'on peut voyager (depuis le lieu du royaume où l'on se trouve, même dans un sous-lieu).</summary>
     public IReadOnlyList<LocationDef> Destinations =>
-        CurrentLocation.ConnectedIds.Where(Db.Locations.ContainsKey).Select(id => Db.Locations[id]).Where(IsVisible).ToList();
+        RootLocation.ConnectedIds.Where(Db.Locations.ContainsKey).Select(id => Db.Locations[id]).Where(IsVisible).ToList();
+
+    /// <summary>Lieu de la carte du royaume où se trouve l'équipe (le lieu actuel, ou celui qui le contient).</summary>
+    public LocationDef RootLocation => Db.RootOf(CurrentLocation);
+
+    /// <summary>Sous-lieux visibles du lieu actuel (on peut y entrer).</summary>
+    public IReadOnlyList<LocationDef> SubLocations => Db.ChildrenOf(State.CurrentLocationId).Where(IsVisible).ToList();
+
+    /// <summary>
+    /// Déplacement à l'intérieur : entrer dans un sous-lieu, en sortir vers le lieu qui le contient,
+    /// ou passer d'un sous-lieu à un autre du même lieu.
+    /// </summary>
+    public bool IsInnerMove(LocationDef dest) =>
+        dest.ParentId == State.CurrentLocationId
+        || IsExit(dest)
+        || (CurrentLocation.ParentId is { Length: > 0 } parent && dest.ParentId == parent);
+
+    /// <summary>Le lieu contient le lieu actuel (en sortir est toujours possible).</summary>
+    private bool IsExit(LocationDef dest) => dest.Id != State.CurrentLocationId && Db.IsWithin(State.CurrentLocationId, dest.Id);
 
     /// <summary>Le lieu apparaît sur la carte : révélé/caché par un effet, sinon selon ses conditions de visibilité.</summary>
     public bool IsVisible(LocationDef loc)
@@ -1165,12 +1185,18 @@ public sealed partial class GameSession
 
     public TravelResult Travel(string destinationId)
     {
-        if (!CurrentLocation.ConnectedIds.Contains(destinationId) || !Db.Locations.TryGetValue(destinationId, out var dest) || !IsVisible(dest))
+        if (!Db.Locations.TryGetValue(destinationId, out var dest) || !IsVisible(dest))
             return new TravelResult(false, "Ce lieu n'est pas accessible d'ici.");
-        if (!CanEnter(dest))
+        var inner = IsInnerMove(dest);
+        if (!inner && !RootLocation.ConnectedIds.Contains(destinationId))
+            return new TravelResult(false, "Ce lieu n'est pas accessible d'ici.");
+        // Sortir vers le lieu qui nous contient est toujours possible ; entrer peut être bloqué.
+        var exit = IsExit(dest);
+        if (!exit && !CanEnter(dest))
             return new TravelResult(false, dest.LockedMessage.Length > 0 ? dest.LockedMessage : "Le passage est bloqué.");
 
-        AdvanceTime(dest.TravelMinutes ?? Db.Content.Time.TravelMinutes);
+        // Voyage dans le royaume : durée du voyage. À l'intérieur d'un lieu : la durée réglée sur le sous-lieu (0 par défaut).
+        AdvanceTime(inner ? (exit ? 0 : dest.TravelMinutes ?? 0) : dest.TravelMinutes ?? Db.Content.Time.TravelMinutes);
         var firstVisit = MoveTo(dest);
 
         // 1. Combat fixe : déclenché automatiquement à la première arrivée, rejouable ensuite depuis la carte.

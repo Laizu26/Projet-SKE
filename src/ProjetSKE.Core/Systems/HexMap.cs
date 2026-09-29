@@ -53,7 +53,9 @@ public static class WorldLayout
         var result = new Dictionary<string, Hex>();
         var used = new HashSet<Hex>();
 
-        foreach (var loc in db.Content.Locations)
+        // Seuls les lieux du royaume sont sur la carte ; les sous-lieux sont à l'intérieur.
+        var top = db.Content.Locations.Where(l => db.ParentOf(l) is null).ToList();
+        foreach (var loc in top)
         {
             if (loc.HexQ is { } q && loc.HexR is { } r && used.Add(new Hex(q, r))) result[loc.Id] = new Hex(q, r);
         }
@@ -61,7 +63,7 @@ public static class WorldLayout
         // Parcours en largeur depuis le lieu de départ, puis depuis les lieux isolés restants.
         var roots = new List<string>();
         if (db.Locations.ContainsKey(db.Start.LocationId)) roots.Add(db.Start.LocationId);
-        roots.AddRange(db.Content.Locations.Select(l => l.Id));
+        roots.AddRange(top.Select(l => l.Id));
 
         foreach (var root in roots)
         {
@@ -81,7 +83,7 @@ public static class WorldLayout
                 var id = queue.Dequeue();
                 if (!db.Locations.TryGetValue(id, out var loc)) continue;
                 var index = 0;
-                foreach (var next in loc.ConnectedIds.Where(db.Locations.ContainsKey))
+                foreach (var next in loc.ConnectedIds.Where(n => db.Locations.TryGetValue(n, out var nl) && db.ParentOf(nl) is null))
                 {
                     if (!result.ContainsKey(next)) Place(next, result[id], index);
                     index++;

@@ -126,6 +126,19 @@ public static class AutoTest
 
             await Step("carte du royaume", () => { page!.SwitchTab(GameTab.Map); page.MapShowCountry = true; page.Render(); });
             await Step("carte du lieu", () => { page!.MapShowCountry = false; page.Render(); });
+            // Lieux dans des lieux : entrer dans un sous-lieu, voir la carte du royaume depuis l'intérieur, ressortir.
+            var subLoc = db.Content.Locations.FirstOrDefault(l => db.ParentOf(l) is not null);
+            if (subLoc is not null)
+            {
+                await Step("sous-lieu : entrer", () =>
+                {
+                    page!.Session.State.CurrentLocationId = subLoc.ParentId!;
+                    page.MapShowCountry = false;
+                    page.Travel(subLoc.Id);
+                }, 1500);
+                await Step("sous-lieu : carte du royaume depuis l'intérieur", () => { page!.MapShowCountry = true; page.Render(); });
+                await Step("sous-lieu : sortir", () => { page!.MapShowCountry = false; page.Travel(subLoc.ParentId!); }, 1500);
+            }
             await Step("dialogue", () => page!.ShowDialogue(db.Content.Dialogues[0].Id), 2500);
             await Step("combat", () => page!.StartBattle(new[] { db.Content.Monsters[0].Id }), 2500);
 
@@ -244,6 +257,17 @@ public static class AutoTest
                 if (DevState.Draft.Camp.Buildings.Count > 0) SkeApp.GoTo(new CampBuildingEditor(DevState.Draft.Camp.Buildings[0]));
             });
             await Step("éditeur : PNJ", () => SkeApp.GoTo(new NpcEditor(DevState.Draft.Npcs[0])));
+            await Step("éditeur : lieux rangés (sous-lieux)", () => SkeApp.GoTo(Editors.LocationList()));
+            await Step("éditeur : lieu avec sous-lieux", () =>
+            {
+                var parent = DevState.Draft.Locations.FirstOrDefault(l => DevState.Draft.Locations.Any(c => c.ParentId == l.Id)) ?? DevState.Draft.Locations[0];
+                SkeApp.GoTo(new LocationEditor(parent));
+            });
+            await Step("éditeur : sous-lieu", () =>
+            {
+                var child = DevState.Draft.Locations.FirstOrDefault(l => !string.IsNullOrEmpty(l.ParentId)) ?? DevState.Draft.Locations[0];
+                SkeApp.GoTo(new LocationEditor(child));
+            });
             await Step("éditeur : PNJ qui se bat et attaque", () =>
             {
                 // Le brouillon n'est modifié que le temps d'afficher la page (section « attaque » dépliée).

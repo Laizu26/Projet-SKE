@@ -352,6 +352,15 @@ internal static class SampleContent
             ShopItemIds = ["potion", "ether", "epee_courte", "epee_longue", "dague", "baton_chene", "masse", "armure_cuir", "cotte_mailles", "robe_mage", "casque_fer", "gants_cuir", "jambieres", "bottes_voyage", "amulette_cuivre", "bouclier_bois"],
             InnPrice = 10,
         },
+        // Un lieu dans un lieu : on y entre depuis Havrefort (comme un salon dans une catégorie).
+        new()
+        {
+            Id = "taverne_sanglier", Name = "Taverne du Sanglier", Type = LocationType.City, ParentId = "havrefort",
+            Description = "Une taverne enfumée près des remparts. Les chambres y sont moins chères.",
+            ShopItemIds = ["potion"],
+            InnPrice = 6,
+            TravelMinutes = 5,
+        },
         new()
         {
             Id = "route_roi", Name = "Route du Roi", Type = LocationType.Wild,

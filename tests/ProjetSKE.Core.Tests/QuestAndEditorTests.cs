@@ -245,7 +245,8 @@ public class WorldLayoutTests
     {
         var db = GameDatabase.Default;
         var layout = WorldLayout.Compute(db);
-        Assert.Equal(db.Content.Locations.Count, layout.Count);
+        // Seuls les lieux du royaume sont sur la carte (pas les sous-lieux).
+        Assert.Equal(db.Content.Locations.Count(l => db.ParentOf(l) is null), layout.Count);
         Assert.Equal(layout.Count, layout.Values.Distinct().Count());
         Assert.Equal(new Hex(0, 0), layout[db.Start.LocationId]);
         foreach (var loc in db.Content.Locations)

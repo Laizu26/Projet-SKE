@@ -244,6 +244,11 @@ public sealed class LocationDef
     public List<Condition> VisibleConditions { get; set; } = [];
     /// <summary>Durée du voyage pour venir ici, en minutes (vide = durée par défaut des réglages du temps).</summary>
     public int? TravelMinutes { get; set; }
+    /// <summary>
+    /// Lieu qui contient celui-ci (vide = lieu de la carte du royaume). Comme des salons dans une catégorie :
+    /// une taverne dans une ville, une salle dans un donjon... Un sous-lieu peut lui-même en contenir d'autres.
+    /// </summary>
+    public string? ParentId { get; set; }
 
     [JsonIgnore] public bool IsCity => Type == LocationType.City;
 }
