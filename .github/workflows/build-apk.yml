@@ -154,6 +154,7 @@ jobs:
       # de fichiers) rangé dans « fichiers ». Le lanceur est compilé avec le C# du .NET Framework intégré à Windows.
       - name: Préparer le .zip
         shell: pwsh
+        timeout-minutes: 8
         run: |
           New-Item -ItemType Directory -Path ProjetSKE | Out-Null
           Copy-Item -Path outwin -Destination ProjetSKE\fichiers -Recurse
@@ -165,8 +166,10 @@ jobs:
           & $csc @cscArgs
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path "ProjetSKE\Projet SKE.exe")) { "Lanceur non compilé"; exit 1 }
           # Le lanceur doit démarrer le jeu : essai rapide (le jeu est fermé juste après).
+          # (Pas de « -Wait » : PowerShell attendrait aussi le jeu lancé par le lanceur, qui ne se ferme jamais seul.)
           $before = @(Get-Process ProjetSKE.App -ErrorAction SilentlyContinue).Count
-          Start-Process -FilePath "ProjetSKE\Projet SKE.exe" -Wait
+          $launcher = Start-Process -FilePath "ProjetSKE\Projet SKE.exe" -PassThru
+          $null = $launcher.WaitForExit(20000)
           Start-Sleep -Seconds 8
           $game = Get-Process ProjetSKE.App -ErrorAction SilentlyContinue
           if (@($game).Count -le $before) { "Le lanceur n'a pas démarré le jeu"; exit 1 }
