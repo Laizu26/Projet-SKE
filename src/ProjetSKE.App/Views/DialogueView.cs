@@ -327,6 +327,14 @@ public sealed class DialogueView : ContentView
         else center.Add(Primary("Fermer", End));
 
         var stage = new Grid { Children = { center } };
+        if (_session.SceneCast.Count > 0 && !_showHistory)
+        {
+            // En cinématique, les PJ présents sont en bas, au-dessus de la bande noire.
+            var cast = CastRow();
+            cast.VerticalOptions = LayoutOptions.End;
+            cast.Margin = new Thickness(0, 0, 0, Math.Max(40, Height * 0.11) + 14);
+            stage.Add(cast);
+        }
         if (_showHistory) stage.Add(HistoryPanel());
         // Toucher n'importe où avance (sans l'éclat doré des boutons : c'est tout l'écran).
         var tap = new TapGestureRecognizer();
@@ -347,6 +355,7 @@ public sealed class DialogueView : ContentView
         if (_ended) return;
         _ended = true;
         _timer?.Stop();
+        _session.SetScene(null); // les PJ venus pour la scène (hors groupe) repartent
         _onEnd();
     }
 
@@ -515,8 +524,51 @@ public sealed class DialogueView : ContentView
             stage.Add(notes);
         }
 
+        if (_session.SceneCast.Count > 0 && !_showHistory) stage.Add(CastRow());
         if (_showHistory) stage.Add(HistoryPanel());
         return stage;
+    }
+
+    /// <summary>
+    /// PJ présents dans la scène (réglés sur le dialogue, même hors du groupe) : leurs visages en ligne,
+    /// celui qui parle en avant (cadre doré), les autres en retrait.
+    /// </summary>
+    private View CastRow()
+    {
+        var row = new HorizontalStackLayout
+        {
+            Spacing = 10,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(0, 26, 0, 0),
+            InputTransparent = true,
+        };
+        var speaker = _runner.Speaker;
+        foreach (var id in _session.SceneCast)
+        {
+            if (!_session.Db.Characters.TryGetValue(id, out var def)) continue;
+            var speaking = speaker.Length > 0 && (def.Name == speaker || def.Name.StartsWith(speaker + " ", StringComparison.Ordinal));
+            View face = def.PortraitId is { } pid && _session.Db.Portraits.TryGetValue(pid, out var image)
+                ? new Border
+                {
+                    WidthRequest = 46, HeightRequest = 46,
+                    StrokeShape = new RoundRectangle { CornerRadius = 23 },
+                    Stroke = speaking ? Theme.Gold500 : Theme.Stone600,
+                    StrokeThickness = speaking ? 2.5 : 1,
+                    Content = new FramedImage(image),
+                }
+                : Avatar(def.Name, Theme.AvatarColor(def.Id), 46);
+            var name = Caps(def.Name.Split(' ')[0], 8, speaking ? Theme.Gold500 : Theme.Stone400);
+            name.HorizontalTextAlignment = TextAlignment.Center;
+            row.Add(new VerticalStackLayout
+            {
+                Spacing = 3,
+                Opacity = speaking ? 1 : 0.55,
+                Scale = speaking ? 1.08 : 1,
+                Children = { face, name },
+            });
+        }
+        return row;
     }
 
     private View HistoryPanel()

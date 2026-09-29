@@ -306,6 +306,7 @@ public sealed class GameDatabase
         {
             var w = $"Dialogue {d.Id}";
             Check(d.Nodes.Count > 0, $"{w} : aucune réplique");
+            foreach (var pj in d.ScenePjIds) Ref(Characters, pj, w, "PJ présent dans la scène");
             var ids = new HashSet<string>();
             foreach (var n in d.Nodes) Check(ids.Add(n.Id), $"{w} : réplique « {n.Id} » en double");
             void Target(string? target)

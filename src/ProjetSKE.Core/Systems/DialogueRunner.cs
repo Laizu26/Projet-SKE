@@ -42,6 +42,8 @@ public sealed class DialogueRunner
     {
         _session = session;
         Dialogue = dialogue;
+        // PJ présents dans la scène (même hors du groupe) : pour qui parle, les conditions et les effets.
+        _session.SetScene(dialogue);
         Enter(dialogue.StartId);
     }
 
@@ -227,6 +229,7 @@ public sealed class DialogueRunner
         {
             if (!_session.Db.Dialogues.TryGetValue(dialogueId, out var other)) return;
             Dialogue = other;
+            _session.SetScene(other); // l'autre dialogue a sa propre scène
             if (label.Length == 0) label = other.StartId ?? "";
         }
         Current = Dialogue.Nodes.FirstOrDefault(n => n.Id == label);

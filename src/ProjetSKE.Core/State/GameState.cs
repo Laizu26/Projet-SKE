@@ -141,6 +141,11 @@ public sealed class GameState
     /// <summary>PNJ montrés ou cachés par un effet (prioritaires sur « caché au début » et leurs conditions).</summary>
     public HashSet<string> ShownNpcs { get; set; } = [];
     public HashSet<string> HiddenNpcs { get; set; } = [];
+    /// <summary>
+    /// PJ hors du groupe dont on garde les valeurs (karma, folie, passifs...) : présents dans une scène, ou partis.
+    /// Ils les retrouvent en rejoignant le groupe.
+    /// </summary>
+    public List<CharacterState> Offstage { get; set; } = [];
     /// <summary>Partie de prologue (tutoriel) : jamais sauvegardée, finie par l'effet « Prologue : terminer ».</summary>
     public bool IsTutorial { get; set; }
     public bool TutorialDone { get; set; }

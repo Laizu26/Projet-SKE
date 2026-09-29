@@ -113,7 +113,7 @@ public sealed partial class GameSession
         }
         if (State.SpeakerId is { } sp && !State.Party.Any(c => c.DefId == sp)) State.SpeakerId = null;
         // Jauges ajoutées après le début de la partie : valeur de départ du personnage.
-        foreach (var c in State.Party) InitGauges(c);
+        foreach (var c in State.Party.Concat(State.Offstage)) InitGauges(c);
         State.Camp.RemoveAll(m => !Db.Npcs.ContainsKey(m.Id) && !Db.Characters.ContainsKey(m.Id));
         foreach (var m in State.Camp)
         {
@@ -172,17 +172,16 @@ public sealed partial class GameSession
         ConditionType.QuestActive => GetQuestStatus(c.Arg) == QuestStatus.Active,
         ConditionType.QuestCompleted => GetQuestStatus(c.Arg) == QuestStatus.Completed,
         ConditionType.HasItem => OwnsCount(c.Arg) >= Math.Max(1, c.Amount),
-        ConditionType.InParty => IsInParty(c.Arg),
-        ConditionType.NotInParty => !IsInParty(c.Arg),
+        // Dans l'équipe, ou présent dans la scène du dialogue en cours.
+        ConditionType.InParty => IsPresent(c.Arg),
+        ConditionType.NotInParty => !IsPresent(c.Arg),
         ConditionType.GoldAtLeast => State.Gold >= c.Amount,
         ConditionType.LevelAtLeast => MaxLevel >= c.Amount,
         ConditionType.Variable => Compare(GetVariable(c.Arg), c.Op, c.Amount),
         ConditionType.Karma => Compare(GetKarma(c.Arg), c.Op, c.Amount),
         ConditionType.Gauge => Compare(GetGauge(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.HasPassive => HasActivePassive(c.Arg, c.Arg2),
-        ConditionType.HasPower => Db.Powers.TryGetValue(c.Arg2, out var pw)
-            && (c.Arg == "@equipe" ? State.Party : State.Party.Where(p => p.DefId == ResolveWho(c.Arg.Length > 0 ? c.Arg : "@parle")))
-                .Any(p => PowersOf(p).Contains(pw)),
+        ConditionType.HasPower => Db.Powers.TryGetValue(c.Arg2, out var pw) && ConditionTargets(c.Arg).Any(p => PowersOf(p).Contains(pw)),
         ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
@@ -480,11 +479,34 @@ public sealed partial class GameSession
     // ------------------------------------------------------------------ Qui parle, karma, amitié
 
     /// <summary>PJ qui parle aux PNJ : celui choisi, sinon le héros.</summary>
-    public string SpeakerId => State.SpeakerId is { } id && IsInParty(id) ? id : State.HeroId;
+    public string SpeakerId => State.SpeakerId is { } id && IsPresent(id) ? id : State.HeroId;
 
     public CharacterState? Speaker => State.Party.FirstOrDefault(c => c.DefId == SpeakerId) ?? State.Party.FirstOrDefault();
 
-    public void SetSpeaker(string? characterId) => State.SpeakerId = characterId is not null && IsInParty(characterId) ? characterId : null;
+    public void SetSpeaker(string? characterId) => State.SpeakerId = characterId is not null && IsPresent(characterId) ? characterId : null;
+
+    // ------------------------------------------------------------------ PJ présents dans la scène (hors groupe)
+
+    /// <summary>PJ présents dans la scène du dialogue en cours, en plus du groupe (voir <see cref="DialogueDef.ScenePjIds"/>).</summary>
+    public IReadOnlyList<string> SceneCast { get; private set; } = [];
+
+    /// <summary>Scène du dialogue qui commence (null = fin du dialogue : plus personne en plus du groupe).</summary>
+    public void SetScene(DialogueDef? dialogue) =>
+        SceneCast = dialogue?.ScenePjIds.Where(Db.Characters.ContainsKey).Distinct().ToList() ?? [];
+
+    /// <summary>Le PJ est là : dans le groupe, ou présent dans la scène du dialogue en cours.</summary>
+    public bool IsPresent(string characterId) => IsInParty(characterId) || SceneCast.Contains(characterId);
+
+    /// <summary>État d'un PJ : dans le groupe, sinon hors du groupe (créé si besoin pour garder ses valeurs).</summary>
+    public CharacterState? StateOf(string characterId, bool create = false)
+    {
+        if (State.Party.FirstOrDefault(c => c.DefId == characterId) is { } member) return member;
+        if (State.Offstage.FirstOrDefault(c => c.DefId == characterId) is { } away) return away;
+        if (!create || !Db.Characters.TryGetValue(characterId, out var def)) return null;
+        var created = NewCharacterState(def);
+        State.Offstage.Add(created);
+        return created;
+    }
 
     /// <summary>« @parle » = PJ qui parle, « @heros » = héros, sinon identifiant tel quel.</summary>
     public string ResolveWho(string who) => who switch
@@ -504,15 +526,23 @@ public sealed partial class GameSession
         if (who == "@equipe")
             return State.Party.Count > 0 ? (int)Math.Round(State.Party.Average(c => c.Karma)) : Db.Content.Karma.Default;
         var id = ResolveWho(who);
-        return State.Party.FirstOrDefault(c => c.DefId == id)?.Karma ?? Db.Content.Karma.Default;
+        // Même hors du groupe (présent dans la scène, ou parti) : ses valeurs sont gardées.
+        return StateOf(id)?.Karma ?? (Db.Characters.TryGetValue(id, out var d) ? d.BaseKarma ?? Db.Content.Karma.Default : Db.Content.Karma.Default);
+    }
+
+    /// <summary>PJ concernés par une condition : un PJ précis (même hors du groupe), ou « @equipe » (le groupe et la scène).</summary>
+    private IEnumerable<CharacterState> ConditionTargets(string who)
+    {
+        if (who == "@equipe") return State.Party.Concat(SceneCast.Select(id => StateOf(id)).OfType<CharacterState>()).Distinct();
+        var id = ResolveWho(who.Length > 0 ? who : "@parle");
+        return StateOf(id) is { } c ? [c] : Db.Characters.ContainsKey(id) ? [NewCharacterState(Db.Characters[id])] : [];
     }
 
     /// <summary>Le PJ (« @parle », « @heros », id ; « @equipe » = au moins un) a ce passif, et il agit.</summary>
     private bool HasActivePassive(string who, string passiveId)
     {
         if (!Db.Passives.TryGetValue(passiveId, out var p)) return false;
-        var targets = who == "@equipe" ? State.Party : State.Party.Where(c => c.DefId == ResolveWho(who.Length > 0 ? who : "@parle"));
-        return targets.Any(c => PassivesOf(c).Contains(p) && IsPassiveActive(c, p));
+        return ConditionTargets(who).Any(c => PassivesOf(c).Contains(p) && IsPassiveActive(c, p));
     }
 
     /// <summary>Valeur d'une jauge (folie...) pour un PJ.</summary>
@@ -534,14 +564,19 @@ public sealed partial class GameSession
         if (who == "@equipe")
             return State.Party.Count > 0 ? (int)Math.Round(State.Party.Average(c => GaugeOf(c, gauge))) : gauge.Default;
         var id = ResolveWho(who.Length > 0 ? who : "@parle");
-        return State.Party.FirstOrDefault(c => c.DefId == id) is { } pc ? GaugeOf(pc, gauge) : StartGauge(id, gauge);
+        return StateOf(id) is { } pc ? GaugeOf(pc, gauge) : StartGauge(id, gauge);
     }
 
+    /// <summary>
+    /// PJ visés par un effet : « @equipe » = le groupe et les PJ présents dans la scène ; un PJ précis = même hors
+    /// du groupe (ses valeurs sont gardées pour quand il le rejoindra).
+    /// </summary>
     private IEnumerable<CharacterState> KarmaTargets(string who)
     {
-        if (who == "@equipe") return State.Party.ToList();
+        if (who == "@equipe")
+            return State.Party.Concat(SceneCast.Where(id => !IsInParty(id)).Select(id => StateOf(id, create: true)!)).ToList();
         var id = ResolveWho(who);
-        return State.Party.Where(c => c.DefId == id).ToList();
+        return StateOf(id, create: true) is { } c ? [c] : [];
     }
 
     /// <summary>Envers qui : « @equipe » (par défaut, l'équipe entière), « @parle », « @heros » ou un PJ.</summary>
@@ -1063,30 +1098,37 @@ public sealed partial class GameSession
     public bool Recruit(string characterId)
     {
         if (IsInParty(characterId) || !Db.Characters.TryGetValue(characterId, out var def)) return false;
-        var c = new CharacterState
-        {
-            DefId = characterId,
-            WeaponId = ValidItem(def.StartingWeaponId),
-            ArmorId = ValidItem(def.StartingArmorId),
-            RelicId = ValidItem(def.StartingRelicId),
-            IsActive = ActiveParty.Count() < Config.MaxActiveParty,
-            Karma = def.BaseKarma ?? Db.Content.Karma.Default,
-        };
-        InitGauges(c);
-        var stats = GetStats(c);
-        c.CurrentHp = stats.MaxHp;
-        c.CurrentMana = stats.MaxMana;
-        foreach (var gearId in def.StartingGearIds)
-            if (ValidItem(gearId) is { } g && Db.Items[g].Slot is { } gearSlot && c.GetEquipped(gearSlot) is null) c.SetEquipped(gearSlot, g);
-        stats = GetStats(c);
-        c.CurrentHp = stats.MaxHp;
-        c.CurrentMana = stats.MaxMana;
+        // Déjà rencontré hors du groupe (scène, départ) : il revient avec ses valeurs (karma, folie, passifs...).
+        var c = State.Offstage.FirstOrDefault(o => o.DefId == characterId);
+        if (c is not null) State.Offstage.Remove(c);
+        else c = NewCharacterState(def);
+        c.IsActive = ActiveParty.Count() < Config.MaxActiveParty;
         State.Party.Add(c);
         SetFlag($"recruited:{characterId}");
         DiscoverCharacter(characterId);
         foreach (var slot in Enum.GetValues<EquipSlot>())
             if (c.GetEquipped(slot) is { } id) DiscoverItem(id);
         return true;
+    }
+
+    /// <summary>État tout neuf d'un PJ : équipement, karma et jauges de départ, PV et PM pleins.</summary>
+    private CharacterState NewCharacterState(CharacterDef def)
+    {
+        var c = new CharacterState
+        {
+            DefId = def.Id,
+            WeaponId = ValidItem(def.StartingWeaponId),
+            ArmorId = ValidItem(def.StartingArmorId),
+            RelicId = ValidItem(def.StartingRelicId),
+            Karma = def.BaseKarma ?? Db.Content.Karma.Default,
+        };
+        InitGauges(c);
+        foreach (var gearId in def.StartingGearIds)
+            if (ValidItem(gearId) is { } g && Db.Items[g].Slot is { } gearSlot && c.GetEquipped(gearSlot) is null) c.SetEquipped(gearSlot, g);
+        var stats = GetStats(c);
+        c.CurrentHp = stats.MaxHp;
+        c.CurrentMana = stats.MaxMana;
+        return c;
     }
 
     /// <summary>Retire un PJ de l'équipe (ses objets équipés retournent dans le sac). Le dernier PJ reste.</summary>
@@ -1096,6 +1138,7 @@ public sealed partial class GameSession
         if (c is null || State.Party.Count <= 1) return false;
         foreach (var slot in Enum.GetValues<EquipSlot>()) Unequip(c, slot);
         State.Party.Remove(c);
+        State.Offstage.Add(c); // ses valeurs (karma, folie, passifs...) sont gardées s'il revient
         if (!State.Party.Any(p => p.IsActive)) State.Party[0].IsActive = true;
         if (State.HeroId == characterId) State.HeroId = State.Party[0].DefId;
         if (State.SpeakerId == characterId) State.SpeakerId = null;

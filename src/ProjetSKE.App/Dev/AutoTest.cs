@@ -225,6 +225,12 @@ public static class AutoTest
                 cinema.Style = ProjetSKE.Core.Models.DialogueStyle.Cinematic;
                 world!.ShowDialogue(cinema.Id);
             }, 3000);
+            await Step("dialogue : PJ présents dans la scène (hors groupe)", () =>
+            {
+                var scene = testDb.Content.Dialogues.First(d => d.Nodes.Count > 0);
+                scene.ScenePjIds = [.. testDb.Content.Characters.Select(c => c.Id).Take(3)];
+                world!.ShowDialogue(scene.Id);
+            }, 2000);
             await Step("dialogue cinématique : retour au classique", () =>
             {
                 foreach (var d in testDb.Content.Dialogues) d.Style = ProjetSKE.Core.Models.DialogueStyle.Classic;

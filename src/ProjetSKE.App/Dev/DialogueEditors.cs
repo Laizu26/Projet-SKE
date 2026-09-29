@@ -117,6 +117,11 @@ public sealed class DialogueEditor : EditorPage
         f.Note($"Identifiant : {_x.Id} (pour « -> {_x.Id}: » et l'effet « Dialogue : lancer »)");
         f.TextField("Nom (pour s'y retrouver, jamais montré au joueur)", _x.Name, v => _x.Name = v);
         f.TextField("Titre affiché en jeu (facultatif, vide = aucun titre)", _x.DisplayTitle, v => _x.DisplayTitle = v);
+        f.IdList("PJ présents dans la scène (même hors du groupe)", _x.ScenePjIds, DevState.Characters);
+        if (_x.ScenePjIds.Count > 0)
+            f.Note("Pendant ce dialogue, ces PJ sont là même s'ils ne sont pas dans le groupe : ils peuvent parler, comptent comme présents "
+                + "(condition « PJ dans l'équipe »), reçoivent les effets (karma, folie, amitié, passifs...) et leurs visages s'affichent. "
+                + "Leurs valeurs sont gardées pour quand ils rejoindront le groupe.");
         f.RefField("Affichage", _x.Style.ToString(),
             [(nameof(DialogueStyle.Classic), "Classique (boîte en bas, le jeu reste visible)"),
              (nameof(DialogueStyle.Cinematic), "Cinématique (plein écran noir, texte au milieu)")],

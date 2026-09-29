@@ -502,6 +502,11 @@ public sealed class DialogueDef
     public string Name { get; set; } = "";
     /// <summary>Titre montré au joueur en haut du dialogue (vide = aucun titre).</summary>
     public string DisplayTitle { get; set; } = "";
+    /// <summary>
+    /// PJ présents dans la scène, même s'ils ne sont pas dans le groupe : pendant ce dialogue ils peuvent parler,
+    /// comptent comme présents pour les conditions, reçoivent les effets (karma, folie...) et sont affichés.
+    /// </summary>
+    public List<string> ScenePjIds { get; set; } = [];
     /// <summary>Classique (boîte de dialogue sur le jeu) ou cinématique (plein écran noir, texte au milieu).</summary>
     public DialogueStyle Style { get; set; } = DialogueStyle.Classic;
     public List<DialogueNode> Nodes { get; set; } = [];
