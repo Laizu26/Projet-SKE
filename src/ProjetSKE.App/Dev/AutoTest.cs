@@ -229,6 +229,39 @@ public static class AutoTest
                     view.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(1200), () => view.PeekFirstChoice());
             }, 2500);
             await Step("combat avec répliques", () => world!.StartBattle(new[] { testDb.Content.Monsters.Last().Id }), 2500);
+            // Prologue : interface verrouillée puis débloquée, combat limité, fin vers le choix du héros.
+            Core.Data.GameDatabase? prologueDb = null;
+            GamePage? prologue = null;
+            await Step("prologue : lancement", () =>
+            {
+                var pc = Core.Data.ContentSerializer.Clone(testDb.Content);
+                pc.Tutorial.Enabled = true;
+                pc.Tutorial.HeroId = pc.Characters[0].Id;
+                pc.Tutorial.Start.LocationId = pc.Start.LocationId;
+                pc.Tutorial.LockedAtStart = [.. Enum.GetValues<Core.Models.UiFeature>().Where(f => f != Core.Models.UiFeature.TabMap)];
+                prologueDb = new Core.Data.GameDatabase(pc);
+                prologue = new GamePage(GameSession.NewTutorial(prologueDb), -1, playIntro: false);
+                SkeApp.GoTo(prologue);
+            }, 1500);
+            await Step("prologue : débloquer un onglet", () =>
+            {
+                prologue!.Session.Execute(new Core.Models.GameAction(Core.Models.ActionType.UnlockFeature, nameof(Core.Models.UiFeature.TabQuests)));
+                prologue.SwitchTab(GameTab.Quests);
+            });
+            await Step("prologue : fin → choix du héros", () =>
+            {
+                prologue!.Session.Execute(new Core.Models.GameAction(Core.Models.ActionType.EndTutorial));
+                prologue.Render();
+            }, 2000);
+            await Step("prologue : combat (commandes verrouillées)", () =>
+            {
+                var fight = new GamePage(GameSession.NewTutorial(prologueDb!), -1, playIntro: false);
+                SkeApp.GoTo(fight);
+                fight.StartBattle(new[] { testDb.Content.Monsters[0].Id });
+            }, 2000);
+            await Step("éditeur : prologue", () => SkeApp.GoTo(new TutorialEditor()));
+            await Step("retour au monde de test", () => SkeApp.GoTo(world!), 1000);
+
             await Step("combat contre un PNJ", () =>
             {
                 var fighter = testDb.Content.Npcs.FirstOrDefault(n => n.Combat is not null);

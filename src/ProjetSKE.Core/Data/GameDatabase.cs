@@ -191,6 +191,16 @@ public sealed class GameDatabase
             Check(m.Stats.MaxHp > 0, $"{w} : PV à 0");
             CheckLines(m.BattleLines, w);
         }
+        if (Content.Tutorial is { Enabled: true } tuto)
+        {
+            const string w = "Prologue";
+            Ref(Characters, tuto.HeroId, w, "personnage joué");
+            Check(Locations.ContainsKey(tuto.Start.LocationId), $"{w} : aucun lieu de départ");
+            foreach (var id in tuto.Start.Companions) Ref(Characters, id, w, "compagnon");
+            foreach (var s in tuto.Start.Inventory) Ref(Items, s.ItemId, w, "objet");
+            foreach (var d in tuto.Start.IntroDialogues) Check(Dialogues.ContainsKey(d), $"{w} : dialogue « {d} » introuvable");
+            CheckActions(tuto.Start.Actions, w);
+        }
         foreach (var n in Content.Npcs)
         {
             if (n.Combat is not { } c) continue;
@@ -449,6 +459,9 @@ public sealed class GameDatabase
                         break;
                     case ActionType.Teleport: Ref(Locations, a.Arg, w, "lieu"); break;
                     case ActionType.StartDialogue: Check(Dialogues.ContainsKey(a.Arg), $"{w} : dialogue « {a.Arg} » introuvable"); break;
+                    case ActionType.UnlockFeature or ActionType.LockFeature:
+                        Check(Enum.TryParse<UiFeature>(a.Arg, out _), $"{w} : partie de l'interface « {a.Arg} » inconnue");
+                        break;
                     case ActionType.StartQuestPart or ActionType.CompleteQuestPart or ActionType.FailQuestPart:
                         Ref(Quests, a.Arg, w, "quête");
                         if (Quests.TryGetValue(a.Arg, out var apq))

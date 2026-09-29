@@ -212,6 +212,7 @@ public sealed class DevHomePage : ContentPage
         stack.Add(Nav($"Compétences ({c.Skills.Count})", Editors.SkillList));
         stack.Add(Nav($"Lieux et carte ({c.Locations.Count})", Editors.LocationList));
         stack.Add(Nav($"Départs de partie ({1 + c.ExtraStarts.Count})", () => new StartsPage()));
+        stack.Add(Nav("Prologue (tutoriel)" + (c.Tutorial.Enabled ? " · proposé" : " · désactivé"), () => new TutorialEditor()));
         stack.Add(Nav("Équilibrage", () => new BalanceEditor()));
 
         stack.Add(Section("Monde"));

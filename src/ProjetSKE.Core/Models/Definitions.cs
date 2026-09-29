@@ -850,4 +850,26 @@ public sealed class GameContent
     public List<VariableDef> Variables { get; set; } = [];
     public List<PortraitDef> Portraits { get; set; } = [];
     public CampSettings Camp { get; set; } = new();
+    public TutorialSettings Tutorial { get; set; } = new();
+}
+
+/// <summary>
+/// Prologue (tutoriel) : une courte partie jouée avant la sélection des héros, proposée à chaque nouvelle partie.
+/// Tout se règle dans le mode dev : qui on incarne (ou personne), où, les dialogues, et ce qui est verrouillé
+/// au début puis débloqué petit à petit par les effets « Interface : débloquer ». L'effet « Prologue : terminer »
+/// mène à la sélection des héros. Rien du prologue n'est gardé dans la vraie partie.
+/// </summary>
+public sealed class TutorialSettings
+{
+    public bool Enabled { get; set; }
+    public string Name { get; set; } = "Prologue";
+    /// <summary>Texte de la question posée au joueur avant la sélection des héros.</summary>
+    public string Proposal { get; set; } = "Veux-tu jouer le prologue avant de choisir ton héros ?";
+    /// <summary>Personnage joué pendant le prologue (vide = personne : pas d'équipe, donc pas de combat).</summary>
+    public string? HeroId { get; set; }
+    /// <summary>Lieu, or, objets, compagnons, dialogues d'ouverture, effets, date : comme un départ.</summary>
+    public StartSettings Start { get; set; } = new() { Id = "prologue", Name = "Prologue", Gold = 0 };
+    /// <summary>Verrouillé au début du prologue (débloqué ensuite par des effets).</summary>
+    public List<UiFeature> LockedAtStart { get; set; } =
+        [UiFeature.TabCamp, UiFeature.TabQuests, UiFeature.TabEncyclopedia, UiFeature.TabShop, UiFeature.TabJournal, UiFeature.WorldMap, UiFeature.Explore];
 }

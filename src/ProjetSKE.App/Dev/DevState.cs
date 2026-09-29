@@ -187,6 +187,25 @@ public static class DevState
 
     public static IEnumerable<(string Id, string Name)> Skills => Draft.Skills.Select(x => (x.Id, x.Name));
     public static IEnumerable<(string Id, string Name)> Characters => Draft.Characters.Select(x => (x.Id, x.Name));
+    /// <summary>Partie de l'interface qu'on peut verrouiller (prologue).</summary>
+    public static string Name(UiFeature f) => f switch
+    {
+        UiFeature.TabCamp => "Onglet Camp",
+        UiFeature.TabMap => "Onglet Carte",
+        UiFeature.TabQuests => "Onglet Quêtes",
+        UiFeature.TabEncyclopedia => "Onglet Encyclopédie",
+        UiFeature.TabShop => "Onglet Boutique",
+        UiFeature.TabJournal => "Onglet Journal",
+        UiFeature.TabMenu => "Onglet Menu",
+        UiFeature.WorldMap => "Carte du royaume (voyager)",
+        UiFeature.Explore => "Explorer (chercher le combat)",
+        UiFeature.BattleSkills => "Combat : compétences (sinon seulement la première)",
+        UiFeature.BattleItems => "Combat : objets",
+        UiFeature.BattleFlee => "Combat : fuir",
+        UiFeature.BattleDefend => "Combat : se défendre",
+        _ => f.ToString(),
+    };
+
     /// <summary>Lieu qui contient ce lieu dans le brouillon (null = sur la carte du royaume).</summary>
     public static LocationDef? ParentOf(LocationDef loc) =>
         loc.ParentId is { Length: > 0 } p && p != loc.Id ? Draft.Locations.FirstOrDefault(l => l.Id == p) : null;
@@ -302,6 +321,9 @@ public static class DevState
         ActionType.BuildCampBuilding => "Camp : construire un lieu (gratuit)",
         ActionType.SetQuestStage => "Quête : aller à l'étape",
         ActionType.StartDialogue => "Dialogue : lancer",
+        ActionType.UnlockFeature => "Interface : débloquer (onglet, commande...)",
+        ActionType.LockFeature => "Interface : verrouiller",
+        ActionType.EndTutorial => "Prologue : terminer (aller au choix du héros)",
         ActionType.StartQuestPart => "Quête : démarrer une partie",
         ActionType.CompleteQuestPart => "Quête : terminer une partie",
         ActionType.FailQuestPart => "Quête : échouer une partie",

@@ -130,6 +130,11 @@ public sealed class GameState
     /// <summary>Lieux révélés ou cachés par un effet (prioritaires sur leurs conditions de visibilité).</summary>
     public HashSet<string> RevealedLocations { get; set; } = [];
     public HashSet<string> HiddenLocations { get; set; } = [];
+    /// <summary>Partie de prologue (tutoriel) : jamais sauvegardée, finie par l'effet « Prologue : terminer ».</summary>
+    public bool IsTutorial { get; set; }
+    public bool TutorialDone { get; set; }
+    /// <summary>Parties de l'interface verrouillées (onglets, carte du royaume, fuite...).</summary>
+    public HashSet<UiFeature> LockedFeatures { get; set; } = [];
     /// <summary>Choix faits dans les dialogues : « dialogue:réplique:choix ».</summary>
     public HashSet<string> Choices { get; set; } = [];
     public List<CampMemberState> Camp { get; set; } = [];

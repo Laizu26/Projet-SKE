@@ -718,6 +718,60 @@ public sealed class StartEditor : EditorPage
     }
 }
 
+/// <summary>Prologue (tutoriel) : une courte partie avant la sélection des héros, proposée à chaque nouvelle partie.</summary>
+public sealed class TutorialEditor : EditorPage
+{
+    public TutorialEditor() => Render();
+    protected override string PageTitle => "Prologue (tutoriel)";
+    protected override void GoBack() => SkeApp.GoTo(new DevHomePage());
+
+    protected override void Build(Form f)
+    {
+        var t = DevState.Draft.Tutorial;
+        var s = t.Start;
+        f.Note("Une courte partie jouée avant de choisir son héros. À chaque « Nouvelle partie », le joueur peut la jouer ou la passer. "
+            + "Rien n'est gardé ensuite : pas de sauvegarde, la vraie partie commence à la sélection des héros.");
+        f.BoolField("Proposer le prologue", t.Enabled, v => t.Enabled = v, rerender: true);
+        f.TextField("Nom", t.Name, v => t.Name = v);
+        f.TextField("Question posée au joueur", t.Proposal, v => t.Proposal = v, multiline: true);
+
+        f.Header("Qui on incarne");
+        f.RefField("Personnage joué (aucun = personne, pas de combat possible)", t.HeroId, DevState.Characters, v => t.HeroId = v);
+        f.Note("Astuce : un PJ créé exprès (non jouable ensuite) pour un personnage de légende, un esprit, un souvenir...");
+        f.IdList("Compagnons pendant le prologue", s.Companions, DevState.Characters);
+
+        f.Header("Où et comment ça commence");
+        f.RefField("Lieu", s.LocationId, DevState.Locations, v => s.LocationId = v ?? "", allowNone: false);
+        f.RefField("Dialogue d'ouverture", s.IntroDialogueId, DevState.Dialogues, v => s.IntroDialogueId = v);
+        f.IdList("Dialogues suivants (joués à la suite, dans l'ordre)", s.MoreIntroDialogueIds, DevState.Dialogues);
+        f.IntField("Or", s.Gold, v => s.Gold = v);
+        f.ObjectList("Objets", s.Inventory, () => new ItemStack("", 1), (sf, st, _) =>
+        {
+            sf.RefField("Objet", st.ItemId, DevState.Items(), v => st.ItemId = v ?? "", allowNone: false);
+            sf.IntField("Quantité", st.Count, v => st.Count = v);
+        }, "+ Objet");
+        Form.OptionalInt(f, "Jour", s.Day, v => s.Day = v, $"par défaut : {DevState.Draft.Time.StartDay}");
+        Form.OptionalInt(f, "Heure", s.Hour, v => s.Hour = v, $"par défaut : {DevState.Draft.Time.StartHour}");
+        f.Actions("Effets au lancement", s.Actions);
+
+        f.Header("Interface débloquée petit à petit");
+        f.Note("Ce qui est coché est verrouillé au début du prologue. Pour le débloquer ensuite : l'effet « Interface : débloquer » "
+            + "(dans un dialogue, une quête, une victoire...). Le joueur voit « Débloqué : ... ». Pour finir : l'effet « Prologue : terminer ».");
+        foreach (var feature in Enum.GetValues<UiFeature>())
+        {
+            var ft = feature;
+            f.BoolField(DevState.Name(ft), t.LockedAtStart.Contains(ft), v =>
+            {
+                t.LockedAtStart.Remove(ft);
+                if (v) t.LockedAtStart.Add(ft);
+            });
+        }
+
+        f.Header("Essayer");
+        f.Add(Btn("▶ Tester le prologue (partie de test)", () => ProjetSKE.App.Pages.SlotPage.StartTutorial(DevState.DraftDatabase(), -1)));
+    }
+}
+
 public sealed class BalanceEditor : EditorPage
 {
     public BalanceEditor() => Render();

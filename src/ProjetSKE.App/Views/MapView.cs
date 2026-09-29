@@ -35,6 +35,8 @@ public sealed class MapView : ContentView
         _page = page;
         var stack = new VerticalStackLayout { Spacing = 14 };
         stack.Add(Header());
+        // Carte du royaume verrouillée (prologue) : seulement la carte du lieu.
+        if (S.IsLocked(UiFeature.WorldMap)) page.MapShowCountry = false;
         stack.Add(page.MapShowCountry ? BuildWorld() : BuildLocal());
         Content = stack;
     }
@@ -90,15 +92,16 @@ public sealed class MapView : ContentView
         {
             Spacing = 4,
             Padding = new Thickness(8, 8),
-            Children = { Crumb(Ico.Globe, S.Db.Content.World.CountryName, _page.MapShowCountry, () => { _page.MapShowCountry = true; _page.Render(); }) },
         };
+        if (!S.IsLocked(UiFeature.WorldMap))
+            crumbs.Add(Crumb(Ico.Globe, S.Db.Content.World.CountryName, _page.MapShowCountry, () => { _page.MapShowCountry = true; _page.Render(); }));
         // Toucher un lieu qui contient le lieu actuel, c'est en sortir.
         var path = S.Db.PathOf(S.CurrentLocation);
         foreach (var loc in path)
         {
             var here = loc.Id == S.CurrentLocation.Id;
             var id = loc.Id;
-            crumbs.Add(Icon(Ico.ChevronRight, 12, Theme.Stone300));
+            if (crumbs.Children.Count > 0) crumbs.Add(Icon(Ico.ChevronRight, 12, Theme.Stone300));
             crumbs.Add(Crumb(here ? Ico.MapPin : Ico.DoorOpen, loc.Name, here && !_page.MapShowCountry, () =>
             {
                 if (here) { _page.MapShowCountry = false; _page.Render(); }
@@ -283,7 +286,7 @@ public sealed class MapView : ContentView
             var names = string.Join(", ", fb.MonsterIds.Distinct().Where(S.Db.Monsters.ContainsKey).Select(id => S.Db.Monsters[id].Name));
             list.Add(new Building("boss", Ico.Skull, "Danger", names, Theme.Red600, "Affronter", () => _page.StartFixedBattle(fb)));
         }
-        if (loc.RandomEncounters.Count > 0)
+        if (loc.RandomEncounters.Count > 0 && !S.IsLocked(UiFeature.Explore))
         {
             list.Add(new Building("explore", Ico.Swords, "Explorer", "Parcourir les environs à la recherche d'ennemis.", Theme.Stone800, "Chercher le combat", () =>
             {
@@ -365,7 +368,7 @@ public sealed class MapView : ContentView
         if (selected is null)
         {
             var hint = buildings.Count == 0
-                ? $"Rien à faire ici. Passez par la carte de {S.Db.Content.World.CountryName} pour voyager."
+                ? (S.IsLocked(UiFeature.WorldMap) ? "Rien à faire ici pour l'instant." : $"Rien à faire ici. Passez par la carte de {S.Db.Content.World.CountryName} pour voyager.")
                 : "Touchez un bâtiment ou un habitant pour interagir. Touchez une case vide pour y déplacer l'équipe.";
             var list = Stack(Muted(hint, 12));
             foreach (var b in buildings)

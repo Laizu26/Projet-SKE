@@ -85,6 +85,8 @@ public static partial class DialogueScript
         ("dialogue", ActionType.StartDialogue, "a"),
         ("partie", ActionType.StartQuestPart, "ab"), ("finir_partie", ActionType.CompleteQuestPart, "ab"),
         ("echouer_partie", ActionType.FailQuestPart, "ab"), ("echouer", ActionType.FailQuest, "a"),
+        ("debloquer", ActionType.UnlockFeature, "a"), ("verrouiller", ActionType.LockFeature, "a"),
+        ("fin_prologue", ActionType.EndTutorial, ""),
     ];
 
     private static readonly (string Word, ConditionType Type, string Sig)[] ConditionWords =

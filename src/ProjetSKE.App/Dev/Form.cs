@@ -496,6 +496,12 @@ public sealed class Form
             case ActionType.StartQuest or ActionType.CompleteQuest or ActionType.FailQuest:
                 RefField("Quête", a.Arg, DevState.Quests, v => a.Arg = v ?? "", allowNone: false);
                 break;
+            case ActionType.UnlockFeature or ActionType.LockFeature:
+                RefField("Partie de l'interface", a.Arg, Enum.GetValues<UiFeature>().Select(x => (x.ToString(), DevState.Name(x))), v => a.Arg = v ?? "", allowNone: false);
+                break;
+            case ActionType.EndTutorial:
+                Note("Seulement pendant le prologue : quand l'écran est libre (fin du dialogue ou du combat), le joueur arrive au choix de son héros.");
+                break;
             case ActionType.StartDialogue:
                 RefField("Dialogue", a.Arg, DevState.Dialogues, v => a.Arg = v ?? "", allowNone: false);
                 Note("Joué dès que l'écran est libre (après le dialogue ou le combat en cours).");

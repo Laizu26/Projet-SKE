@@ -327,7 +327,9 @@ public sealed class BattleView : ContentView
             case Mode.Skills:
             {
                 var buttons = new List<View>();
-                foreach (var skill in actor.Skills)
+                // Compétences verrouillées (prologue) : seulement la première, l'attaque de base.
+                var skills = _page.Session.IsLocked(UiFeature.BattleSkills) ? actor.Skills.Take(1) : actor.Skills;
+                foreach (var skill in skills)
                 {
                     var details = new List<string>();
                     if (skill.ManaCost > 0) details.Add($"{skill.ManaCost} {_page.T("mp")}");
@@ -381,15 +383,20 @@ public sealed class BattleView : ContentView
                         Text = $"AU TOUR DE {actor.Name.ToUpperInvariant()}", FontSize = 10, FontAttributes = FontAttributes.Bold,
                         CharacterSpacing = 3, TextColor = Theme.Gold500, HorizontalTextAlignment = TextAlignment.Center,
                     },
-                    TileGrid(
-                    [
-                        ActionTile(Ico.Swords, _page.T("battle.attack"), () => SetMode(Mode.Skills)),
-                        ActionTile(Ico.Shield, _page.T("battle.defend"), Defend),
-                        ActionTile(Ico.FlaskConical, _page.T("battle.item"), () => SetMode(Mode.Items)),
-                        ActionTile(Ico.Footprints, fleeText, Flee, _battle.CanFlee),
-                    ], 2));
+                    TileGrid(MainActions(fleeText), 2));
             }
         }
+    }
+
+    /// <summary>Commandes du tour (sans celles verrouillées, ex : pendant le prologue).</summary>
+    private List<View> MainActions(string fleeText)
+    {
+        var s = _page.Session;
+        var actions = new List<View> { ActionTile(Ico.Swords, _page.T("battle.attack"), () => SetMode(Mode.Skills)) };
+        if (!s.IsLocked(UiFeature.BattleDefend)) actions.Add(ActionTile(Ico.Shield, _page.T("battle.defend"), Defend));
+        if (!s.IsLocked(UiFeature.BattleItems)) actions.Add(ActionTile(Ico.FlaskConical, _page.T("battle.item"), () => SetMode(Mode.Items)));
+        if (!s.IsLocked(UiFeature.BattleFlee)) actions.Add(ActionTile(Ico.Footprints, fleeText, Flee, _battle.CanFlee));
+        return actions;
     }
 
     private void SetMode(Mode mode)

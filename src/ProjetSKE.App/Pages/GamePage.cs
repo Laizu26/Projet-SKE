@@ -65,6 +65,8 @@ public sealed class GamePage : ContentPage
     private bool _cracksShown;
     private string? _pendingMessage;
     private bool _saveDisabled;
+    private readonly View _skipTutorial;
+    private bool _tutorialLeft;
 
     public GamePage(GameSession session, int slot, bool playIntro)
     {
@@ -102,7 +104,20 @@ public sealed class GamePage : ContentPage
         };
         header.Add(_avatarHost, 0, 0);
         header.Add(new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center, Children = { _title, _subtitle } }, 1, 0);
-        header.Add(new HorizontalStackLayout { Spacing = 8, VerticalOptions = LayoutOptions.Center, Children = { _testBadge, _clock } }, 2, 0);
+        // Prologue : on peut toujours le passer pour aller choisir son héros.
+        var skip = Btn("Passer ▸", async () =>
+        {
+            if (await DisplayAlertAsync(Session.Db.Content.Tutorial.Name, "Passer la suite et choisir ton héros ?", "Passer", "Continuer"))
+                FinishTutorial(force: true);
+        });
+        skip.FontSize = 10;
+        skip.MinimumHeightRequest = 32;
+        skip.Padding = new Thickness(10, 4);
+        skip.BackgroundColor = Theme.Stone800;
+        skip.BorderColor = Theme.Gold700;
+        skip.TextColor = Theme.Gold500;
+        _skipTutorial = skip;
+        header.Add(new HorizontalStackLayout { Spacing = 8, VerticalOptions = LayoutOptions.Center, Children = { _skipTutorial, _testBadge, _clock } }, 2, 0);
 
         var root = new Grid
         {
@@ -138,7 +153,8 @@ public sealed class GamePage : ContentPage
         if (playIntro)
         {
             // Dialogues d'introduction du départ, à la suite (puis ceux lancés par ses effets).
-            var intros = session.Db.StartById(session.State.StartId).IntroDialogues.Where(session.Db.Dialogues.ContainsKey).ToList();
+            var start = session.State.IsTutorial ? session.Db.Content.Tutorial.Start : session.Db.StartById(session.State.StartId);
+            var intros = start.IntroDialogues.Where(session.Db.Dialogues.ContainsKey).ToList();
             var queued = session.PendingDialogues.ToList();
             session.PendingDialogues.Clear();
             foreach (var id in intros.Skip(1).Concat(queued)) session.PendingDialogues.Enqueue(id);
@@ -229,6 +245,10 @@ public sealed class GamePage : ContentPage
         var loc = Session.CurrentLocation;
         if (Tab == GameTab.Shop && !Session.InCity) Tab = GameTab.Map;
         if (Tab == GameTab.Quests && !Session.Db.Content.World.ShowQuestTab) Tab = GameTab.Map;
+        // Onglet verrouillé (prologue...) : on passe au premier onglet ouvert.
+        if (Session.IsLocked(TabFeature(Tab)) && VisibleTabs().FirstOrDefault() is { Tab: var open }) Tab = open;
+        _skipTutorial.IsVisible = Session.State.IsTutorial;
+        if (Session.State.TutorialDone) Dispatcher.Dispatch(() => FinishTutorial());
         var hero = Session.State.Party.FirstOrDefault(c => c.DefId == Session.State.HeroId) ?? Session.State.Party.FirstOrDefault();
         _avatarHost.Content = hero is null
             ? Emblem(Ico.Shield, 38)
@@ -312,11 +332,42 @@ public sealed class GamePage : ContentPage
         _ => T("title.map"),
     };
 
+    /// <summary>Partie de l'interface qui correspond à un onglet (pour le verrouiller).</summary>
+    public static UiFeature TabFeature(GameTab tab) => tab switch
+    {
+        GameTab.Camp => UiFeature.TabCamp,
+        GameTab.Quests => UiFeature.TabQuests,
+        GameTab.Encyclopedia => UiFeature.TabEncyclopedia,
+        GameTab.Shop => UiFeature.TabShop,
+        GameTab.Journal => UiFeature.TabJournal,
+        GameTab.Menu => UiFeature.TabMenu,
+        _ => UiFeature.TabMap,
+    };
+
+    /// <summary>Onglets affichés : sans ceux cachés par les réglages ni ceux verrouillés.</summary>
+    private (GameTab Tab, string Icon, string Key)[] VisibleTabs() => Tabs
+        .Where(t => t.Tab != GameTab.Quests || Session.Db.Content.World.ShowQuestTab)
+        .Where(t => !Session.IsLocked(TabFeature(t.Tab)))
+        .ToArray();
+
+    /// <summary>
+    /// Fin du prologue (effet « Prologue : terminer », ou « Passer ») : on va choisir son héros.
+    /// On attend que l'écran soit libre (dialogue ou combat en cours, dialogues encore à jouer).
+    /// </summary>
+    private void FinishTutorial(bool force = false)
+    {
+        if (_tutorialLeft || !Session.State.IsTutorial) return;
+        if (!force && (OverlayVisible || _endLayer.IsVisible || Session.PendingDialogues.Count > 0)) return;
+        _tutorialLeft = true;
+        SkeApp.GoTo(new CharacterSelectPage(Slot, Session.Db));
+    }
+
     private void BuildTabBar()
     {
         _tabBar.Children.Clear();
         _tabBar.ColumnDefinitions.Clear();
-        var tabs = Tabs.Where(t => t.Tab != GameTab.Quests || Session.Db.Content.World.ShowQuestTab).ToArray();
+        var tabs = VisibleTabs();
+        _tabBar.IsVisible = tabs.Length > 0;
         for (var i = 0; i < tabs.Length; i++)
         {
             var t = tabs[i];
@@ -359,6 +410,7 @@ public sealed class GamePage : ContentPage
 
     public void SwitchTab(GameTab tab)
     {
+        if (Session.IsLocked(TabFeature(tab))) return;
         // Re-toucher l'onglet du camp ramène autour du feu.
         if (tab == GameTab.Camp && Tab == GameTab.Camp)
         {
@@ -376,7 +428,8 @@ public sealed class GamePage : ContentPage
 
     public void AutoSave()
     {
-        if (!_saveDisabled && !IsTestGame) SkeApp.Saves.Save(Slot, Session.State);
+        // Le prologue n'est jamais sauvegardé (rien n'en est gardé dans la vraie partie).
+        if (!_saveDisabled && !IsTestGame && !Session.State.IsTutorial) SkeApp.Saves.Save(Slot, Session.State);
     }
 
     // ------------------------------------------------------------------ Couches par-dessus (histoire, combat)

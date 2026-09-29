@@ -42,6 +42,22 @@ public enum ActionType
     StartQuestPart, CompleteQuestPart, FailQuestPart,
     // Histoire : jouer un dialogue (depuis une quête, un départ, un combat...)
     StartDialogue,
+    // Interface : débloquer / verrouiller un onglet ou une commande ; finir le prologue
+    UnlockFeature, LockFeature, EndTutorial,
+}
+
+/// <summary>
+/// Parties de l'interface qu'on peut verrouiller puis débloquer petit à petit (prologue, ou n'importe quand).
+/// Les nouveaux éléments sont ajoutés à la fin (sauvegardes).
+/// </summary>
+public enum UiFeature
+{
+    // Onglets
+    TabCamp, TabMap, TabQuests, TabEncyclopedia, TabShop, TabJournal, TabMenu,
+    // Carte
+    WorldMap, Explore,
+    // Combat
+    BattleSkills, BattleItems, BattleFlee, BattleDefend,
 }
 
 /// <summary>Conditions (affichage d'un PNJ, choix de dialogue, accès à un lieu...).</summary>

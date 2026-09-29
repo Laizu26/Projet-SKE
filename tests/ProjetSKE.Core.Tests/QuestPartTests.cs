@@ -407,3 +407,64 @@ public class SubLocationTests
         Assert.Contains(new GameDatabase(content).Validate(), e => e.Contains("boucle"));
     }
 }
+
+public class TutorialTests
+{
+    private static GameDatabase Db(Action<TutorialSettings>? change = null)
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        content.Tutorial.Enabled = true;
+        content.Tutorial.HeroId = "aldric";
+        content.Tutorial.Start.LocationId = "taverne_sanglier";
+        content.Tutorial.Start.Actions = [new(ActionType.SetFlag, "reve")];
+        change?.Invoke(content.Tutorial);
+        var db = new GameDatabase(content);
+        Assert.Empty(db.Validate());
+        return db;
+    }
+
+    [Fact]
+    public void Tutorial_StartsLocked_AndUnlocksStepByStep()
+    {
+        var s = GameSession.NewTutorial(Db(), new Random(1));
+        Assert.True(s.State.IsTutorial);
+        Assert.Equal("taverne_sanglier", s.State.CurrentLocationId);
+        Assert.True(s.HasFlag("reve"));
+        Assert.True(s.IsLocked(UiFeature.WorldMap));
+        Assert.False(s.IsLocked(UiFeature.TabMap));
+
+        s.Execute(new GameAction(ActionType.UnlockFeature, nameof(UiFeature.TabQuests)));
+        Assert.False(s.IsLocked(UiFeature.TabQuests));
+        Assert.Contains(s.Notifications, n => n.Contains("Quêtes"));
+        s.Execute(new GameAction(ActionType.LockFeature, nameof(UiFeature.BattleFlee)));
+        Assert.True(s.IsLocked(UiFeature.BattleFlee));
+
+        Assert.False(s.State.TutorialDone);
+        s.Execute(new GameAction(ActionType.EndTutorial));
+        Assert.True(s.State.TutorialDone);
+    }
+
+    [Fact]
+    public void Tutorial_CanHaveNobody_AndNormalGameIsNotLocked()
+    {
+        var db = Db(t => t.HeroId = null);
+        var s = GameSession.NewTutorial(db, new Random(1));
+        Assert.Empty(s.State.Party);
+
+        var game = GameSession.NewGame(db, "aldric", new Random(1));
+        Assert.False(game.State.IsTutorial);
+        Assert.Empty(game.State.LockedFeatures);
+        game.Execute(new GameAction(ActionType.EndTutorial));
+        Assert.False(game.State.TutorialDone);
+    }
+
+    [Fact]
+    public void Validation_RejectsUnknownInterfacePart()
+    {
+        var db = Db();
+        Assert.Empty(db.Validate());
+        var bad = ContentSerializer.Clone(db.Content);
+        bad.Tutorial.Start.Actions.Add(new(ActionType.UnlockFeature, "rien"));
+        Assert.Contains(new GameDatabase(bad).Validate(), e => e.Contains("interface"));
+    }
+}

@@ -38,9 +38,22 @@ public sealed partial class GameSession
     public static GameSession NewGame(GameDatabase db, string heroId, Random? rng = null) => NewGame(db, heroId, null, rng);
 
     /// <summary>Nouvelle partie avec un départ donné (null = le départ du héros).</summary>
-    public static GameSession NewGame(GameDatabase db, string heroId, string? startId, Random? rng = null)
+    public static GameSession NewGame(GameDatabase db, string heroId, string? startId, Random? rng = null) =>
+        Create(db, heroId, startId is null ? db.StartFor(heroId) : db.StartById(startId), rng);
+
+    /// <summary>Partie de prologue (avant la sélection des héros), selon les réglages du tutoriel.</summary>
+    public static GameSession NewTutorial(GameDatabase db, Random? rng = null)
     {
-        var start = startId is null ? db.StartFor(heroId) : db.StartById(startId);
+        var t = db.Content.Tutorial;
+        var hero = t.HeroId is { Length: > 0 } h && db.Characters.ContainsKey(h) ? h : "";
+        var start = t.Start;
+        if (!db.Locations.ContainsKey(start.LocationId)) start = new StartSettings { LocationId = db.Start.LocationId, Gold = t.Start.Gold };
+        var session = Create(db, hero, start, rng, tutorial: t);
+        return session;
+    }
+
+    private static GameSession Create(GameDatabase db, string heroId, StartSettings start, Random? rng, TutorialSettings? tutorial = null)
+    {
         var time = db.Content.Time;
         var minutes = GameClock.StartMinutes(new TimeSettings
         {
@@ -58,12 +71,18 @@ public sealed partial class GameSession
             Minutes = minutes,
         };
         foreach (var v in db.Content.Variables) state.Variables[v.Id] = v.Initial;
+        if (tutorial is not null)
+        {
+            state.IsTutorial = true;
+            state.LockedFeatures = [.. tutorial.LockedAtStart];
+        }
         var session = new GameSession(db, state, rng);
         foreach (var stack in start.Inventory) session.AddItem(stack.ItemId, stack.Count);
-        session.Recruit(heroId);
+        if (heroId.Length > 0) session.Recruit(heroId);
         foreach (var companion in start.Companions) session.Recruit(companion);
         // Propre au héros joué : ses compagnons de route et sa situation de départ.
-        var heroDef = db.Characters.GetValueOrDefault(heroId);
+        // (pas pendant le prologue : on n'y joue pas encore son héros)
+        var heroDef = tutorial is null ? db.Characters.GetValueOrDefault(heroId) : null;
         foreach (var companion in heroDef?.StartCompanions ?? []) session.Recruit(companion);
         foreach (var npc in db.Content.Npcs.Where(n => n.StartsInCamp)) session.JoinCamp(npc.Id, npc.StartRankId);
         foreach (var r in db.Content.Camp.Resources) state.CampResources[r.Id] = r.Initial;
@@ -356,6 +375,16 @@ public sealed partial class GameSession
                 break;
             case ActionType.StartDialogue:
                 if (Db.Dialogues.ContainsKey(a.Arg)) PendingDialogues.Enqueue(a.Arg);
+                break;
+            case ActionType.UnlockFeature:
+                if (Enum.TryParse<UiFeature>(a.Arg, out var unlock) && State.LockedFeatures.Remove(unlock))
+                    Notifications.Add($"Débloqué : {FeatureName(unlock)}");
+                break;
+            case ActionType.LockFeature:
+                if (Enum.TryParse<UiFeature>(a.Arg, out var locked)) State.LockedFeatures.Add(locked);
+                break;
+            case ActionType.EndTutorial:
+                if (State.IsTutorial) State.TutorialDone = true;
                 break;
             case ActionType.StartQuestPart:
                 StartPart(a.Arg, a.Arg2);
@@ -1128,6 +1157,29 @@ public sealed partial class GameSession
         var id = conditional?.DialogueId ?? npc.DefaultDialogueId;
         return id is not null && Db.Dialogues.ContainsKey(id) ? id : null;
     }
+
+    // ------------------------------------------------------------------ Interface verrouillée (prologue)
+
+    public bool IsLocked(UiFeature feature) => State.LockedFeatures.Contains(feature);
+
+    /// <summary>Nom d'une partie de l'interface, pour le joueur.</summary>
+    public static string FeatureName(UiFeature f) => f switch
+    {
+        UiFeature.TabCamp => "l'onglet Camp",
+        UiFeature.TabMap => "l'onglet Carte",
+        UiFeature.TabQuests => "l'onglet Quêtes",
+        UiFeature.TabEncyclopedia => "l'onglet Encyclopédie",
+        UiFeature.TabShop => "l'onglet Boutique",
+        UiFeature.TabJournal => "l'onglet Journal",
+        UiFeature.TabMenu => "l'onglet Menu",
+        UiFeature.WorldMap => "la carte du royaume",
+        UiFeature.Explore => "l'exploration",
+        UiFeature.BattleSkills => "les compétences en combat",
+        UiFeature.BattleItems => "les objets en combat",
+        UiFeature.BattleFlee => "la fuite en combat",
+        UiFeature.BattleDefend => "la défense en combat",
+        _ => f.ToString(),
+    };
 
     // ------------------------------------------------------------------ Carte et voyage
 

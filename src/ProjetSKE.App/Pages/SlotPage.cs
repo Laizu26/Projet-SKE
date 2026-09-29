@@ -1,4 +1,5 @@
 using ProjetSKE.App.Ui;
+using ProjetSKE.Core.Data;
 using ProjetSKE.Core.State;
 using ProjetSKE.Core.Systems;
 using static ProjetSKE.App.Ui.UiKit;
@@ -70,7 +71,7 @@ public sealed class SlotPage : ContentPage
     private static string Place(GameState state) =>
         SkeApp.Db.Locations.TryGetValue(state.CurrentLocationId, out var loc) ? loc.Name : "?";
 
-    private void PickNew(int slot, bool occupied)
+    private async void PickNew(int slot, bool occupied)
     {
         if (occupied && _confirmOverwrite != slot)
         {
@@ -78,8 +79,19 @@ public sealed class SlotPage : ContentPage
             Render();
             return;
         }
+        // Prologue (tutoriel) : proposé avant la sélection des héros, s'il est activé dans le contenu.
+        var tutorial = SkeApp.Db.Content.Tutorial;
+        if (tutorial.Enabled && await DisplayAlertAsync(tutorial.Name, tutorial.Proposal, "Jouer le prologue", "Passer"))
+        {
+            StartTutorial(SkeApp.Db, slot);
+            return;
+        }
         SkeApp.GoTo(new CharacterSelectPage(slot));
     }
+
+    /// <summary>Lance le prologue ; à la fin (ou en le passant), on arrive à la sélection des héros de cet emplacement.</summary>
+    public static void StartTutorial(GameDatabase db, int slot) =>
+        SkeApp.Open(() => new GamePage(GameSession.NewTutorial(db), slot, playIntro: true), "Prologue");
 
     private static void Load(int slot, GameState state) =>
         SkeApp.Open(() => new GamePage(new GameSession(SkeApp.Db, state), slot, playIntro: false), "Chargement d'une sauvegarde");
