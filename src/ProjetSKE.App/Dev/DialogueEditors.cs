@@ -115,7 +115,8 @@ public sealed class DialogueEditor : EditorPage
     protected override void Build(Form f)
     {
         f.Note($"Identifiant : {_x.Id} (pour « -> {_x.Id}: » et l'effet « Dialogue : lancer »)");
-        f.TextField("Nom (pour s'y retrouver)", _x.Name, v => _x.Name = v);
+        f.TextField("Nom (pour s'y retrouver, jamais montré au joueur)", _x.Name, v => _x.Name = v);
+        f.TextField("Titre affiché en jeu (facultatif, vide = aucun titre)", _x.DisplayTitle, v => _x.DisplayTitle = v);
         f.RefField("Affichage", _x.Style.ToString(),
             [(nameof(DialogueStyle.Classic), "Classique (boîte en bas, le jeu reste visible)"),
              (nameof(DialogueStyle.Cinematic), "Cinématique (plein écran noir, texte au milieu)")],

@@ -447,22 +447,23 @@ public sealed class DialogueView : ContentView
 
     private View TopBar()
     {
-        var chapter = _runner.Dialogue.Name.Length > 0 ? _runner.Dialogue.Name : _session.Db.T("title.narration");
+        // Le nom du dialogue est un nom de travail (éditeur) : seul le « titre affiché en jeu » est montré au joueur.
+        var chapter = _session.FormatText(_runner.Dialogue.DisplayTitle).Trim();
         var bar = new Grid
         {
             Padding = new Thickness(16, 14, 12, 12),
             ColumnSpacing = 8,
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto) },
         };
-        bar.Add(new VerticalStackLayout
+        var titles = new VerticalStackLayout
         {
             Spacing = 1,
-            Children =
-            {
-                IconCaps(Ico.BookOpen, _session.Db.T("title.story"), Theme.Gold500, 9),
-                new Label { Text = chapter.ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 2 },
-            },
-        }, 0, 0);
+            VerticalOptions = LayoutOptions.Center,
+            Children = { IconCaps(Ico.BookOpen, _session.Db.T("title.story"), Theme.Gold500, 9) },
+        };
+        if (chapter.Length > 0)
+            titles.Add(new Label { Text = chapter.ToUpperInvariant(), FontFamily = "serif", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Stone100, CharacterSpacing = 2 });
+        bar.Add(titles, 0, 0);
         bar.Add(DarkPill(Ico.ScrollText, _showHistory ? "Fermer" : "Historique", () => { _showHistory = !_showHistory; Render(); }), 1, 0);
         bar.Add(DarkPill(Ico.SkipForward, "Passer", Skip), 2, 0);
         return bar;

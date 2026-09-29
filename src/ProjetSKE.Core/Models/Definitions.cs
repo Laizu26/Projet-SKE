@@ -493,8 +493,10 @@ public sealed class DialogueNode
 public sealed class DialogueDef
 {
     public string Id { get; set; } = "";
-    /// <summary>Nom lisible dans l'éditeur.</summary>
+    /// <summary>Nom lisible dans l'éditeur (jamais montré au joueur).</summary>
     public string Name { get; set; } = "";
+    /// <summary>Titre montré au joueur en haut du dialogue (vide = aucun titre).</summary>
+    public string DisplayTitle { get; set; } = "";
     /// <summary>Classique (boîte de dialogue sur le jeu) ou cinématique (plein écran noir, texte au milieu).</summary>
     public DialogueStyle Style { get; set; } = DialogueStyle.Classic;
     public List<DialogueNode> Nodes { get; set; } = [];
