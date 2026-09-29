@@ -177,8 +177,8 @@ public sealed class CharacterEditor : EditorPage
                 if (v is { } value) _x.BaseGauges[g.Id] = value; else _x.BaseGauges.Remove(g.Id);
             }, $"par défaut : {g.Default}");
         }
-        Form.OptionalInt(f, "Amitié de départ envers les autres", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
-        Form.OptionalInt(f, "Amour de départ envers les autres", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
+        Form.OptionalInt(f, "Amitié de départ envers le héros (PP)", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
+        Form.OptionalInt(f, "Amour de départ envers le héros (PP)", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
         f.Resistances("Faiblesses et résistances", _x.Resistances);
         f.BattleLines("Répliques de combat", _x.BattleLines);
     }
@@ -210,8 +210,8 @@ public sealed class NpcEditor : EditorPage
             pf.RefField("Lieu", p.LocationId, DevState.Locations, v => p.LocationId = v ?? "", allowNone: false);
             pf.Conditions("Quand", p.Conditions);
         }, "+ Placement");
-        Form.OptionalInt(f, "Amitié de départ envers l'équipe", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
-        Form.OptionalInt(f, "Amour de départ envers l'équipe", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
+        Form.OptionalInt(f, "Amitié de départ envers le héros (PP)", _x.BaseFriendship, v => _x.BaseFriendship = v, $"par défaut : {DevState.Draft.Friendship.Default}");
+        Form.OptionalInt(f, "Amour de départ envers le héros (PP)", _x.BaseLove, v => _x.BaseLove = v, $"par défaut : {DevState.Draft.Love.Default}");
         f.Note("Passifs : comme ceux des PJ (bonus de stats, résistances, effets au début du combat, PV par tour...). "
             + "Ils agissent quand le PNJ se bat, et la condition « A un passif » marche aussi sur lui.");
         f.IdList("Passifs", _x.PassiveIds, DevState.Passives);

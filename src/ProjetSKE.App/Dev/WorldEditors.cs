@@ -158,9 +158,9 @@ public sealed class ScaleEditor : EditorPage
         f.Note(_karma
             ? "Chaque PJ a son propre karma, qui évolue avec les effets « Karma : ajouter ». Les conditions « Karma » font réagir PNJ et dialogues."
             : _love
-            ? "Amour d'un PNJ (ou PJ) envers l'équipe ou envers un PJ précis, à part de l'amitié. Il évolue avec les effets « Amour : ajouter », "
+            ? "Amour d'un PNJ (ou PJ) envers le héros (le PP qu'on joue), ou un PJ précis, à part de l'amitié. Il évolue avec les effets « Amour : ajouter », "
                 + "la condition « Amour » fait réagir dialogues et PNJ, %amour:id% l'affiche. Valeur de départ réglable sur chaque PNJ et PJ."
-            : "Amitié d'un PNJ (ou PJ) envers l'équipe ou envers un PJ précis. Elle évolue avec les effets « Amitié : ajouter ».");
+            : "Amitié d'un PNJ (ou PJ) envers le héros (le PP qu'on joue), ou un PJ précis. Elle évolue avec les effets « Amitié : ajouter ».");
         f.BoolField("Activé", s.Enabled, v => s.Enabled = v);
         f.TextField("Nom affiché", s.Name, v => s.Name = v);
         f.BoolField("Visible par le joueur", s.Visible, v => s.Visible = v);

@@ -119,6 +119,16 @@ public sealed partial class GameSession
             State.Version = GameState.CurrentVersion;
         }
         if (State.SpeakerId is { } sp && !State.Party.Any(c => c.DefId == sp)) State.SpeakerId = null;
+        // Amitié / amour « envers l'équipe » (anciennes parties) : c'est désormais envers le héros.
+        foreach (var relations in new[] { State.Relations, State.Love })
+        {
+            foreach (var key in relations.Keys.Where(k => k.EndsWith(">@equipe", StringComparison.Ordinal)).ToList())
+            {
+                var heroKey = key[..^"@equipe".Length] + State.HeroId;
+                relations.TryAdd(heroKey, relations[key]);
+                relations.Remove(key);
+            }
+        }
         // Jauges ajoutées après le début de la partie : valeur de départ du personnage.
         foreach (var c in State.Party.Concat(State.Offstage)) InitGauges(c);
         State.Camp.RemoveAll(m => !Db.Npcs.ContainsKey(m.Id) && !Db.Characters.ContainsKey(m.Id));
@@ -705,8 +715,11 @@ public sealed partial class GameSession
         return StateOf(id, create: true) is { } c ? [c] : [];
     }
 
-    /// <summary>Envers qui : « @equipe » (par défaut, l'équipe entière), « @parle », « @heros » ou un PJ.</summary>
-    private string ResolveToward(string toward) => toward is "" or "@equipe" ? "@equipe" : ResolveWho(toward);
+    /// <summary>
+    /// Envers qui : par défaut le héros (le PP, celui qu'on joue) ; « @parle » ou un PJ précis sinon.
+    /// « @equipe » (ancien réglage) désigne aussi le héros : on ne joue que lui.
+    /// </summary>
+    private string ResolveToward(string toward) => toward is "" or "@equipe" or "@heros" ? State.HeroId : ResolveWho(toward);
 
     private static string RelationKey(string who, string toward) => $"{who}>{toward}";
 

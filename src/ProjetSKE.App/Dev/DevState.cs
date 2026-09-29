@@ -292,9 +292,9 @@ public static class DevState
         new[] { ("@parle", "Celui qui parle"), ("@heros", "Le héros"), ("@equipe", "Toute l'équipe (au moins un)"), ("@membre", "Celui qui fait la tâche (camp)"), ("@soi", "Le porteur du passif (conditions d'un passif)") }
             .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
 
-    /// <summary>Envers qui (amitié) : l'équipe entière par défaut.</summary>
+    /// <summary>Envers qui (amitié, amour) : le héros (PP) par défaut.</summary>
     public static IEnumerable<(string Id, string Name)> Toward =>
-        new[] { ("@equipe", "L'équipe entière"), ("@parle", "Celui qui parle"), ("@heros", "Le héros") }
+        new[] { ("@heros", "Le héros (PP, celui qu'on joue)"), ("@parle", "Celui qui parle") }
             .Concat(Draft.Characters.Select(x => (x.Id, x.Name)));
 
     public static IEnumerable<(string Id, string Name)> Items(Func<ItemDef, bool>? filter = null) =>

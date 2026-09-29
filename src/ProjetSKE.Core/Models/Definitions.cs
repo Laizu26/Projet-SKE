@@ -426,7 +426,7 @@ public sealed class Condition
     public ConditionType Type { get; set; }
     /// <summary>Identifiant visé (flag, quête, objet, PJ, variable, lieu, nom de période...).</summary>
     public string Arg { get; set; } = "";
-    /// <summary>Second identifiant : pour l'amitié, envers qui (« @equipe », « @parle » ou un PJ).</summary>
+    /// <summary>Second identifiant : pour l'amitié et l'amour, envers qui (vide = le héros ; « @parle » ou un PJ).</summary>
     public string Arg2 { get; set; } = "";
     public int Amount { get; set; } = 1;
     /// <summary>Seconde valeur : heure de fin pour « entre deux heures ».</summary>
