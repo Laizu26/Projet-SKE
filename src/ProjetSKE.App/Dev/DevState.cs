@@ -308,6 +308,7 @@ public static class DevState
         ActionType.TakeGold => "Or : prendre (payer)",
         ActionType.GiveXp => "XP : donner",
         ActionType.StartBattle => "Combat : lancer",
+        ActionType.StartTraining => "Combat d'entraînement (sans risque)",
         ActionType.StartQuest => "Quête : ajouter (démarrer)",
         ActionType.CompleteQuest => "Quête : terminer",
         ActionType.HealParty => "Équipe : soigner",

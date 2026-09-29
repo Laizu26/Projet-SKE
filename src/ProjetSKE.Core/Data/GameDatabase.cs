@@ -581,7 +581,7 @@ public sealed class GameDatabase
                         Check(Content.Camp.Resources.Any(r => r.Id == a.Arg), $"{w} : ressource « {a.Arg} » introuvable"); break;
                     case ActionType.BuildCampBuilding:
                         Check(Content.Camp.Buildings.Any(b => b.Id == a.Arg), $"{w} : lieu du camp « {a.Arg} » introuvable"); break;
-                    case ActionType.StartBattle:
+                    case ActionType.StartBattle or ActionType.StartTraining:
                         foreach (var id in SplitIds(a.Arg)) Ref(Monsters, id, w, "monstre");
                         break;
                 }

@@ -489,7 +489,8 @@ public sealed class GamePage : ContentPage
             AutoSave();
             Render();
             // Un combat lancé par le dialogue passe avant la suite (qui attend la fin du combat).
-            if (runner.PendingBattle is { } monsters) StartBattle(monsters, onEnd: onEnd is null ? null : _ => onEnd());
+            if (runner.PendingBattle is { } monsters && runner.PendingTraining) StartTraining(monsters, onEnd);
+            else if (runner.PendingBattle is { } foes) StartBattle(foes, onEnd: onEnd is null ? null : _ => onEnd());
             else onEnd?.Invoke();
         }));
     }
@@ -539,7 +540,7 @@ public sealed class GamePage : ContentPage
             info.Add(Caps($"PV {m.Stats.MaxHp} · ATQ {m.Stats.Attack} · DEF {m.Stats.Defense}", 8, Night.Stone400));
             var card = Card(IconRow(Emblem(Ico.Swords, 40, Theme.AvatarColor(id)), info), Night.Stone800, Night.Stone700, 12);
             card.Padding = new Thickness(12, 10);
-            list.Add(OnTap(card, () => StartTraining(id)));
+            list.Add(OnTap(card, () => StartTraining([id])));
         }
         var panel = new Border
         {
@@ -570,15 +571,17 @@ public sealed class GamePage : ContentPage
         ShowOverlay(new ScrollView { Content = panel });
     }
 
-    public void StartTraining(string opponentId)
+    /// <summary>Combat d'entraînement (terrain, ou effet d'un dialogue) ; <paramref name="onEnd"/> ensuite.</summary>
+    public void StartTraining(IReadOnlyList<string> opponentIds, Action? onEnd = null)
     {
         HideOverlay();
-        var battle = Session.StartTraining([opponentId]);
+        var battle = Session.StartTraining(opponentIds);
         ShowOverlay(new BattleView(this, battle, () =>
         {
             HideOverlay();
             AutoSave();
             Render();
+            onEnd?.Invoke();
         }));
     }
 

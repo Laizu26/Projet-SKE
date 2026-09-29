@@ -37,6 +37,8 @@ public sealed class DialogueRunner
 
     /// <summary>Monstres à combattre une fois le dialogue terminé (action "combat").</summary>
     public IReadOnlyList<string>? PendingBattle { get; private set; }
+    /// <summary>Le combat demandé est un entraînement (sans risque).</summary>
+    public bool PendingTraining { get; private set; }
 
     internal DialogueRunner(GameSession session, DialogueDef dialogue)
     {
@@ -288,7 +290,11 @@ public sealed class DialogueRunner
     {
         foreach (var action in actions)
         {
-            if (_session.Execute(action) is { } battle) PendingBattle = battle;
+            if (_session.Execute(action) is { } battle)
+            {
+                PendingBattle = battle;
+                PendingTraining = action.Type == ActionType.StartTraining;
+            }
         }
         // Les choix peuvent débloquer un embranchement de quête : on réévalue tout de suite.
         _session.UpdateQuests();

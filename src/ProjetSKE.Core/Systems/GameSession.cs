@@ -304,7 +304,7 @@ public sealed partial class GameSession
             case ActionType.CompleteQuest:
                 CompleteQuest(a.Arg);
                 break;
-            case ActionType.StartBattle:
+            case ActionType.StartBattle or ActionType.StartTraining:
                 var monsters = GameDatabase.SplitIds(a.Arg).Where(Db.Monsters.ContainsKey).ToList();
                 return monsters.Count > 0 ? monsters : null;
             case ActionType.SetVariable:

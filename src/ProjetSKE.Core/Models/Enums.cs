@@ -54,6 +54,8 @@ public enum ActionType
     ShowNpc, HideNpc,
     // Amour : comme l'amitié
     AddLove, SetLove,
+    // Combat d'entraînement (sans risque) lancé par un dialogue
+    StartTraining,
 }
 
 /// <summary>

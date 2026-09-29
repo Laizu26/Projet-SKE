@@ -39,7 +39,7 @@ public static partial class DialogueScript
 
         Actions : [flag x] [sans_flag x] [recrute perso] [depart perso]
         [objet id 2] [prendre id 1] [or 50] [payer 50] [xp 30]
-        [combat loup,loup] [quete id] [finir_quete id] [soin] [teleport lieu]
+        [combat loup,loup] [entrainement garde] [quete id] [finir_quete id] [soin] [teleport lieu]
         [var x 5] [ajoute x 2] [karma 5] [karma -5 @equipe] [fixe_karma 0 perso]
         [amitie pnj 5] [amitie pnj 5 @parle] [fixe_amitie pnj 0] [amour pnj 5 @parle] [fixe_amour pnj 0]
         [jauge folie 10] [jauge folie -5 @heros] [fixe_jauge folie 0 @equipe]
@@ -76,7 +76,7 @@ public static partial class DialogueScript
         ("flag", ActionType.SetFlag, "a"), ("sans_flag", ActionType.ClearFlag, "a"), ("recrute", ActionType.Recruit, "a"),
         ("depart", ActionType.LeaveParty, "a"),
         ("objet", ActionType.GiveItem, "an"), ("prendre", ActionType.TakeItem, "an"), ("or", ActionType.GiveGold, "n"),
-        ("payer", ActionType.TakeGold, "n"), ("xp", ActionType.GiveXp, "n"), ("combat", ActionType.StartBattle, "a"),
+        ("payer", ActionType.TakeGold, "n"), ("xp", ActionType.GiveXp, "n"), ("combat", ActionType.StartBattle, "a"), ("entrainement", ActionType.StartTraining, "a"),
         ("quete", ActionType.StartQuest, "a"), ("finir_quete", ActionType.CompleteQuest, "a"), ("soin", ActionType.HealParty, ""),
         ("teleport", ActionType.Teleport, "a"),
         ("var", ActionType.SetVariable, "an"), ("ajoute", ActionType.AddVariable, "an"),

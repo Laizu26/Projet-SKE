@@ -203,6 +203,11 @@ public static class AutoTest
             var trainingGround = content.Locations.First(l => l.Id == content.Start.LocationId);
             trainingGround.Training = true;
             trainingGround.TrainingOpponentIds = [content.Monsters[0].Id];
+            content.Dialogues.Add(new Core.Models.DialogueDef
+            {
+                Id = "autotest_defi", Name = "Défi (test)",
+                Nodes = [new() { Id = "1", Text = "Un garde te lance un défi amical.", Actions = [new(Core.Models.ActionType.StartTraining, content.Monsters[0].Id)] }],
+            });
             var testDb = new Core.Data.GameDatabase(content);
             GamePage? world = null;
             await Step("partie avec portraits", () =>
@@ -307,7 +312,8 @@ public static class AutoTest
                 world.SwitchTab(GameTab.Map);
                 world.ShowTraining();
             });
-            await Step("entraînement : combat sans risque", () => world!.StartTraining(testDb.Content.Monsters[0].Id), 2000);
+            await Step("entraînement : combat sans risque", () => world!.StartTraining([testDb.Content.Monsters[0].Id]), 2000);
+            await Step("entraînement lancé par un dialogue", () => world!.ShowDialogue("autotest_defi"), 2000);
             await Step("donjon : porte sur la carte du lieu", () =>
             {
                 world!.Session.State.CurrentLocationId = testDb.Content.Start.LocationId;

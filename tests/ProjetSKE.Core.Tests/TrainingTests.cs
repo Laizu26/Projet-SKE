@@ -63,3 +63,27 @@ public class TrainingTests
         Assert.Empty(s.TrainingOpponents);
     }
 }
+
+public class TrainingFromDialogueTests
+{
+    [Fact]
+    public void Dialogue_CanStartATrainingBattle()
+    {
+        var content = ContentSerializer.Clone(GameDatabase.Default.Content);
+        var foe = content.Monsters[0].Id;
+        content.Dialogues.Add(new DialogueDef
+        {
+            Id = "defi", Nodes = [new() { Id = "1", Speaker = "Aldric", Text = "En garde !", Actions = [new(ActionType.StartTraining, foe)] }],
+        });
+        var db = new GameDatabase(content);
+        Assert.Empty(db.Validate());
+        var s = GameSession.NewGame(db, "aldric", new Random(1));
+        var runner = s.StartDialogue("defi")!;
+        Assert.Equal([foe], runner.PendingBattle);
+        Assert.True(runner.PendingTraining);
+
+        var nodes = DialogueScript.Parse($"Aldric: En garde ! [entrainement {foe}]", out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(ActionType.StartTraining, nodes[0].Actions.Single().Type);
+    }
+}

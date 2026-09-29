@@ -542,9 +542,11 @@ public sealed class Form
             case ActionType.Teleport or ActionType.RevealLocation or ActionType.HideLocation:
                 RefField("Lieu", a.Arg, DevState.Locations, v => a.Arg = v ?? "", allowNone: false);
                 break;
-            case ActionType.StartBattle:
+            case ActionType.StartBattle or ActionType.StartTraining:
+                if (a.Type == ActionType.StartTraining)
+                    Note("Sans risque : PV/PM rendus, pas de défaite, XP réduite, ni or ni butin. Il commence à la fin du dialogue.");
                 var ids = a.Arg.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-                IdList("Monstres", ids, DevState.Monsters,
+                IdList(a.Type == ActionType.StartTraining ? "Adversaires d'entraînement" : "Monstres", ids, DevState.Monsters,
                     onAdded: _ => a.Arg = string.Join(",", ids),
                     onRemoved: _ => a.Arg = string.Join(",", ids));
                 break;
