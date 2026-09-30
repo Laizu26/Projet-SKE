@@ -399,6 +399,23 @@ public sealed class Form
                     emptyHint: "Aucun passif : crée-en un dans « Passifs » (menu du mode dev).");
                 RefField("Qui", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.KarmaWho, v => c.Arg = v ?? "", allowNone: false);
                 break;
+            case ConditionType.HasEffect:
+                RefField("Effet", c.Arg2.Length > 0 ? c.Arg2 : null, GameSession.CombatEffects.Select(e => (e.Key, e.Name)), v => c.Arg2 = v ?? "poison", allowNone: false);
+                RefField("Sur qui", c.Arg.Length > 0 ? c.Arg : "@soi", DevState.CombatWho, v => c.Arg = v ?? "", allowNone: false);
+                Note("Seulement pendant un combat (hors combat : jamais vrai). Idéal pour les « dégâts +% » d'un passif.");
+                break;
+            case ConditionType.CompareStats:
+            {
+                var stats = CharacterStats.All.Select(s => (s.Key, s.Name)).ToList();
+                RefField("Stat de", c.Arg2.Length > 0 ? c.Arg2 : null, stats, v => c.Arg2 = v ?? "niveau", allowNone: false);
+                RefField("Chez", c.Arg.Length > 0 ? c.Arg : "@cible", DevState.CombatWho, v => c.Arg = v ?? "", allowNone: false);
+                EnumField("Comparée", c.Op, v => c.Op = v, DevState.Name);
+                RefField("À la stat", (c.OtherStat.Length > 0 ? c.OtherStat : c.Arg2) is { Length: > 0 } os ? os : null, stats, v => c.OtherStat = v ?? "", allowNone: false);
+                RefField("De", c.Other.Length > 0 ? c.Other : "@soi", DevState.CombatWho, v => c.Other = v ?? "", allowNone: false);
+                IntField("Plus un écart de (ex : 5 = « 5 niveaux de plus »)", c.Amount, v => c.Amount = v);
+                Note("Ex : Niveau · chez son adversaire · ≥ · niveau · de moi · +5 = l'adversaire a au moins 5 niveaux de plus.");
+                break;
+            }
             case ConditionType.Stat:
                 RefField("Stat", c.Arg2.Length > 0 ? c.Arg2 : null, CharacterStats.All.Select(s => (s.Key, s.Name)), v => c.Arg2 = v ?? "pv", allowNone: false);
                 RefField("De qui (« toute l'équipe » = au moins un)", c.Arg.Length > 0 ? c.Arg : "@parle", DevState.StatWho, v => c.Arg = v ?? "", allowNone: false);

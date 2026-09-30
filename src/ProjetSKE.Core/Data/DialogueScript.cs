@@ -58,6 +58,8 @@ public static partial class DialogueScript
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
         {stat pv% < 30 @parle} {stat atq >= 20 @heros} {stat niveau >= 5 @equipe}
+        {effet poison @soi} {effet bouclier @cible}  (en combat : @soi, @cible)
+        {compare niveau @cible >= niveau @soi +5} {compare pv% @soi < pv% @cible}
         {amitie pnj >= 30} {amitie pnj > 50 @parle} {amour pnj >= 50 @parle} {taille_equipe >= 2}
         {jauge folie >= 50} {jauge folie < 20 @heros} {passif transe @heros}
         {parle perso} {etre perso} {choisi dialogue replique:2} (2 = 2e choix, ou son #identifiant) {heure 20 6} {jour >= 3} {periode Nuit} {jour_semaine Lundi}
@@ -111,7 +113,7 @@ public static partial class DialogueScript
         ("or", ConditionType.GoldAtLeast, "n"), ("niveau", ConditionType.LevelAtLeast, "n"),
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
-        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("stat", ConditionType.Stat, "boa"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
+        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("stat", ConditionType.Stat, "boa"), ("effet", ConditionType.HasEffect, "ba"), ("compare", ConditionType.CompareStats, "q"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"), ("evenement", ConditionType.EventActive, "a"), ("donjon_fini", ConditionType.DungeonDone, "a"),
@@ -490,6 +492,19 @@ public static partial class DialogueScript
             : candidates[0];
 
         var condition = new Condition(word.Type) { Negate = negate };
+        if (word.Sig == "q")
+        {
+            // « compare niveau @cible >= niveau @soi +5 » : stat et personnage, opérateur, stat et personnage, écart.
+            condition.Arg2 = parts.ElementAtOrDefault(1) ?? "";
+            condition.Arg = parts.ElementAtOrDefault(2) ?? "";
+            var op = parts.ElementAtOrDefault(3);
+            if (IsOperator(op)) condition.Op = Operators.First(o => o.Symbol == op).Op;
+            else errors.Add($"Ligne {line} : comparaison attendue (>=, <...) au lieu de « {op} »");
+            condition.OtherStat = parts.ElementAtOrDefault(4) ?? "";
+            condition.Other = parts.ElementAtOrDefault(5) ?? "";
+            condition.Amount = parts.ElementAtOrDefault(6) is { } gap ? ParseInt(gap.TrimStart('+'), 0, line, errors) : 0;
+            return condition;
+        }
         var i = 1;
         foreach (var field in word.Sig)
         {
@@ -664,6 +679,14 @@ public static partial class DialogueScript
     {
         if (c.Type is ConditionType.AnyOf or ConditionType.AllOf) return WriteCondition(c);
         var word = ConditionWords.First(w => w.Type == c.Type);
+        if (word.Sig == "q")
+        {
+            var op = Operators.First(o => o.Op == c.Op).Symbol;
+            var gap = c.Amount == 0 ? "" : c.Amount > 0 ? $" +{c.Amount}" : $" {c.Amount}";
+            var other = c.Other.Length > 0 ? c.Other : "@soi";
+            var otherStat = c.OtherStat.Length > 0 ? c.OtherStat : c.Arg2;
+            return $"{(c.Negate ? "!" : "")}compare {c.Arg2} {c.Arg} {op} {otherStat} {other}{gap}";
+        }
         var tokens = new List<string>();
         foreach (var field in word.Sig)
         {

@@ -138,6 +138,13 @@ public sealed class PassiveDef
     /// <summary>Bonus d'XP et d'or gagnés en combat, en % (cumulés sur l'équipe).</summary>
     public int XpPercent { get; set; }
     public int GoldPercent { get; set; }
+    /// <summary>
+    /// Dégâts infligés en plus (en %, négatif = en moins). Vérifié à chaque coup : ses conditions peuvent porter sur
+    /// le combat en cours (« @soi » empoisonné, PV de « @cible », niveau de l'adversaire comparé au sien...).
+    /// </summary>
+    public int DamagePercent { get; set; }
+    /// <summary>Dégâts reçus en plus (en %, négatif = réduits). Vérifié à chaque coup reçu (« @cible » = l'attaquant).</summary>
+    public int DamageTakenPercent { get; set; }
     /// <summary>Dialogue joué quand le passif se met à agir sur un PJ du groupe (obtenu, ou ses conditions deviennent vraies).</summary>
     public string? ActivationDialogueId { get; set; }
     /// <summary>Dialogue joué quand il cesse d'agir (conditions plus remplies, ou passif perdu).</summary>
@@ -246,6 +253,8 @@ public sealed class MonsterDef
     public string Description { get; set; } = "";
     public StatBlock Stats { get; set; } = new();
     public List<string> SkillIds { get; set; } = [];
+    /// <summary>Niveau (comparé à celui des PJ par la condition « Comparer deux stats »).</summary>
+    public int Level { get; set; } = 1;
     public int Xp { get; set; }
     public int Gold { get; set; }
     public List<ItemDrop> Drops { get; set; } = [];
@@ -373,6 +382,8 @@ public sealed class NpcCombat
 {
     public StatBlock Stats { get; set; } = new();
     public List<string> SkillIds { get; set; } = [];
+    /// <summary>Niveau (comparé à celui des PJ par la condition « Comparer deux stats »).</summary>
+    public int Level { get; set; } = 1;
     public int Xp { get; set; }
     public int Gold { get; set; }
     public List<ItemDrop> Drops { get; set; } = [];
@@ -396,7 +407,7 @@ public sealed class NpcCombat
     public MonsterDef AsMonster(NpcDef npc) => new()
     {
         Id = npc.Id, Name = npc.Name, Description = npc.Description, PortraitId = npc.PortraitId,
-        Stats = Stats, SkillIds = SkillIds, Xp = Xp, Gold = Gold, Drops = Drops, IsBoss = IsBoss,
+        Stats = Stats, SkillIds = SkillIds, Xp = Xp, Gold = Gold, Drops = Drops, IsBoss = IsBoss, Level = Level,
         BattleLines = BattleLines, Resistances = Resistances, PassiveIds = npc.PassiveIds,
     };
 }
@@ -436,6 +447,9 @@ public sealed class Condition
     public bool Negate { get; set; }
     /// <summary>Sous-conditions des groupes « au moins une de » et « toutes ».</summary>
     public List<Condition>? Children { get; set; }
+    /// <summary>« Comparer deux stats » : le second personnage (ex : « @soi ») et sa stat (vide = la même).</summary>
+    public string Other { get; set; } = "";
+    public string OtherStat { get; set; } = "";
 
     public Condition() { }
     public Condition(ConditionType type, string arg = "", int amount = 1) { Type = type; Arg = arg; Amount = amount; }

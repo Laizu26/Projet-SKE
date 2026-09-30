@@ -200,8 +200,9 @@ public sealed partial class GameSession
         ConditionType.Variable => Compare(GetVariable(c.Arg), c.Op, c.Amount),
         ConditionType.Karma => Compare(GetKarma(c.Arg), c.Op, c.Amount),
         ConditionType.Gauge => Compare(GetGauge(c.Arg, c.Arg2), c.Op, c.Amount),
-        // « @equipe » : au moins un membre ; sinon le PJ visé (celui qui parle par défaut).
-        ConditionType.Stat => ConditionTargets(c.Arg).Any(p => Compare(CharacterStats.Value(this, p, c.Arg2), c.Op, c.Amount)),
+        ConditionType.Stat => StatCondition(c),
+        ConditionType.HasEffect => HasEffectCondition(c),
+        ConditionType.CompareStats => CompareStatsCondition(c),
         ConditionType.HasPassive => HasActivePassive(c.Arg, c.Arg2),
         ConditionType.HasPower => Db.Powers.TryGetValue(c.Arg2, out var pw) && ConditionTargets(c.Arg).Any(p => PowersOf(p).Contains(pw)),
         ConditionType.Friendship => Compare(GetFriendship(c.Arg, c.Arg2), c.Op, c.Amount),
@@ -1277,6 +1278,8 @@ public sealed partial class GameSession
     /// <summary>Bonus d'XP / d'or en % des passifs actifs de l'équipe (cumulés).</summary>
     public int PartyPassivePercent(Func<PassiveDef, int> pick) => ActiveParty.Sum(c => ActivePassives(c).Sum(pick));
 
+    private readonly HashSet<string> _computingStats = [];
+
     public StatBlock GetStats(CharacterState c)
     {
         var def = DefOf(c);
@@ -1286,8 +1289,11 @@ public sealed partial class GameSession
             if (c.GetEquipped(slot) is { } itemId && Db.Items.TryGetValue(itemId, out var item))
                 stats += item.Bonus;
         }
-        // Passifs : bonus fixes, puis en % du total.
-        return WithPassives(stats, ActivePassives(c));
+        // Passifs : bonus fixes, puis en % du total. Une condition de passif qui regarde les stats de ce même PJ
+        // (« ATQ de @soi ≥ 20 ») les voit sans les passifs : sinon le calcul tournerait en rond.
+        if (!_computingStats.Add(c.DefId)) return stats;
+        try { return WithPassives(stats, ActivePassives(c)); }
+        finally { _computingStats.Remove(c.DefId); }
     }
 
     /// <summary>Compétences connues : celles de sa fiche, puis celles de ses pouvoirs (chacune à son niveau).</summary>

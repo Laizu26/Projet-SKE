@@ -134,6 +134,10 @@ public enum ConditionType
     DungeonDone,
     // Stat d'un personnage (PV, PM, ATQ, niveau...)
     Stat,
+    // Combat : a un effet en cours (empoisonné, étourdi, bouclier...)
+    HasEffect,
+    // Comparer la stat de deux personnages (« l'adversaire a 5 niveaux de plus que moi »)
+    CompareStats,
 }
 
 /// <summary>Type d'étape d'un donjon.</summary>

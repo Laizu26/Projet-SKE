@@ -20,6 +20,13 @@ public static class CharacterStats
     /// <summary>Valeur d'une stat pour un personnage (bonus d'équipement et passifs compris).</summary>
     public static int Value(GameSession s, CharacterState c, string key)
     {
+        // PV, PM et niveau : pas besoin des stats (évite de recalculer les passifs).
+        switch (key)
+        {
+            case "pv": return c.CurrentHp;
+            case "pm": return c.CurrentMana;
+            case "niveau": return c.Level;
+        }
         var stats = s.GetStats(c);
         return key switch
         {

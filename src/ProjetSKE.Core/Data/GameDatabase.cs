@@ -497,6 +497,13 @@ public sealed class GameDatabase
                         Check(Passives.ContainsKey(c.Arg2), $"{w} : passif « {c.Arg2} » introuvable");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
                         break;
+                    case ConditionType.HasEffect:
+                        Check(Systems.GameSession.CombatEffects.Any(e => e.Key == c.Arg2), $"{w} : effet « {c.Arg2} » inconnu");
+                        break;
+                    case ConditionType.CompareStats:
+                        Check(Systems.CharacterStats.IsKnown(c.Arg2), $"{w} : stat « {c.Arg2} » inconnue");
+                        Check(c.OtherStat.Length == 0 || Systems.CharacterStats.IsKnown(c.OtherStat), $"{w} : stat « {c.OtherStat} » inconnue");
+                        break;
                     case ConditionType.Stat:
                         Check(Systems.CharacterStats.IsKnown(c.Arg2), $"{w} : stat « {c.Arg2} » inconnue");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");

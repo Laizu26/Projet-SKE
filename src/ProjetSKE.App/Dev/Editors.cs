@@ -249,6 +249,7 @@ public sealed class NpcEditor : EditorPage
             + $"ou il attaque de lui-même (ci-dessous). Une fois vaincu, le flag « {GameSession.NpcBeatenFlag(_x.Id)} » est posé.");
         f.BoolField("Boss (fuite impossible)", c.IsBoss, v => c.IsBoss = v);
         f.StatsField("Stats", c.Stats);
+        f.IntField("Niveau (comparé à celui des PJ)", c.Level, v => c.Level = Math.Max(1, v));
         f.IntField("XP donnée", c.Xp, v => c.Xp = v);
         f.IntField("Or donné", c.Gold, v => c.Gold = v);
         f.IdList("Compétences (choisies au hasard en combat)", c.SkillIds, DevState.Skills);
@@ -487,6 +488,7 @@ public sealed class MonsterEditor : EditorPage
         f.BoolField("Boss (fuite impossible)", _x.IsBoss, v => _x.IsBoss = v);
         f.RefField("Portrait (banque d'images)", _x.PortraitId, DevState.Portraits, v => _x.PortraitId = v);
         f.StatsField("Stats", _x.Stats);
+        f.IntField("Niveau (comparé à celui des PJ)", _x.Level, v => _x.Level = Math.Max(1, v));
         f.IntField("XP donnée", _x.Xp, v => _x.Xp = v);
         f.IntField("Or donné", _x.Gold, v => _x.Gold = v);
         f.IdList("Compétences (choisies au hasard en combat)", _x.SkillIds, DevState.Skills);
@@ -548,6 +550,13 @@ public sealed class PassiveEditor : EditorPage
                 }, e.Amount, v => e.Amount = v);
             if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
         }, "+ Effet");
+
+        f.Header("Dégâts (vérifiés à chaque coup)");
+        f.Note("Ici les conditions peuvent porter sur le combat en cours : « @soi » = le porteur, « @cible » = son adversaire à ce coup. "
+            + "Ex : « A un effet : Empoisonné (@soi) » → dégâts +30 % ; « Comparer : niveau de @cible ≥ niveau de @soi + 5 » → dégâts +20 %. "
+            + "Les bonus de stats plus haut sont, eux, vérifiés au début du combat.");
+        f.IntField("Dégâts infligés (+%, négatif = moins)", _x.DamagePercent, v => _x.DamagePercent = v);
+        f.IntField("Dégâts reçus (+%, négatif = réduits)", _x.DamageTakenPercent, v => _x.DamageTakenPercent = v);
 
         f.Header("Récompenses");
         f.IntField("Bonus d'XP en combat (%)", _x.XpPercent, v => _x.XpPercent = v);

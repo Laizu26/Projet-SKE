@@ -413,6 +413,15 @@ public static class AutoTest
             if (DevState.Draft.Passives.Count > 0)
                 await Step("éditeur : passif", () => SkeApp.GoTo(new PassiveEditor(DevState.Draft.Passives[^1])));
             if (DevState.Draft.Passives.Count > 0)
+                await Step("éditeur : passif de combat (empoisonné, adversaire plus fort)", () =>
+                {
+                    var p = DevState.Draft.Passives[^1];
+                    p.DamagePercent = 30;
+                    p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.HasEffect, "@soi") { Arg2 = "poison" });
+                    p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.CompareStats, "@cible", 5) { Arg2 = "niveau", Other = "@soi" });
+                    SkeApp.GoTo(new PassiveEditor(p));
+                });
+            if (DevState.Draft.Passives.Count > 0)
                 await Step("éditeur : condition « Stat » (PV sous 30 %)", () =>
                 {
                     var p = DevState.Draft.Passives[^1];

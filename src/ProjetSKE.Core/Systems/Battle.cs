@@ -34,6 +34,11 @@ public sealed class Combatant
     public IReadOnlyList<ElementModifier> Resistances { get; init; } = [];
     /// <summary>Passifs qui agissent pendant ce combat (personnages de l'équipe).</summary>
     public IReadOnlyList<PassiveDef> Passives { get; init; } = [];
+    /// <summary>Tous ses passifs, même ceux dont les conditions ne passaient pas au début (bonus de dégâts, vérifiés à chaque coup).</summary>
+    public IReadOnlyList<PassiveDef> AllPassives { get; init; } = [];
+    /// <summary>Identifiant du PJ, du monstre ou du PNJ.</summary>
+    public string Id => Character?.DefId ?? Monster?.Id ?? Name;
+    public int Level => Character?.Level ?? Monster?.Level ?? 1;
     public List<ActiveEffect> Effects { get; } = [];
     /// <summary>Tours restants avant de pouvoir réutiliser une compétence (id → tours).</summary>
     public Dictionary<string, int> Cooldowns { get; } = [];
@@ -149,6 +154,7 @@ public sealed class Battle
                 // Les résistances des passifs passent avant celles de la fiche (la première trouvée compte).
                 Resistances = [.. passives.SelectMany(p => p.Resistances), .. def.Resistances],
                 Passives = passives,
+                AllPassives = session.PassivesOf(c),
             };
         }).ToList();
 
@@ -175,6 +181,7 @@ public sealed class Battle
                 Lines = def.BattleLines,
                 Resistances = [.. passives.SelectMany(p => p.Resistances), .. def.Resistances],
                 Passives = passives,
+                AllPassives = def.PassiveIds.Where(session.Db.Passives.ContainsKey).Select(id => session.Db.Passives[id]).ToList(),
             });
         }
         Enemies = enemies;
@@ -479,6 +486,8 @@ public sealed class Battle
                             raw *= skill.CritMultiplier;
                             notes.Add("critique");
                         }
+                        // Passifs « dégâts +% » de l'attaquant et « dégâts reçus +% » de la cible, vérifiés à ce coup-ci.
+                        raw *= _session.PassiveDamageFactor(this, actor, t);
                         var damage = (int)Math.Round(raw * Variance() * factor * (t.Defending ? 0.5 : 1));
                         if (factor < 0)
                         {
