@@ -255,7 +255,7 @@ public sealed class GamePage : ContentPage
         var hero = Session.State.Party.FirstOrDefault(c => c.DefId == Session.State.HeroId) ?? Session.State.Party.FirstOrDefault();
         _avatarHost.Content = hero is null
             ? Emblem(Ico.Shield, 38)
-            : Avatar(Session.DefOf(hero).Name, Theme.Gold600, 38);
+            : CampPeople.Face(this, hero.DefId, Session.DefOf(hero).Name, 38, Theme.Gold600);
         _title.Text = loc.Name;
         _subtitle.Text = $"{Session.LocationTypeLabel(loc.Type)} · {TabTitle(Tab)}".ToUpperInvariant();
         _testBadge.IsVisible = IsTestGame;

@@ -47,7 +47,7 @@ public sealed class SlotPage : ContentPage
                 info.Add(Muted($"Sauvegardé le {state.SavedAt:dd/MM/yyyy à HH:mm}", 11));
             }
 
-            View icon = hero is { } h ? Avatar(h.Name, Theme.AvatarColor(h.Id), 56) : IconBox(Ico.BookOpen, Theme.Stone400, 56);
+            View icon = hero is { } h ? Views.CampPeople.Face(SkeApp.Db, h.Id, h.Name, 56, Theme.AvatarColor(h.Id)) : IconBox(Ico.BookOpen, Theme.Stone400, 56);
             View action = _newGame
                 ? Btn(_confirmOverwrite == slot ? "Écraser ?" : "Choisir", () => PickNew(s, state is not null), selected: _confirmOverwrite == slot)
                 : Btn("Charger", () => Load(s, state!), enabled: state is not null);

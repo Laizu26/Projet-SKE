@@ -455,7 +455,7 @@ public sealed class CampView : ContentView
             Spacing = 8,
             Children =
             {
-                Avatar(def.Name, Theme.AvatarColor(def.Id), 88),
+                CampPeople.Face(_page, def.Id, def.Name, 88, Theme.AvatarColor(def.Id)),
                 new Label
                 {
                     Text = def.Name.ToUpperInvariant(), FontFamily = "serif", FontSize = 24, FontAttributes = FontAttributes.Bold,

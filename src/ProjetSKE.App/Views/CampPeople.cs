@@ -160,9 +160,11 @@ public static class CampPeople
     }
 
     /// <summary>Portrait (banque d'images) si le PNJ/PJ en a un, sinon pastille avec l'initiale.</summary>
-    public static View Face(GamePage page, string id, string name, double size, Color color)
+    public static View Face(GamePage page, string id, string name, double size, Color color) => Face(page.Session.Db, id, name, size, color);
+
+    /// <summary>Portrait rond du personnage (banque d'images), sinon son initiale.</summary>
+    public static View Face(Core.Data.GameDatabase db, string id, string name, double size, Color color)
     {
-        var db = page.Session.Db;
         var portraitId = db.Npcs.TryGetValue(id, out var npc) ? npc.PortraitId : db.Characters.TryGetValue(id, out var pc) ? pc.PortraitId : null;
         if (portraitId is not null && db.Portraits.TryGetValue(portraitId, out var portrait))
         {
@@ -170,6 +172,8 @@ public static class CampPeople
             {
                 WidthRequest = size,
                 HeightRequest = size,
+                HorizontalOptions = LayoutOptions.Center,
+                VerticalOptions = LayoutOptions.Center,
                 StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = size / 2 },
                 Stroke = color,
                 StrokeThickness = 2,
