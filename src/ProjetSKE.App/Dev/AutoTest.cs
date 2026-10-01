@@ -417,6 +417,10 @@ public static class AutoTest
                 {
                     var p = DevState.Draft.Passives[^1];
                     p.DamagePercent = 30;
+                    p.Triggers.Add(new Core.Models.PassiveTrigger
+                    {
+                        Effects = [new Core.Models.SkillEffect { Type = Core.Models.EffectType.Shield, Amount = 30, Turns = 3 }],
+                    });
                     p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.HasEffect, "@soi") { Arg2 = "poison" });
                     p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.CompareStats, "@cible", 5) { Arg2 = "niveau", Other = "@soi" });
                     SkeApp.GoTo(new PassiveEditor(p));

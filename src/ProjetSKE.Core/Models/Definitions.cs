@@ -145,12 +145,30 @@ public sealed class PassiveDef
     public int DamagePercent { get; set; }
     /// <summary>Dégâts reçus en plus (en %, négatif = réduits). Vérifié à chaque coup reçu (« @cible » = l'attaquant).</summary>
     public int DamageTakenPercent { get; set; }
+    /// <summary>
+    /// Déclencheurs en combat : quand un allié (ou le porteur, ou un ennemi) passe sous un seuil de PV, ou au début de
+    /// chaque tour du porteur, des effets sont posés (bouclier sur l'allié en danger, soin, bonus...).
+    /// </summary>
+    public List<PassiveTrigger> Triggers { get; set; } = [];
     /// <summary>Dialogue joué quand le passif se met à agir sur un PJ du groupe (obtenu, ou ses conditions deviennent vraies).</summary>
     public string? ActivationDialogueId { get; set; }
     /// <summary>Dialogue joué quand il cesse d'agir (conditions plus remplies, ou passif perdu).</summary>
     public string? DeactivationDialogueId { get; set; }
     /// <summary>Le dialogue d'activation n'est joué qu'une fois par PJ (sinon à chaque fois).</summary>
     public bool ActivationOnce { get; set; }
+}
+
+/// <summary>Déclencheur d'un passif en combat (ex : bouclier sur un allié qui passe sous 30 % de PV).</summary>
+public sealed class PassiveTrigger
+{
+    public PassiveTriggerWhen When { get; set; } = PassiveTriggerWhen.AllyHpBelow;
+    /// <summary>Seuil de PV en % (« sous 30 % »).</summary>
+    public int Threshold { get; set; } = 30;
+    /// <summary>Qui reçoit les effets : le personnage concerné (l'allié en danger...), le porteur, tous les alliés, tous les ennemis.</summary>
+    public PassiveTriggerTarget Target { get; set; } = PassiveTriggerTarget.Concerned;
+    public List<SkillEffect> Effects { get; set; } = [];
+    /// <summary>Une seule fois par combat (et par personnage concerné) ; sinon à chaque fois qu'il repasse sous le seuil.</summary>
+    public bool OncePerBattle { get; set; } = true;
 }
 
 /// <summary>Passif d'un personnage, obtenu à un niveau.</summary>

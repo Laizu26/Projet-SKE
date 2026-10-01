@@ -22,7 +22,9 @@ public sealed class Combatant
     public bool IsAlly { get; init; }
     public CharacterState? Character { get; init; }
     public MonsterDef? Monster { get; init; }
-    public required StatBlock Stats { get; init; }
+    public required StatBlock Stats { get; set; }
+    /// <summary>Stats sans les passifs (équipement compris) : base du recalcul quand un passif s'active ou s'arrête.</summary>
+    public StatBlock? RawStats { get; init; }
     public required IReadOnlyList<SkillDef> Skills { get; init; }
     public int Hp { get; set; }
     public int Mana { get; set; }
@@ -31,9 +33,11 @@ public sealed class Combatant
     /// <summary>Répliques de combat de ce participant.</summary>
     public IReadOnlyList<BattleLine> Lines { get; init; } = [];
     /// <summary>Faiblesses et résistances aux éléments.</summary>
-    public IReadOnlyList<ElementModifier> Resistances { get; init; } = [];
+    public IReadOnlyList<ElementModifier> Resistances { get; set; } = [];
+    /// <summary>Résistances de sa fiche (sans les passifs).</summary>
+    public IReadOnlyList<ElementModifier> BaseResistances { get; init; } = [];
     /// <summary>Passifs qui agissent pendant ce combat (personnages de l'équipe).</summary>
-    public IReadOnlyList<PassiveDef> Passives { get; init; } = [];
+    public IReadOnlyList<PassiveDef> Passives { get; set; } = [];
     /// <summary>Tous ses passifs, même ceux dont les conditions ne passaient pas au début (bonus de dégâts, vérifiés à chaque coup).</summary>
     public IReadOnlyList<PassiveDef> AllPassives { get; init; } = [];
     /// <summary>Identifiant du PJ, du monstre ou du PNJ.</summary>
@@ -153,6 +157,8 @@ public sealed class Battle
                 Lines = def.BattleLines,
                 // Les résistances des passifs passent avant celles de la fiche (la première trouvée compte).
                 Resistances = [.. passives.SelectMany(p => p.Resistances), .. def.Resistances],
+                BaseResistances = def.Resistances,
+                RawStats = session.StatsWithoutPassives(c),
                 Passives = passives,
                 AllPassives = session.PassivesOf(c),
             };
@@ -180,6 +186,8 @@ public sealed class Battle
                 Mana = stats.MaxMana,
                 Lines = def.BattleLines,
                 Resistances = [.. passives.SelectMany(p => p.Resistances), .. def.Resistances],
+                BaseResistances = def.Resistances,
+                RawStats = def.Stats,
                 Passives = passives,
                 AllPassives = def.PassiveIds.Where(session.Db.Passives.ContainsKey).Select(id => session.Db.Passives[id]).ToList(),
             });
@@ -336,6 +344,8 @@ public sealed class Battle
     {
         foreach (var key in c.Cooldowns.Keys.ToList())
             if (--c.Cooldowns[key] <= 0) c.Cooldowns.Remove(key);
+        RefreshPassives();
+        TurnStartTriggers(c);
 
         // Passifs : PV / PM rendus (ou perdus) à chaque tour du porteur.
         foreach (var p in c.Passives.Where(p => p.HpPerTurn != 0 || p.ManaPerTurn != 0))
@@ -575,9 +585,97 @@ public sealed class Battle
         };
     }
 
+    // ------------------------------------------------------------------ Passifs revérifiés pendant le combat
+
+    /// <summary>
+    /// Après chaque action et à chaque début de tour : les passifs dont les conditions changent (PV sous 30 %,
+    /// empoisonné...) s'activent ou s'arrêtent ; leurs bonus de stats et résistances suivent (PV et PM max restent fixes).
+    /// </summary>
+    private void RefreshPassives()
+    {
+        foreach (var c in All.Where(c => c.IsAlive && c.AllPassives.Count > 0 && c.RawStats is not null))
+        {
+            var active = c.AllPassives.Where(p => _session.AppliesInCombat(p, this, c, null)).ToList();
+            if (active.SequenceEqual(c.Passives)) continue;
+            foreach (var p in active.Except(c.Passives)) Log.Add($"{p.Name} ({c.Name}) s'active");
+            var stats = GameSession.WithPassives(c.RawStats!, active);
+            stats.MaxHp = c.Stats.MaxHp;
+            stats.MaxMana = c.Stats.MaxMana;
+            c.Stats = stats;
+            c.Passives = active;
+            c.Resistances = [.. active.SelectMany(p => p.Resistances), .. c.BaseResistances];
+        }
+    }
+
+    // Déclencheurs déjà joués : (porteur, passif, n°, concerné). « Sous le seuil » = en attente de repasser au-dessus.
+    private readonly HashSet<(Combatant, PassiveDef, int, Combatant)> _triggerBelow = [];
+    private readonly HashSet<(Combatant, PassiveDef, int, Combatant)> _triggerDone = [];
+
+    private static int HpPercent(Combatant c) => c.Stats.MaxHp > 0 ? c.Hp * 100 / c.Stats.MaxHp : 0;
+
+    /// <summary>Déclencheurs de seuil de PV : l'allié (ou le porteur, ou un ennemi) vient de passer sous le seuil.</summary>
+    private void CheckPassiveTriggers()
+    {
+        foreach (var bearer in All.Where(c => c.IsAlive))
+        {
+            foreach (var p in bearer.AllPassives.Where(p => p.Triggers.Count > 0))
+            {
+                for (var i = 0; i < p.Triggers.Count; i++)
+                {
+                    var t = p.Triggers[i];
+                    var watched = t.When switch
+                    {
+                        PassiveTriggerWhen.SelfHpBelow => [bearer],
+                        PassiveTriggerWhen.AllyHpBelow => All.Where(c => c.IsAlly == bearer.IsAlly && c != bearer).ToList(),
+                        PassiveTriggerWhen.EnemyHpBelow => All.Where(c => c.IsAlly != bearer.IsAlly).ToList(),
+                        _ => [],
+                    };
+                    foreach (var concerned in watched)
+                    {
+                        var key = (bearer, p, i, concerned);
+                        if (!concerned.IsAlive || HpPercent(concerned) >= t.Threshold)
+                        {
+                            _triggerBelow.Remove(key); // repassé au-dessus : il pourra se redéclencher
+                            continue;
+                        }
+                        if (!_triggerBelow.Add(key)) continue; // déjà sous le seuil
+                        if (t.OncePerBattle && !_triggerDone.Add(key)) continue;
+                        if (!_session.AppliesInCombat(p, this, bearer, concerned)) { _triggerBelow.Remove(key); _triggerDone.Remove(key); continue; }
+                        Fire(bearer, p, t, concerned);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Déclencheurs « au début de chaque tour du porteur ».</summary>
+    private void TurnStartTriggers(Combatant bearer)
+    {
+        foreach (var p in bearer.AllPassives)
+            foreach (var t in p.Triggers.Where(t => t.When == PassiveTriggerWhen.TurnStart))
+                if (_session.AppliesInCombat(p, this, bearer, null)) Fire(bearer, p, t, bearer);
+    }
+
+    private void Fire(Combatant bearer, PassiveDef p, PassiveTrigger t, Combatant concerned)
+    {
+        var receivers = t.Target switch
+        {
+            PassiveTriggerTarget.Self => [bearer],
+            PassiveTriggerTarget.AllAllies => All.Where(c => c.IsAlly == bearer.IsAlly && c.IsAlive).ToList(),
+            PassiveTriggerTarget.AllEnemies => All.Where(c => c.IsAlly != bearer.IsAlly && c.IsAlive).ToList(),
+            _ => new List<Combatant> { concerned },
+        };
+        foreach (var effect in t.Effects)
+            foreach (var r in receivers.Where(r => r.IsAlive))
+                if (effect.Chance >= 100 || _session.Rng.Next(100) < effect.Chance)
+                    Log.Add($"{p.Name} ({bearer.Name}) : {ApplyEffect(r, effect, $"passif:{p.Id}:{bearer.Name}")}");
+    }
+
     private void CheckEnd()
     {
         if (Outcome != BattleOutcome.Ongoing) return;
+        RefreshPassives();
+        CheckPassiveTriggers();
         if (Enemies.All(e => !e.IsAlive))
         {
             SayAll(BattleTrigger.Victory);

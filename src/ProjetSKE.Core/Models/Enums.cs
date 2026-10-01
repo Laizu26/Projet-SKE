@@ -180,3 +180,9 @@ public enum BattleTrigger
     /// <summary>Quand l'équipe perd.</summary>
     Defeat,
 }
+
+/// <summary>Quand un déclencheur de passif agit en combat.</summary>
+public enum PassiveTriggerWhen { AllyHpBelow, SelfHpBelow, EnemyHpBelow, TurnStart }
+
+/// <summary>Sur qui un déclencheur de passif pose ses effets.</summary>
+public enum PassiveTriggerTarget { Concerned, Self, AllAllies, AllEnemies }

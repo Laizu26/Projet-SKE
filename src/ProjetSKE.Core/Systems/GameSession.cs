@@ -1280,6 +1280,17 @@ public sealed partial class GameSession
 
     private readonly HashSet<string> _computingStats = [];
 
+    /// <summary>Stats d'un PJ sans ses passifs (base, niveau, équipement).</summary>
+    public StatBlock StatsWithoutPassives(CharacterState c)
+    {
+        var def = DefOf(c);
+        var stats = def.BaseStats + def.GrowthPerLevel.Times(c.Level - 1);
+        foreach (var slot in Enum.GetValues<EquipSlot>())
+            if (c.GetEquipped(slot) is { } itemId && Db.Items.TryGetValue(itemId, out var item))
+                stats += item.Bonus;
+        return stats;
+    }
+
     public StatBlock GetStats(CharacterState c)
     {
         var def = DefOf(c);

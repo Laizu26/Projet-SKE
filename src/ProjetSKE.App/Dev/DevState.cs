@@ -468,6 +468,22 @@ public static class DevState
         _ => "Résurrection (allié K.O.)",
     };
 
+    public static string Name(PassiveTriggerWhen t) => t switch
+    {
+        PassiveTriggerWhen.AllyHpBelow => "Un allié passe sous un seuil de PV",
+        PassiveTriggerWhen.SelfHpBelow => "Le porteur passe sous un seuil de PV",
+        PassiveTriggerWhen.EnemyHpBelow => "Un ennemi passe sous un seuil de PV",
+        _ => "Au début de chaque tour du porteur",
+    };
+
+    public static string Name(PassiveTriggerTarget t) => t switch
+    {
+        PassiveTriggerTarget.Concerned => "Le personnage concerné (l'allié en danger...)",
+        PassiveTriggerTarget.Self => "Le porteur du passif",
+        PassiveTriggerTarget.AllAllies => "Tous ses alliés",
+        _ => "Tous ses ennemis",
+    };
+
     public static string Name(DungeonStepType t) => t switch
     {
         DungeonStepType.Battle => "Combat",

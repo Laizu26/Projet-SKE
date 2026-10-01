@@ -537,7 +537,7 @@ public sealed class PassiveEditor : EditorPage
         f.IntField("PV par tour (négatif = en perd)", _x.HpPerTurn, v => _x.HpPerTurn = v);
         f.IntField("PM par tour", _x.ManaPerTurn, v => _x.ManaPerTurn = v);
         f.Note("Effets posés sur le porteur au début de chaque combat (régénération, bouclier, bonus...).");
-        f.ObjectList("Au début du combat", _x.BattleStart, () => new SkillEffect { Type = EffectType.StatUp, Amount = 10, Turns = 3, OnSelf = true }, (ef, e, _) =>
+        static void EffectFields(Form ef, SkillEffect e)
         {
             ef.EnumField("Effet", e.Type, v => e.Type = v, DevState.Name, rerender: true);
             if (e.Type is EffectType.StatUp or EffectType.StatDown) ef.EnumField("Statistique", e.Stat, v => e.Stat = v, DevState.Name);
@@ -549,12 +549,33 @@ public sealed class PassiveEditor : EditorPage
                     _ => "Pourcentage",
                 }, e.Amount, v => e.Amount = v);
             if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
-        }, "+ Effet");
+        }
+        f.ObjectList("Au début du combat", _x.BattleStart, () => new SkillEffect { Type = EffectType.StatUp, Amount = 10, Turns = 3, OnSelf = true },
+            (ef, e, _) => EffectFields(ef, e), "+ Effet");
+
+        f.Note("Déclencheurs : pendant le combat, quand un allié (ou le porteur, ou un ennemi) passe sous un seuil de PV, ou au début de "
+            + "chaque tour du porteur, des effets sont posés. Ex : bouclier sur l'allié qui passe sous 30 % de PV. "
+            + "Les conditions du passif (plus haut) doivent être remplies ; « @cible » y désigne le personnage concerné.");
+        f.ObjectList("Déclencheurs en combat", _x.Triggers, () => new PassiveTrigger
+        {
+            Effects = [new SkillEffect { Type = EffectType.Shield, Amount = 30, Turns = 3 }],
+        }, (tf, t, _) =>
+        {
+            tf.EnumField("Quand", t.When, v => t.When = v, DevState.Name, rerender: true);
+            if (t.When != PassiveTriggerWhen.TurnStart)
+            {
+                tf.IntField("Seuil de PV (%) : sous", t.Threshold, v => t.Threshold = Math.Clamp(v, 1, 100));
+                tf.BoolField("Une seule fois par combat (sinon à chaque fois qu'il repasse sous le seuil)", t.OncePerBattle, v => t.OncePerBattle = v);
+            }
+            tf.EnumField("Effets posés sur", t.Target, v => t.Target = v, DevState.Name);
+            tf.ObjectList("Effets", t.Effects, () => new SkillEffect { Type = EffectType.Shield, Amount = 30, Turns = 3 },
+                (ef, e, _) => EffectFields(ef, e), "+ Effet");
+        }, "+ Déclencheur");
 
         f.Header("Dégâts (vérifiés à chaque coup)");
         f.Note("Ici les conditions peuvent porter sur le combat en cours : « @soi » = le porteur, « @cible » = son adversaire à ce coup. "
             + "Ex : « A un effet : Empoisonné (@soi) » → dégâts +30 % ; « Comparer : niveau de @cible ≥ niveau de @soi + 5 » → dégâts +20 %. "
-            + "Les bonus de stats plus haut sont, eux, vérifiés au début du combat.");
+            + "Les bonus de stats et résistances plus haut sont revérifiés à chaque tour et après chaque action (ex : PV de @soi < 30 % → ATQ +20).");
         f.IntField("Dégâts infligés (+%, négatif = moins)", _x.DamagePercent, v => _x.DamagePercent = v);
         f.IntField("Dégâts reçus (+%, négatif = réduits)", _x.DamageTakenPercent, v => _x.DamageTakenPercent = v);
 
