@@ -33,6 +33,13 @@ public sealed partial class GameSession
         return Math.Max(0, 100 + dealt) / 100.0 * (Math.Max(0, 100 + taken) / 100.0);
     }
 
+    /// <summary>Pénétrations d'armure et de bouclier apportées par les passifs de l'attaquant à ce coup (en %).</summary>
+    public (int Armor, int Shield) PassivePenetration(Battle battle, Combatant attacker, Combatant target)
+    {
+        var active = attacker.AllPassives.Where(p => (p.ArmorPenetration != 0 || p.ShieldPenetration != 0) && AppliesInCombat(p, battle, attacker, target)).ToList();
+        return (active.Sum(p => p.ArmorPenetration), active.Sum(p => p.ShieldPenetration));
+    }
+
     /// <summary>Le passif agit à cet instant du combat (ses conditions, avec @soi et @cible).</summary>
     public bool AppliesInCombat(PassiveDef p, Battle battle, Combatant self, Combatant? target)
     {

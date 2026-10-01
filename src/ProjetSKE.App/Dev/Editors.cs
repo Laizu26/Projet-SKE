@@ -583,6 +583,8 @@ public sealed class PassiveEditor : EditorPage
             + "Les bonus de stats et résistances plus haut sont revérifiés à chaque tour et après chaque action (ex : PV de @soi < 30 % → ATQ +20).");
         f.IntField("Dégâts infligés (+%, négatif = moins)", _x.DamagePercent, v => _x.DamagePercent = v);
         f.IntField("Dégâts reçus (+%, négatif = réduits)", _x.DamageTakenPercent, v => _x.DamageTakenPercent = v);
+        f.IntField("Pénétration d'armure en plus (% de DEF ignoré)", _x.ArmorPenetration, v => _x.ArmorPenetration = v);
+        f.IntField("Pénétration de bouclier en plus (% des dégâts sur les PV)", _x.ShieldPenetration, v => _x.ShieldPenetration = v);
 
         f.Header("Récompenses");
         f.IntField("Bonus d'XP en combat (%)", _x.XpPercent, v => _x.XpPercent = v);
@@ -697,6 +699,8 @@ public sealed class SkillEditor : EditorPage
             f.IntField("Chance de critique (%)", _x.CritChance, v => _x.CritChance = v);
             f.DoubleField("Multiplicateur de critique", _x.CritMultiplier, v => _x.CritMultiplier = v);
             f.IntField("Vol de vie (% des dégâts rendus au lanceur)", _x.DrainPercent, v => _x.DrainPercent = v);
+            f.IntField("Pénétration d'armure (% de la DEF de la cible ignoré)", _x.ArmorPenetration, v => _x.ArmorPenetration = Math.Clamp(v, 0, 100));
+            f.IntField("Pénétration de bouclier (% des dégâts qui passe directement sur les PV)", _x.ShieldPenetration, v => _x.ShieldPenetration = Math.Clamp(v, 0, 100));
         }
 
         f.Note("Effets durables : ils s'appliquent aux cibles (ou au lanceur) et comptent en tours de celui qui les subit. "

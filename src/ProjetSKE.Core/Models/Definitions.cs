@@ -18,6 +18,10 @@ public sealed class SkillDef
     public int FlatAmount { get; set; }
     /// <summary>En plus : un % d'une stat du lanceur ou de la cible (ex : 30 % des PV max du lanceur).</summary>
     public List<StatScaling> Scalings { get; set; } = [];
+    /// <summary>Pénétration d'armure : % de la DEF de la cible ignoré.</summary>
+    public int ArmorPenetration { get; set; }
+    /// <summary>Pénétration de bouclier : % des dégâts qui passe à travers le bouclier, directement sur les PV.</summary>
+    public int ShieldPenetration { get; set; }
     /// <summary>Élément (feu, glace, sacré... texte libre) : les faiblesses et résistances des cibles s'appliquent.</summary>
     public string Element { get; set; } = "";
     /// <summary>Nombre de coups portés à chaque cible.</summary>
@@ -167,6 +171,9 @@ public sealed class PassiveDef
     public int DamagePercent { get; set; }
     /// <summary>Dégâts reçus en plus (en %, négatif = réduits). Vérifié à chaque coup reçu (« @cible » = l'attaquant).</summary>
     public int DamageTakenPercent { get; set; }
+    /// <summary>Pénétration d'armure (% de la DEF ignoré) et de bouclier (% des dégâts qui passe le bouclier), ajoutées à ses attaques.</summary>
+    public int ArmorPenetration { get; set; }
+    public int ShieldPenetration { get; set; }
     /// <summary>
     /// Déclencheurs en combat : quand un allié (ou le porteur, ou un ennemi) passe sous un seuil de PV, ou au début de
     /// chaque tour du porteur, des effets sont posés (bouclier sur l'allié en danger, soin, bonus...).

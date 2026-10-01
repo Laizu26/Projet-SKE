@@ -533,9 +533,14 @@ public sealed class Battle
                             notes.Add("raté");
                             continue;
                         }
+                        // Pénétration : % de la DEF ignoré, % des dégâts qui passe à travers le bouclier (compétence + passifs).
+                        var (passiveArmor, passiveShield) = _session.PassivePenetration(this, actor, t);
+                        var armorPen = Math.Clamp(skill.ArmorPenetration + passiveArmor, 0, 100);
+                        var shieldPen = Math.Clamp(skill.ShieldPenetration + passiveShield, 0, 100);
+                        var defense = t.Stat(StatKind.Defense) * (100 - armorPen) / 100.0;
                         var raw = skill.Kind == SkillKind.Physical
-                            ? actor.Stat(StatKind.Attack) * skill.Power - t.Stat(StatKind.Defense) * balance.PhysicalDefenseFactor
-                            : actor.Stat(StatKind.Magic) * skill.Power * balance.MagicMultiplier - t.Stat(StatKind.Defense) * balance.MagicDefenseFactor;
+                            ? actor.Stat(StatKind.Attack) * skill.Power - defense * balance.PhysicalDefenseFactor
+                            : actor.Stat(StatKind.Magic) * skill.Power * balance.MagicMultiplier - defense * balance.MagicDefenseFactor;
                         raw = Math.Max(1, raw) + skill.FlatAmount + Scaled(skill.Scalings, actor, t);
                         if (skill.CritChance > 0 && _session.Rng.Next(100) < skill.CritChance)
                         {
@@ -556,7 +561,8 @@ public sealed class Battle
                         if (factor > 0) damage = Math.Max(1, damage);
                         if (t.Shield > 0)
                         {
-                            var blocked = Math.Min(t.Shield, damage);
+                            // La part qui pénètre le bouclier va directement sur les PV.
+                            var blocked = Math.Min(t.Shield, damage - damage * shieldPen / 100);
                             t.Shield -= blocked;
                             damage -= blocked;
                             if (blocked > 0) notes.Add($"bouclier -{blocked}");
