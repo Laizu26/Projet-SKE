@@ -268,8 +268,8 @@ public sealed class Battle
     {
         if (!IsPlayerTurn || !item.IsConsumable || !target.IsAlly || !target.IsAlive) return false;
         if (!_session.RemoveItem(item.Id)) return false;
-        var hp = Math.Min(item.HealHp, target.Stats.MaxHp - target.Hp);
-        var mp = Math.Min(item.HealMana, target.Stats.MaxMana - target.Mana);
+        var hp = Math.Min(item.HealHp + target.Stats.MaxHp * item.HealHpPercent / 100, target.Stats.MaxHp - target.Hp);
+        var mp = Math.Min(item.HealMana + target.Stats.MaxMana * item.HealManaPercent / 100, target.Stats.MaxMana - target.Mana);
         target.Hp += hp;
         target.Mana += mp;
         var gains = new List<string>();
@@ -366,11 +366,11 @@ public sealed class Battle
         TurnStartTriggers(c);
 
         // Passifs : PV / PM rendus (ou perdus) à chaque tour du porteur.
-        foreach (var p in c.Passives.Where(p => p.HpPerTurn != 0 || p.ManaPerTurn != 0))
+        foreach (var p in c.Passives.Where(p => p.HpPerTurn != 0 || p.ManaPerTurn != 0 || p.HpPerTurnPercent != 0 || p.ManaPerTurnPercent != 0))
         {
             var hp = c.Hp;
-            c.Hp = Math.Clamp(c.Hp + p.HpPerTurn, 0, c.Stats.MaxHp);
-            c.Mana = Math.Clamp(c.Mana + p.ManaPerTurn, 0, c.Stats.MaxMana);
+            c.Hp = Math.Clamp(c.Hp + p.HpPerTurn + c.Stats.MaxHp * p.HpPerTurnPercent / 100, 0, c.Stats.MaxHp);
+            c.Mana = Math.Clamp(c.Mana + p.ManaPerTurn + c.Stats.MaxMana * p.ManaPerTurnPercent / 100, 0, c.Stats.MaxMana);
             if (c.Hp != hp) Log.Add($"{p.Name} : {c.Name} {(c.Hp > hp ? "+" : "")}{c.Hp - hp} PV");
         }
 

@@ -464,7 +464,9 @@ public sealed class ItemEditor : EditorPage
         if (_x.IsConsumable)
         {
             f.IntField("PV rendus", _x.HealHp, v => _x.HealHp = v);
+            f.IntField("+ % des PV max de celui qui le prend", _x.HealHpPercent, v => _x.HealHpPercent = v);
             f.IntField("PM rendus", _x.HealMana, v => _x.HealMana = v);
+            f.IntField("+ % des PM max", _x.HealManaPercent, v => _x.HealManaPercent = v);
         }
         if (_x.IsEquipable) f.StatsField("Bonus une fois équipé", _x.Bonus);
     }
@@ -535,7 +537,9 @@ public sealed class PassiveEditor : EditorPage
 
         f.Header("En combat");
         f.IntField("PV par tour (négatif = en perd)", _x.HpPerTurn, v => _x.HpPerTurn = v);
+        f.IntField("+ % des PV max par tour", _x.HpPerTurnPercent, v => _x.HpPerTurnPercent = v);
         f.IntField("PM par tour", _x.ManaPerTurn, v => _x.ManaPerTurn = v);
+        f.IntField("+ % des PM max par tour", _x.ManaPerTurnPercent, v => _x.ManaPerTurnPercent = v);
         f.Note("Effets posés sur le porteur au début de chaque combat (régénération, bouclier, bonus...).");
         static void EffectFields(Form ef, SkillEffect e)
         {

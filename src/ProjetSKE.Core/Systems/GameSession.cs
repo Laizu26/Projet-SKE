@@ -1499,8 +1499,8 @@ public sealed partial class GameSession
         var s = GetStats(target);
         if (target.CurrentHp >= s.MaxHp && target.CurrentMana >= s.MaxMana) return false;
         RemoveItem(itemId);
-        target.CurrentHp = Math.Min(s.MaxHp, target.CurrentHp + item.HealHp);
-        target.CurrentMana = Math.Min(s.MaxMana, target.CurrentMana + item.HealMana);
+        target.CurrentHp = Math.Min(s.MaxHp, target.CurrentHp + item.HealHp + s.MaxHp * item.HealHpPercent / 100);
+        target.CurrentMana = Math.Min(s.MaxMana, target.CurrentMana + item.HealMana + s.MaxMana * item.HealManaPercent / 100);
         return true;
     }
 

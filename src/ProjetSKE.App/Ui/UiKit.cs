@@ -788,8 +788,10 @@ public static class UiKit
         var bonus = item.Bonus.ToBonusString();
         var parts = new List<string> { ItemTypeName(item) };
         if (bonus.Length > 0) parts.Add(bonus);
-        if (item.HealHp > 0) parts.Add($"+{item.HealHp} PV");
-        if (item.HealMana > 0) parts.Add($"+{item.HealMana} PM");
+        if (item.HealHp > 0 || item.HealHpPercent > 0)
+            parts.Add("+" + string.Join(" + ", new[] { item.HealHp > 0 ? $"{item.HealHp}" : "", item.HealHpPercent > 0 ? $"{item.HealHpPercent} %" : "" }.Where(x => x.Length > 0)) + " PV");
+        if (item.HealMana > 0 || item.HealManaPercent > 0)
+            parts.Add("+" + string.Join(" + ", new[] { item.HealMana > 0 ? $"{item.HealMana}" : "", item.HealManaPercent > 0 ? $"{item.HealManaPercent} %" : "" }.Where(x => x.Length > 0)) + " PM");
         if (item.IsUnique) parts.Add("unique");
         return string.Join(" · ", parts);
     }

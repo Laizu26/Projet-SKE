@@ -111,6 +111,9 @@ public sealed class ItemDef
     public StatBlock Bonus { get; set; } = new();
     public int HealHp { get; set; }
     public int HealMana { get; set; }
+    /// <summary>En plus : % des PV max / PM max de celui qui le reçoit (potion = 20 + 25 % des PV max).</summary>
+    public int HealHpPercent { get; set; }
+    public int HealManaPercent { get; set; }
     /// <summary>Objet unique : on ne peut en posséder qu'un seul exemplaire.</summary>
     public bool IsUnique { get; set; }
     public RelicUsage RelicUsage { get; set; } = RelicUsage.Equipable;
@@ -161,6 +164,9 @@ public sealed class PassiveDef
     /// <summary>PV rendus (ou perdus si négatif) au porteur au début de chacun de ses tours.</summary>
     public int HpPerTurn { get; set; }
     public int ManaPerTurn { get; set; }
+    /// <summary>En plus : % des PV max / PM max du porteur, à chacun de ses tours (négatif = en perd).</summary>
+    public int HpPerTurnPercent { get; set; }
+    public int ManaPerTurnPercent { get; set; }
     /// <summary>Bonus d'XP et d'or gagnés en combat, en % (cumulés sur l'équipe).</summary>
     public int XpPercent { get; set; }
     public int GoldPercent { get; set; }
