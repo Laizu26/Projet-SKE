@@ -500,6 +500,9 @@ public static class DevState
         EffectType.StatDown => "Malus de stat (%)",
         EffectType.Shield => "Bouclier (absorbe des dégâts)",
         EffectType.Element => "Faiblesse / résistance élémentaire",
+        EffectType.Burn => "Embrasé (feu : dégâts chaque tour)",
+        EffectType.Paralysis => "Paralysé (foudre : plus d'actions physiques)",
+        EffectType.Suffocation => "Suffoqué (air : dégâts chaque tour)",
         _ => "Purification (retire les effets négatifs)",
     };
 

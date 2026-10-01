@@ -13,7 +13,17 @@ public sealed class ActiveEffect
     public int TurnsLeft { get; set; }
 
     public bool IsNegative => Def.Type is EffectType.Poison or EffectType.Stun or EffectType.StatDown
+            or EffectType.Burn or EffectType.Paralysis or EffectType.Suffocation
         || (Def.Type == EffectType.Element && Def.Amount > 100); // une faiblesse est un effet négatif (purifiable)
+
+    /// <summary>Élément d'un effet élémentaire (embrasé = feu, paralysé = foudre, suffoqué = air), sinon null.</summary>
+    public static string? ElementOf(EffectType type) => type switch
+    {
+        EffectType.Burn => "feu",
+        EffectType.Paralysis => "foudre",
+        EffectType.Suffocation => "air",
+        _ => null,
+    };
 }
 
 /// <summary>Un participant au combat (personnage de l'équipe ou monstre).</summary>
@@ -53,6 +63,8 @@ public sealed class Combatant
     public bool IsAlive => Hp > 0;
     public bool IsBoss => Monster?.IsBoss == true;
     public bool IsStunned => Effects.Any(e => e.Def.Type == EffectType.Stun);
+    /// <summary>Paralysé : plus d'actions physiques.</summary>
+    public bool IsParalyzed => Effects.Any(e => e.Def.Type == EffectType.Paralysis);
 
     /// <summary>Statistique avec bonus et malus en cours (en %).</summary>
     public int Stat(StatKind kind)
@@ -99,6 +111,9 @@ public sealed class Combatant
         EffectType.StatUp => $"{StatName(e.Def.Stat)} +{e.Def.Amount} % ({e.TurnsLeft})",
         EffectType.StatDown => $"{StatName(e.Def.Stat)} -{e.Def.Amount} % ({e.TurnsLeft})",
         EffectType.Element => $"{Battle.ElementText(e.Def)} ({e.TurnsLeft})",
+        EffectType.Burn => $"Embrasé {e.TurnsLeft}",
+        EffectType.Paralysis => $"Paralysé {e.TurnsLeft}",
+        EffectType.Suffocation => $"Suffoqué {e.TurnsLeft}",
         _ => "",
     };
 }
@@ -218,7 +233,8 @@ public sealed class Battle
 
     /// <summary>Le combattant peut payer la compétence (PM, PV) et elle n'est pas en recharge.</summary>
     public static bool CanAfford(Combatant c, SkillDef skill) =>
-        c.Mana >= skill.ManaCost && (skill.HpCost <= 0 || c.Hp > skill.HpCost) && c.CooldownOf(skill) == 0;
+        c.Mana >= skill.ManaCost && (skill.HpCost <= 0 || c.Hp > skill.HpCost) && c.CooldownOf(skill) == 0
+        && !(c.IsParalyzed && skill.Kind == SkillKind.Physical); // paralysé : plus d'actions physiques
 
     public bool CanUse(SkillDef skill) => IsPlayerTurn && CanAfford(CurrentActor!, skill);
 
@@ -368,6 +384,26 @@ public sealed class Battle
                     c.Hp = Math.Max(0, c.Hp - Math.Max(1, e.Def.Amount));
                     Log.Add($"{c.Name} souffre du poison : -{before - c.Hp} PV{(c.IsAlive ? "" : ", vaincu !")}");
                     break;
+                case EffectType.Burn or EffectType.Suffocation:
+                {
+                    // Dégâts élémentaires par tour : faiblesse ×, résistance ÷, absorption = soin.
+                    var factor = ElementFactor(ActiveEffect.ElementOf(e.Def.Type)!, c);
+                    var amount = (int)Math.Round(Math.Max(1, e.Def.Amount) * factor);
+                    var what = e.Def.Type == EffectType.Burn ? "brûle" : "suffoque";
+                    if (amount >= 0)
+                    {
+                        var hpBefore = c.Hp;
+                        c.Hp = Math.Max(0, c.Hp - amount);
+                        Log.Add($"{c.Name} {what} : -{hpBefore - c.Hp} PV{(c.IsAlive ? "" : ", vaincu !")}");
+                    }
+                    else
+                    {
+                        var gain = Math.Min(-amount, c.Stats.MaxHp - c.Hp);
+                        c.Hp += gain;
+                        if (gain > 0) Log.Add($"{c.Name} absorbe : +{gain} PV");
+                    }
+                    break;
+                }
                 case EffectType.Regen:
                     var healed = Math.Min(e.Def.Amount, c.Stats.MaxHp - c.Hp);
                     c.Hp += healed;
@@ -431,14 +467,17 @@ public sealed class Battle
     }
 
     /// <summary>Multiplicateur d'élément de la cible (1 = normal).</summary>
-    private static double ElementFactor(SkillDef skill, Combatant target)
+    private static double ElementFactor(SkillDef skill, Combatant target) => ElementFactor(skill.Element, target);
+
+    /// <summary>Multiplicateur d'un élément sur une cible (1 = normal, 2 = faiblesse, 0 = immunité, négatif = absorbe).</summary>
+    public static double ElementFactor(string element, Combatant target)
     {
-        if (skill.Element.Length == 0) return 1;
+        if (element.Trim().Length == 0) return 1;
         // Un effet en cours (faiblesse / résistance temporaire) passe avant la fiche ; le plus récent compte.
         var temporary = target.Effects.LastOrDefault(e => e.Def.Type == EffectType.Element
-            && string.Equals(e.Def.Element.Trim(), skill.Element.Trim(), StringComparison.OrdinalIgnoreCase));
+            && string.Equals(e.Def.Element.Trim(), element.Trim(), StringComparison.OrdinalIgnoreCase));
         if (temporary is not null) return temporary.Def.Amount / 100.0;
-        var mod = target.Resistances.FirstOrDefault(r => string.Equals(r.Element.Trim(), skill.Element.Trim(), StringComparison.OrdinalIgnoreCase));
+        var mod = target.Resistances.FirstOrDefault(r => string.Equals(r.Element.Trim(), element.Trim(), StringComparison.OrdinalIgnoreCase));
         return mod is null ? 1 : mod.Percent / 100.0;
     }
 
@@ -598,12 +637,20 @@ public sealed class Battle
     }
 
     /// <summary>Pose un effet durable ; un même effet venant de la même compétence est rafraîchi, pas cumulé.</summary>
-    private static string ApplyEffect(Combatant r, SkillEffect effect, string source)
+    private string ApplyEffect(Combatant r, SkillEffect effect, string source)
     {
         if (effect.Type == EffectType.Cleanse)
         {
             var removed = r.Effects.RemoveAll(e => e.IsNegative);
             return removed > 0 ? $"{r.Name} est purifié" : $"{r.Name} n'a rien à purifier";
+        }
+        // Effets élémentaires : immunisé (ou absorbe) à l'élément = rien ; paralysie moins (ou plus) probable selon la résistance.
+        if (ActiveEffect.ElementOf(effect.Type) is { } element)
+        {
+            var factor = ElementFactor(element, r);
+            if (factor <= 0) return $"{r.Name} est immunisé ({element})";
+            if (effect.Type == EffectType.Paralysis && factor < 1 && _session.Rng.NextDouble() >= factor)
+                return $"{r.Name} résiste à la paralysie";
         }
         var existing = r.Effects.FirstOrDefault(e => e.Source == source && e.Def.Type == effect.Type && e.Def.Stat == effect.Stat
             && string.Equals(e.Def.Element, effect.Element, StringComparison.OrdinalIgnoreCase));
@@ -619,6 +666,9 @@ public sealed class Battle
             EffectType.StatUp => $"{r.Name} {Combatant.StatName(effect.Stat)} +{effect.Amount} %",
             EffectType.StatDown => $"{r.Name} {Combatant.StatName(effect.Stat)} -{effect.Amount} %",
             EffectType.Element => $"{r.Name} : {ElementText(effect)}",
+            EffectType.Burn => $"{r.Name} est embrasé",
+            EffectType.Paralysis => $"{r.Name} est paralysé",
+            EffectType.Suffocation => $"{r.Name} suffoque",
             _ => $"{r.Name} est protégé ({effect.Amount})",
         };
     }

@@ -4,7 +4,11 @@ namespace ProjetSKE.Core.Models;
 public enum SkillKind { Physical, Magical, Heal, Status, Revive }
 
 /// <summary>Effet durable posé par une compétence.</summary>
-public enum EffectType { Poison, Regen, Stun, StatUp, StatDown, Shield, Cleanse, Element }
+/// <summary>
+/// Effets durables. Embrasé (feu), Paralysé (foudre) et Suffoqué (air) sont élémentaires : les faiblesses et
+/// résistances à leur élément comptent (dégâts par tour, chance d'être touché, immunité).
+/// </summary>
+public enum EffectType { Poison, Regen, Stun, StatUp, StatDown, Shield, Cleanse, Element, Burn, Paralysis, Suffocation }
 
 /// <summary>Statistique modifiée par un bonus / malus.</summary>
 public enum StatKind { Attack, Defense, Magic, Speed }

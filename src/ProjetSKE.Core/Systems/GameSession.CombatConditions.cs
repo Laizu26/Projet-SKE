@@ -14,6 +14,7 @@ public sealed partial class GameSession
     [
         ("poison", "Empoisonné"), ("regen", "Régénération"), ("etourdi", "Étourdi"), ("bouclier", "Bouclier"),
         ("bonus", "Bonus de stat"), ("malus", "Malus de stat"), ("garde", "En garde"), ("negatif", "Un effet négatif"),
+        ("embrase", "Embrasé (feu)"), ("paralyse", "Paralysé (foudre)"), ("suffoque", "Suffoqué (air)"),
         ("faiblesse", "Faiblesse élémentaire (temporaire)"), ("resistance", "Résistance élémentaire (temporaire)"),
     ];
 
@@ -95,6 +96,9 @@ public sealed partial class GameSession
         return c.Arg2 switch
         {
             "poison" => f.Effects.Any(e => e.Def.Type == EffectType.Poison),
+            "embrase" => f.Effects.Any(e => e.Def.Type == EffectType.Burn),
+            "paralyse" => f.IsParalyzed,
+            "suffoque" => f.Effects.Any(e => e.Def.Type == EffectType.Suffocation),
             "regen" => f.Effects.Any(e => e.Def.Type == EffectType.Regen),
             "etourdi" => f.IsStunned,
             "bouclier" => f.Shield > 0,
