@@ -4,7 +4,7 @@ namespace ProjetSKE.Core.Models;
 public enum SkillKind { Physical, Magical, Heal, Status, Revive }
 
 /// <summary>Effet durable posé par une compétence.</summary>
-public enum EffectType { Poison, Regen, Stun, StatUp, StatDown, Shield, Cleanse }
+public enum EffectType { Poison, Regen, Stun, StatUp, StatDown, Shield, Cleanse, Element }
 
 /// <summary>Statistique modifiée par un bonus / malus.</summary>
 public enum StatKind { Attack, Defense, Magic, Speed }

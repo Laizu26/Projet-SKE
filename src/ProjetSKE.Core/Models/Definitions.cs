@@ -66,6 +66,11 @@ public sealed class SkillEffect
     /// <summary>S'applique au lanceur plutôt qu'aux cibles.</summary>
     public bool OnSelf { get; set; }
     /// <summary>
+    /// Faiblesse / résistance élémentaire temporaire : l'élément (feu, glace...). Le montant est alors le % des dégâts
+    /// reçus de cet élément : 200 = faiblesse, 50 = résistance, 0 = immunité, négatif = absorbe (soigne).
+    /// </summary>
+    public string Element { get; set; } = "";
+    /// <summary>
     /// Montant en plus : un % d'une stat (bouclier = 50 + 30 % des PV max du lanceur...). Pour les bonus/malus,
     /// c'est le pourcentage qui augmente.
     /// </summary>

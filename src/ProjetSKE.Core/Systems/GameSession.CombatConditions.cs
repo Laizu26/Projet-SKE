@@ -14,6 +14,7 @@ public sealed partial class GameSession
     [
         ("poison", "Empoisonné"), ("regen", "Régénération"), ("etourdi", "Étourdi"), ("bouclier", "Bouclier"),
         ("bonus", "Bonus de stat"), ("malus", "Malus de stat"), ("garde", "En garde"), ("negatif", "Un effet négatif"),
+        ("faiblesse", "Faiblesse élémentaire (temporaire)"), ("resistance", "Résistance élémentaire (temporaire)"),
     ];
 
     private Battle? _combatBattle;
@@ -101,6 +102,8 @@ public sealed partial class GameSession
             "malus" => f.Effects.Any(e => e.Def.Type == EffectType.StatDown),
             "garde" => f.Defending,
             "negatif" => f.Effects.Any(e => e.IsNegative),
+            "faiblesse" => f.Effects.Any(e => e.Def.Type == EffectType.Element && e.Def.Amount > 100),
+            "resistance" => f.Effects.Any(e => e.Def.Type == EffectType.Element && e.Def.Amount < 100),
             _ => false,
         };
     }

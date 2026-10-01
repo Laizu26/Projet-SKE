@@ -214,14 +214,19 @@ public sealed class GameDatabase
         {
             foreach (var sc in scalings) Check(Systems.CharacterStats.IsKnown(sc.Stat), $"{w} : stat « {sc.Stat} » inconnue (montant selon une stat)");
         }
+        void CheckEffect(SkillEffect e, string w)
+        {
+            CheckScalings(e.Scalings, w);
+            Check(e.Type != EffectType.Element || e.Element.Trim().Length > 0, $"{w} : faiblesse / résistance sans élément");
+        }
         foreach (var sk in Content.Skills)
         {
             CheckScalings(sk.Scalings, $"Compétence {sk.Id}");
-            foreach (var e in sk.Effects) CheckScalings(e.Scalings, $"Compétence {sk.Id}");
+            foreach (var e in sk.Effects) CheckEffect(e, $"Compétence {sk.Id}");
         }
         foreach (var p in Content.Passives)
         {
-            foreach (var e in p.BattleStart.Concat(p.Triggers.SelectMany(t => t.Effects))) CheckScalings(e.Scalings, $"Passif {p.Id}");
+            foreach (var e in p.BattleStart.Concat(p.Triggers.SelectMany(t => t.Effects))) CheckEffect(e, $"Passif {p.Id}");
             if (p.ActivationDialogueId is { } a) Ref(Dialogues, a, $"Passif {p.Id}", "dialogue");
             if (p.DeactivationDialogueId is { } d) Ref(Dialogues, d, $"Passif {p.Id}", "dialogue");
         }

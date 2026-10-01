@@ -499,6 +499,7 @@ public static class DevState
         EffectType.StatUp => "Bonus de stat (%)",
         EffectType.StatDown => "Malus de stat (%)",
         EffectType.Shield => "Bouclier (absorbe des dégâts)",
+        EffectType.Element => "Faiblesse / résistance élémentaire",
         _ => "Purification (retire les effets négatifs)",
     };
 

@@ -541,15 +541,18 @@ public sealed class PassiveEditor : EditorPage
         {
             ef.EnumField("Effet", e.Type, v => e.Type = v, DevState.Name, rerender: true);
             if (e.Type is EffectType.StatUp or EffectType.StatDown) ef.EnumField("Statistique", e.Stat, v => e.Stat = v, DevState.Name);
+            if (e.Type == EffectType.Element)
+                ef.TextField("Élément (feu, glace...)", e.Element, v => e.Element = v.Trim());
             if (e.Type != EffectType.Cleanse && e.Type != EffectType.Stun)
                 ef.IntField(e.Type switch
                 {
                     EffectType.Poison or EffectType.Regen => "PV par tour",
                     EffectType.Shield => "Points absorbés",
+                    EffectType.Element => "% des dégâts reçus (200 = faiblesse, 50 = résistance, 0 = immunité, négatif = absorbe)",
                     _ => "Pourcentage",
                 }, e.Amount, v => e.Amount = v);
             if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
-            if (e.Type is not (EffectType.Cleanse or EffectType.Stun)) ef.Scalings("En plus, selon une stat (lanceur = le porteur)", e.Scalings);
+            if (e.Type is not (EffectType.Cleanse or EffectType.Stun or EffectType.Element)) ef.Scalings("En plus, selon une stat (lanceur = le porteur)", e.Scalings);
         }
         f.ObjectList("Au début du combat", _x.BattleStart, () => new SkillEffect { Type = EffectType.StatUp, Amount = 10, Turns = 3, OnSelf = true },
             (ef, e, _) => EffectFields(ef, e), "+ Effet");
@@ -701,15 +704,18 @@ public sealed class SkillEditor : EditorPage
         {
             ef.EnumField("Effet", e.Type, v => e.Type = v, DevState.Name, rerender: true);
             if (e.Type is EffectType.StatUp or EffectType.StatDown) ef.EnumField("Statistique", e.Stat, v => e.Stat = v, DevState.Name);
+            if (e.Type == EffectType.Element)
+                ef.TextField("Élément (feu, glace...)", e.Element, v => e.Element = v.Trim());
             if (e.Type != EffectType.Cleanse && e.Type != EffectType.Stun)
                 ef.IntField(e.Type switch
                 {
                     EffectType.Poison or EffectType.Regen => "PV par tour",
                     EffectType.Shield => "Points absorbés",
+                    EffectType.Element => "% des dégâts reçus (200 = faiblesse, 50 = résistance, 0 = immunité, négatif = absorbe)",
                     _ => "Pourcentage",
                 }, e.Amount, v => e.Amount = v);
             if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
-            if (e.Type is not (EffectType.Cleanse or EffectType.Stun)) ef.Scalings("En plus, selon une stat", e.Scalings);
+            if (e.Type is not (EffectType.Cleanse or EffectType.Stun or EffectType.Element)) ef.Scalings("En plus, selon une stat", e.Scalings);
             ef.IntField("Chance (%)", e.Chance, v => e.Chance = v);
             ef.BoolField("Sur le lanceur (au lieu des cibles)", e.OnSelf, v => e.OnSelf = v);
         }, "+ Effet");

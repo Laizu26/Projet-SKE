@@ -12,7 +12,8 @@ public sealed class ActiveEffect
     public required string Source { get; init; }
     public int TurnsLeft { get; set; }
 
-    public bool IsNegative => Def.Type is EffectType.Poison or EffectType.Stun or EffectType.StatDown;
+    public bool IsNegative => Def.Type is EffectType.Poison or EffectType.Stun or EffectType.StatDown
+        || (Def.Type == EffectType.Element && Def.Amount > 100); // une faiblesse est un effet négatif (purifiable)
 }
 
 /// <summary>Un participant au combat (personnage de l'équipe ou monstre).</summary>
@@ -97,6 +98,7 @@ public sealed class Combatant
         EffectType.Stun => "Étourdi",
         EffectType.StatUp => $"{StatName(e.Def.Stat)} +{e.Def.Amount} % ({e.TurnsLeft})",
         EffectType.StatDown => $"{StatName(e.Def.Stat)} -{e.Def.Amount} % ({e.TurnsLeft})",
+        EffectType.Element => $"{Battle.ElementText(e.Def)} ({e.TurnsLeft})",
         _ => "",
     };
 }
@@ -432,6 +434,10 @@ public sealed class Battle
     private static double ElementFactor(SkillDef skill, Combatant target)
     {
         if (skill.Element.Length == 0) return 1;
+        // Un effet en cours (faiblesse / résistance temporaire) passe avant la fiche ; le plus récent compte.
+        var temporary = target.Effects.LastOrDefault(e => e.Def.Type == EffectType.Element
+            && string.Equals(e.Def.Element.Trim(), skill.Element.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (temporary is not null) return temporary.Def.Amount / 100.0;
         var mod = target.Resistances.FirstOrDefault(r => string.Equals(r.Element.Trim(), skill.Element.Trim(), StringComparison.OrdinalIgnoreCase));
         return mod is null ? 1 : mod.Percent / 100.0;
     }
@@ -562,6 +568,20 @@ public sealed class Battle
         }
     }
 
+    /// <summary>« faiblesse au feu (200 %) », « résiste à la glace (50 %) », « immunisé à la foudre »...</summary>
+    public static string ElementText(SkillEffect e)
+    {
+        var element = e.Element.Trim().ToLowerInvariant();
+        return e.Amount switch
+        {
+            < 0 => $"absorbe {element} ({-e.Amount} %)",
+            0 => $"immunisé : {element}",
+            < 100 => $"résiste : {element} ({e.Amount} %)",
+            100 => $"{element} normal",
+            _ => $"faiblesse : {element} ({e.Amount} %)",
+        };
+    }
+
     /// <summary>Part d'un montant qui dépend des stats (« 30 % des PV max du lanceur »).</summary>
     private static int Scaled(IEnumerable<StatScaling> scalings, Combatant caster, Combatant target) =>
         scalings.Sum(s => GameSession.CombatValue(s.OfTarget ? target : caster, s.Stat) * s.Percent / 100);
@@ -572,7 +592,7 @@ public sealed class Battle
         if (e.Scalings.Count == 0) return e;
         return new SkillEffect
         {
-            Type = e.Type, Stat = e.Stat, Turns = e.Turns, Chance = e.Chance, OnSelf = e.OnSelf,
+            Type = e.Type, Stat = e.Stat, Turns = e.Turns, Chance = e.Chance, OnSelf = e.OnSelf, Element = e.Element,
             Amount = e.Amount + Scaled(e.Scalings, caster, target),
         };
     }
@@ -585,7 +605,8 @@ public sealed class Battle
             var removed = r.Effects.RemoveAll(e => e.IsNegative);
             return removed > 0 ? $"{r.Name} est purifié" : $"{r.Name} n'a rien à purifier";
         }
-        var existing = r.Effects.FirstOrDefault(e => e.Source == source && e.Def.Type == effect.Type && e.Def.Stat == effect.Stat);
+        var existing = r.Effects.FirstOrDefault(e => e.Source == source && e.Def.Type == effect.Type && e.Def.Stat == effect.Stat
+            && string.Equals(e.Def.Element, effect.Element, StringComparison.OrdinalIgnoreCase));
         if (existing is not null) r.Effects.Remove(existing);
         // Le tour en cours compte : un effet de 3 tours dure les 3 prochains tours de la cible.
         r.Effects.Add(new ActiveEffect { Def = effect, Source = source, TurnsLeft = Math.Max(1, effect.Turns) });
@@ -597,6 +618,7 @@ public sealed class Battle
             EffectType.Stun => $"{r.Name} est étourdi",
             EffectType.StatUp => $"{r.Name} {Combatant.StatName(effect.Stat)} +{effect.Amount} %",
             EffectType.StatDown => $"{r.Name} {Combatant.StatName(effect.Stat)} -{effect.Amount} %",
+            EffectType.Element => $"{r.Name} : {ElementText(effect)}",
             _ => $"{r.Name} est protégé ({effect.Amount})",
         };
     }
