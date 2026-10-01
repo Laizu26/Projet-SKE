@@ -432,7 +432,12 @@ public sealed class Form
                 RefField("Envers", c.Arg2 is "" or "@equipe" ? "@heros" : c.Arg2, DevState.Toward, v => c.Arg2 = v ?? "", allowNone: false);
                 Compare(c, "Valeur");
                 break;
-            case ConditionType.Gold or ConditionType.Level or ConditionType.PartySize or ConditionType.Day:
+            case ConditionType.PartySize:
+                RefField("Qui compter", c.Arg, GameSession.PartyCounts.Select(p => (p.Key, p.Name)), v => c.Arg = v ?? "", allowNone: false);
+                Compare(c, "Nombre");
+                Note("Ex : « Alliés encore debout = 1 » → seul en vie (passif « dernier debout »).");
+                break;
+            case ConditionType.Gold or ConditionType.Level or ConditionType.Day:
                 Compare(c, "Valeur");
                 break;
             case ConditionType.HourBetween:

@@ -58,6 +58,7 @@ public static partial class DialogueScript
         {quete_finie id} {objet id 2} {equipe perso} {hors_equipe perso}
         {or 50} {or < 10} {niveau 3} {var x >= 5} {karma >= 20} {karma < 0 @equipe}
         {stat pv% < 30 @parle} {stat atq >= 20 @heros} {stat niveau >= 5 @equipe}
+        {taille_equipe >= 3} {taille_equipe = 1 debout} (actifs, debout, ennemis)
         {effet poison @soi} {effet bouclier @cible}  (en combat : @soi, @cible)
         {compare niveau @cible >= niveau @soi +5} {compare pv% @soi < pv% @cible}
         {amitie pnj >= 30} {amitie pnj > 50 @parle} {amour pnj >= 50 @parle} {taille_equipe >= 2}
@@ -113,7 +114,7 @@ public static partial class DialogueScript
         ("or", ConditionType.GoldAtLeast, "n"), ("niveau", ConditionType.LevelAtLeast, "n"),
         ("or", ConditionType.Gold, "o"), ("niveau", ConditionType.Level, "o"),
         ("var", ConditionType.Variable, "ao"), ("karma", ConditionType.Karma, "oa"),
-        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("stat", ConditionType.Stat, "boa"), ("effet", ConditionType.HasEffect, "ba"), ("compare", ConditionType.CompareStats, "q"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "o"),
+        ("amitie", ConditionType.Friendship, "aob"), ("amour", ConditionType.Love, "aob"), ("jauge", ConditionType.Gauge, "boa"), ("stat", ConditionType.Stat, "boa"), ("effet", ConditionType.HasEffect, "ba"), ("compare", ConditionType.CompareStats, "q"), ("passif", ConditionType.HasPassive, "ba"), ("pouvoir", ConditionType.HasPower, "ba"), ("taille_equipe", ConditionType.PartySize, "oa"),
         ("parle", ConditionType.Speaker, "a"), ("etre", ConditionType.IsHero, "a"), ("choisi", ConditionType.ChoiceMade, "ab"), ("heure", ConditionType.HourBetween, "nm"),
         ("jour", ConditionType.Day, "o"), ("periode", ConditionType.Period, "t"),
         ("jour_semaine", ConditionType.WeekDay, "t"), ("mois", ConditionType.Month, "t"), ("evenement", ConditionType.EventActive, "a"), ("donjon_fini", ConditionType.DungeonDone, "a"),

@@ -209,7 +209,7 @@ public sealed partial class GameSession
         ConditionType.Love => Compare(GetLove(c.Arg, c.Arg2), c.Op, c.Amount),
         ConditionType.Gold => Compare(State.Gold, c.Op, c.Amount),
         ConditionType.Level => Compare(MaxLevel, c.Op, c.Amount),
-        ConditionType.PartySize => Compare(State.Party.Count, c.Op, c.Amount),
+        ConditionType.PartySize => Compare(PartyCount(c.Arg), c.Op, c.Amount),
         ConditionType.Speaker => SpeakerId == c.Arg,
         ConditionType.IsHero => State.HeroId == c.Arg,
         ConditionType.ChoiceMade => State.Choices.Contains($"{c.Arg}:{c.Arg2}"),

@@ -512,6 +512,9 @@ public sealed class GameDatabase
                         Check(Passives.ContainsKey(c.Arg2), $"{w} : passif « {c.Arg2} » introuvable");
                         if (c.Arg.Length > 0 && !c.Arg.StartsWith('@')) Ref(Characters, c.Arg, w, "personnage");
                         break;
+                    case ConditionType.PartySize:
+                        Check(Systems.GameSession.PartyCounts.Any(p => p.Key == c.Arg), $"{w} : « {c.Arg} » : qui compter ? (actifs, debout, ennemis)");
+                        break;
                     case ConditionType.HasEffect:
                         Check(Systems.GameSession.CombatEffects.Any(e => e.Key == c.Arg2), $"{w} : effet « {c.Arg2} » inconnu");
                         break;

@@ -119,6 +119,29 @@ public sealed partial class GameSession
         };
     }
 
+    /// <summary>Qui compter pour « Nombre dans le groupe » (clé courte, aussi en mode texte).</summary>
+    public static readonly (string Key, string Name)[] PartyCounts =
+    [
+        ("", "Tout le groupe (réserve comprise)"), ("actifs", "Les titulaires (ceux qui combattent)"),
+        ("debout", "Alliés encore debout (en combat : PV > 0)"), ("ennemis", "Ennemis encore debout (en combat)"),
+    ];
+
+    /// <summary>Nombre de personnes : tout le groupe, les titulaires, les alliés ou ennemis encore debout.</summary>
+    private int PartyCount(string which)
+    {
+        // En combat, « alliés » et « ennemis » se comprennent du côté du porteur du passif (@soi).
+        var side = _combatSelf?.IsAlly ?? true;
+        return which switch
+        {
+            "actifs" => State.Party.Count(c => c.IsActive),
+            "debout" => _combatBattle is { } b
+                ? b.Allies.Concat(b.Enemies).Count(c => c.IsAlly == side && c.IsAlive)
+                : State.Party.Count(c => c.IsActive && c.CurrentHp > 0),
+            "ennemis" => _combatBattle is { } b2 ? b2.Allies.Concat(b2.Enemies).Count(c => c.IsAlly != side && c.IsAlive) : 0,
+            _ => State.Party.Count,
+        };
+    }
+
     /// <summary>Stat de A comparée à celle de B, plus un écart : ex. niveau de @cible ≥ niveau de @soi + 5.</summary>
     private bool CompareStatsCondition(Condition c)
     {

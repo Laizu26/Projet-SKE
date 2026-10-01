@@ -408,7 +408,7 @@ public static class DevState
         ConditionType.Love => "Amour",
         ConditionType.Gold => "Or (comparaison)",
         ConditionType.Level => "Niveau (comparaison)",
-        ConditionType.PartySize => "Taille de l'équipe",
+        ConditionType.PartySize => "Nombre dans le groupe (ou en combat)",
         ConditionType.Speaker => "Qui parle",
         ConditionType.IsHero => "Être : (PJ incarné par le joueur)",
         ConditionType.ChoiceMade => "A choisi (un choix de dialogue)",
