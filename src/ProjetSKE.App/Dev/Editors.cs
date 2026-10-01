@@ -549,6 +549,7 @@ public sealed class PassiveEditor : EditorPage
                     _ => "Pourcentage",
                 }, e.Amount, v => e.Amount = v);
             if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
+            if (e.Type is not (EffectType.Cleanse or EffectType.Stun)) ef.Scalings("En plus, selon une stat (lanceur = le porteur)", e.Scalings);
         }
         f.ObjectList("Au début du combat", _x.BattleStart, () => new SkillEffect { Type = EffectType.StatUp, Amount = 10, Turns = 3, OnSelf = true },
             (ef, e, _) => EffectFields(ef, e), "+ Effet");
@@ -681,6 +682,8 @@ public sealed class SkillEditor : EditorPage
             f.Header(offensive ? "Dégâts" : _x.Kind == SkillKind.Revive ? "PV rendus à la résurrection" : "Soin");
             f.DoubleField(offensive ? "Puissance (× ATQ ou MAG ; 1 = normal)" : "Puissance (× MAG ; 0 = seulement le montant fixe)", _x.Power, v => _x.Power = v);
             f.IntField("Montant fixe ajouté", _x.FlatAmount, v => _x.FlatAmount = v);
+            f.Note("En plus, un % d'une stat : ex. montant fixe 50 + « 30 % des PV max » du lanceur = 50 + 30 % de ses PV max.");
+            f.Scalings("Selon une stat", _x.Scalings);
         }
         if (offensive)
         {
@@ -706,6 +709,7 @@ public sealed class SkillEditor : EditorPage
                     _ => "Pourcentage",
                 }, e.Amount, v => e.Amount = v);
             if (e.Type != EffectType.Cleanse) ef.IntField("Durée (tours)", e.Turns, v => e.Turns = v);
+            if (e.Type is not (EffectType.Cleanse or EffectType.Stun)) ef.Scalings("En plus, selon une stat", e.Scalings);
             ef.IntField("Chance (%)", e.Chance, v => e.Chance = v);
             ef.BoolField("Sur le lanceur (au lieu des cibles)", e.OnSelf, v => e.OnSelf = v);
         }, "+ Effet");

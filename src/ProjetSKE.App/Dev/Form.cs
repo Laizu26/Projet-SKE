@@ -641,6 +641,16 @@ public sealed class Form
     }
 
     /// <summary>Faiblesses et résistances aux éléments des compétences.</summary>
+    /// <summary>Parts d'un montant selon une stat : « + 30 % des PV max du lanceur ».</summary>
+    public void Scalings(string label, List<StatScaling> list) =>
+        ObjectList(label, list, () => new StatScaling(), (sf, s, _) =>
+        {
+            sf.IntField("Pourcentage (%)", s.Percent, v => s.Percent = v);
+            sf.RefField("De la stat", s.Stat, CharacterStats.All.Where(x => x.Key is not ("pv%" or "pm%")).Select(x => (x.Key, x.Name)),
+                v => s.Stat = v ?? "pvmax", allowNone: false);
+            sf.BoolField("De la cible (sinon du lanceur / du porteur)", s.OfTarget, v => s.OfTarget = v);
+        }, "+ % d'une stat");
+
     public void Resistances(string label, List<ElementModifier> list)
     {
         Note("100 = normal, 200 = faiblesse (dégâts ×2), 50 = résistance, 0 = immunité, négatif = absorbe (soigne).");

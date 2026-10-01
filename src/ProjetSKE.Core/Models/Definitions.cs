@@ -16,6 +16,8 @@ public sealed class SkillDef
     public double Power { get; set; } = 1.0;
     /// <summary>Montant fixe ajouté (dégâts, soin, PV rendus à la résurrection).</summary>
     public int FlatAmount { get; set; }
+    /// <summary>En plus : un % d'une stat du lanceur ou de la cible (ex : 30 % des PV max du lanceur).</summary>
+    public List<StatScaling> Scalings { get; set; } = [];
     /// <summary>Élément (feu, glace, sacré... texte libre) : les faiblesses et résistances des cibles s'appliquent.</summary>
     public string Element { get; set; } = "";
     /// <summary>Nombre de coups portés à chaque cible.</summary>
@@ -63,6 +65,21 @@ public sealed class SkillEffect
     public int Chance { get; set; } = 100;
     /// <summary>S'applique au lanceur plutôt qu'aux cibles.</summary>
     public bool OnSelf { get; set; }
+    /// <summary>
+    /// Montant en plus : un % d'une stat (bouclier = 50 + 30 % des PV max du lanceur...). Pour les bonus/malus,
+    /// c'est le pourcentage qui augmente.
+    /// </summary>
+    public List<StatScaling> Scalings { get; set; } = [];
+}
+
+/// <summary>Part d'un montant qui dépend d'une stat : « 30 % des PV max du lanceur ».</summary>
+public sealed class StatScaling
+{
+    /// <summary>Stat (pv, pvmax, pvperdus, pm, pmmax, atq, def, mag, vit, niveau).</summary>
+    public string Stat { get; set; } = "pvmax";
+    public int Percent { get; set; } = 30;
+    /// <summary>De la cible plutôt que du lanceur.</summary>
+    public bool OfTarget { get; set; }
 }
 
 /// <summary>Faiblesse ou résistance à un élément : 100 = normal, 200 = faiblesse, 50 = résistance, 0 = immunité, négatif = absorbe (soigne).</summary>

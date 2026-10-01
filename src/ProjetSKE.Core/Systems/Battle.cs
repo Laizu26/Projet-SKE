@@ -202,7 +202,7 @@ public sealed class Battle
         foreach (var fighter in All)
             foreach (var p in fighter.Passives)
                 foreach (var effect in p.BattleStart)
-                    Log.Add($"{p.Name} : {ApplyEffect(fighter, effect, "passif:" + p.Id)}");
+                    Log.Add($"{p.Name} : {ApplyEffect(fighter, Resolve(effect, fighter, fighter), "passif:" + p.Id)}");
         SayAll(BattleTrigger.Start);
         CheckEnd();
         NextTurn();
@@ -456,7 +456,8 @@ public sealed class Battle
             {
                 case SkillKind.Heal:
                 {
-                    var heal = (int)(actor.Stat(StatKind.Magic) * skill.Power * balance.HealMultiplier * Variance()) + balance.HealFlat + skill.FlatAmount;
+                    var heal = (int)(actor.Stat(StatKind.Magic) * skill.Power * balance.HealMultiplier * Variance()) + balance.HealFlat + skill.FlatAmount
+                        + Scaled(skill.Scalings, actor, t);
                     var amount = Math.Max(0, Math.Min(heal, t.Stats.MaxHp - t.Hp));
                     t.Hp += amount;
                     parts.Add($"{t.Name} +{amount} PV");
@@ -464,7 +465,7 @@ public sealed class Battle
                 }
                 case SkillKind.Revive:
                 {
-                    var heal = (int)(actor.Stat(StatKind.Magic) * skill.Power * balance.HealMultiplier) + skill.FlatAmount;
+                    var heal = (int)(actor.Stat(StatKind.Magic) * skill.Power * balance.HealMultiplier) + skill.FlatAmount + Scaled(skill.Scalings, actor, t);
                     t.Hp = Math.Clamp(heal, 1, t.Stats.MaxHp);
                     t.Effects.Clear();
                     parts.Add($"{t.Name} se relève avec {t.Hp} PV");
@@ -490,7 +491,7 @@ public sealed class Battle
                         var raw = skill.Kind == SkillKind.Physical
                             ? actor.Stat(StatKind.Attack) * skill.Power - t.Stat(StatKind.Defense) * balance.PhysicalDefenseFactor
                             : actor.Stat(StatKind.Magic) * skill.Power * balance.MagicMultiplier - t.Stat(StatKind.Defense) * balance.MagicDefenseFactor;
-                        raw = Math.Max(1, raw) + skill.FlatAmount;
+                        raw = Math.Max(1, raw) + skill.FlatAmount + Scaled(skill.Scalings, actor, t);
                         if (skill.CritChance > 0 && _session.Rng.Next(100) < skill.CritChance)
                         {
                             raw *= skill.CritMultiplier;
@@ -539,7 +540,7 @@ public sealed class Battle
             foreach (var r in receivers)
             {
                 if (effect.Chance < 100 && _session.Rng.Next(100) >= effect.Chance) continue;
-                parts.Add(ApplyEffect(r, effect, skill.Name));
+                parts.Add(ApplyEffect(r, Resolve(effect, actor, r), skill.Name));
             }
         }
 
@@ -559,6 +560,21 @@ public sealed class Battle
                 Say(actor, BattleTrigger.Kill);
             }
         }
+    }
+
+    /// <summary>Part d'un montant qui dépend des stats (« 30 % des PV max du lanceur »).</summary>
+    private static int Scaled(IEnumerable<StatScaling> scalings, Combatant caster, Combatant target) =>
+        scalings.Sum(s => GameSession.CombatValue(s.OfTarget ? target : caster, s.Stat) * s.Percent / 100);
+
+    /// <summary>L'effet avec son montant final (montant fixe + parts selon les stats).</summary>
+    private static SkillEffect Resolve(SkillEffect e, Combatant caster, Combatant target)
+    {
+        if (e.Scalings.Count == 0) return e;
+        return new SkillEffect
+        {
+            Type = e.Type, Stat = e.Stat, Turns = e.Turns, Chance = e.Chance, OnSelf = e.OnSelf,
+            Amount = e.Amount + Scaled(e.Scalings, caster, target),
+        };
     }
 
     /// <summary>Pose un effet durable ; un même effet venant de la même compétence est rafraîchi, pas cumulé.</summary>
@@ -668,7 +684,7 @@ public sealed class Battle
         foreach (var effect in t.Effects)
             foreach (var r in receivers.Where(r => r.IsAlive))
                 if (effect.Chance >= 100 || _session.Rng.Next(100) < effect.Chance)
-                    Log.Add($"{p.Name} ({bearer.Name}) : {ApplyEffect(r, effect, $"passif:{p.Id}:{bearer.Name}")}");
+                    Log.Add($"{p.Name} ({bearer.Name}) : {ApplyEffect(r, Resolve(effect, bearer, r), $"passif:{p.Id}:{bearer.Name}")}");
     }
 
     private void CheckEnd()

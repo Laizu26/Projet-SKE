@@ -8,7 +8,7 @@ public static class CharacterStats
 {
     public static readonly (string Key, string Name)[] All =
     [
-        ("pv", "PV actuels"), ("pv%", "PV actuels (%)"), ("pvmax", "PV max"),
+        ("pv", "PV actuels"), ("pv%", "PV actuels (%)"), ("pvmax", "PV max"), ("pvperdus", "PV perdus"),
         ("pm", "PM actuels"), ("pm%", "PM actuels (%)"), ("pmmax", "PM max"),
         ("atq", "Attaque"), ("def", "Défense"), ("mag", "Magie"), ("vit", "Vitesse"), ("niveau", "Niveau"),
     ];
@@ -33,6 +33,7 @@ public static class CharacterStats
             "pv" => c.CurrentHp,
             "pv%" => stats.MaxHp > 0 ? c.CurrentHp * 100 / stats.MaxHp : 0,
             "pvmax" => stats.MaxHp,
+            "pvperdus" => Math.Max(0, stats.MaxHp - c.CurrentHp),
             "pm" => c.CurrentMana,
             "pm%" => stats.MaxMana > 0 ? c.CurrentMana * 100 / stats.MaxMana : 0,
             "pmmax" => stats.MaxMana,

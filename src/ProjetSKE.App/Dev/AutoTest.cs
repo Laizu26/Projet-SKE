@@ -419,7 +419,11 @@ public static class AutoTest
                     p.DamagePercent = 30;
                     p.Triggers.Add(new Core.Models.PassiveTrigger
                     {
-                        Effects = [new Core.Models.SkillEffect { Type = Core.Models.EffectType.Shield, Amount = 30, Turns = 3 }],
+                        Effects = [new Core.Models.SkillEffect
+                        {
+                            Type = Core.Models.EffectType.Shield, Amount = 30, Turns = 3,
+                            Scalings = [new Core.Models.StatScaling { Stat = "pvmax", Percent = 30 }],
+                        }],
                     });
                     p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.HasEffect, "@soi") { Arg2 = "poison" });
                     p.Conditions.Add(new Core.Models.Condition(Core.Models.ConditionType.CompareStats, "@cible", 5) { Arg2 = "niveau", Other = "@soi" });

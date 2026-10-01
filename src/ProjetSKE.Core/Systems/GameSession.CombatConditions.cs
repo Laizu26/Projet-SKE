@@ -55,9 +55,10 @@ public sealed partial class GameSession
     }
 
     /// <summary>Valeur d'une stat pour un combattant (PV du moment, bonus et malus en cours compris).</summary>
-    private static int CombatValue(Combatant c, string key) => key switch
+    internal static int CombatValue(Combatant c, string key) => key switch
     {
         "pv" => c.Hp,
+        "pvperdus" => Math.Max(0, c.Stats.MaxHp - c.Hp),
         "pv%" => c.Stats.MaxHp > 0 ? c.Hp * 100 / c.Stats.MaxHp : 0,
         "pvmax" => c.Stats.MaxHp,
         "pm" => c.Mana,

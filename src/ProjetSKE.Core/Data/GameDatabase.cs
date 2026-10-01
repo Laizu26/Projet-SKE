@@ -210,8 +210,18 @@ public sealed class GameDatabase
             foreach (var p in c.Passives) Ref(Passives, p.PassiveId, $"Personnage {c.Id}", "passif");
         foreach (var n in Content.Npcs)
             foreach (var id in n.PassiveIds) Ref(Passives, id, $"PNJ {n.Id}", "passif");
+        void CheckScalings(IEnumerable<StatScaling> scalings, string w)
+        {
+            foreach (var sc in scalings) Check(Systems.CharacterStats.IsKnown(sc.Stat), $"{w} : stat « {sc.Stat} » inconnue (montant selon une stat)");
+        }
+        foreach (var sk in Content.Skills)
+        {
+            CheckScalings(sk.Scalings, $"Compétence {sk.Id}");
+            foreach (var e in sk.Effects) CheckScalings(e.Scalings, $"Compétence {sk.Id}");
+        }
         foreach (var p in Content.Passives)
         {
+            foreach (var e in p.BattleStart.Concat(p.Triggers.SelectMany(t => t.Effects))) CheckScalings(e.Scalings, $"Passif {p.Id}");
             if (p.ActivationDialogueId is { } a) Ref(Dialogues, a, $"Passif {p.Id}", "dialogue");
             if (p.DeactivationDialogueId is { } d) Ref(Dialogues, d, $"Passif {p.Id}", "dialogue");
         }
