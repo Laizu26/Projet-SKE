@@ -44,6 +44,7 @@ public static class Ico
     public const string ArrowLeft = "\ue048";
     public const string ArrowRight = "\ue049";
     public const string ChevronRight = "\ue06f";
+    public const string ChevronDown = "\ue06d";
     public const string Lock = "\ue10b";
     public const string Star = "\ue176";
     public const string Crown = "\ue1d6";

@@ -251,6 +251,24 @@ public static class AutoTest
                 world.Render();
             });
             await Step("camp : équipe, fiche", () => { world!.CampSection = CampSection.Team; world.SelectedCharacter = 0; world.Render(); });
+            await Step("fiche : détail d'une compétence", () =>
+            {
+                var hero = world!.Session.State.Party[0];
+                world.SheetInfo = world.Session.GetSkills(hero).FirstOrDefault() is { } sk ? "skill:" + sk.Id : null;
+                world.Render();
+            });
+            await Step("fiche : détail d'un passif", () =>
+            {
+                var hero = world!.Session.State.Party[0];
+                world.SheetInfo = world.Session.PassivesOf(hero).FirstOrDefault() is { } p ? "passive:" + p.Id : null;
+                world.Render();
+            });
+            await Step("fiche : détail d'un pouvoir", () =>
+            {
+                var hero = world!.Session.State.Party[0];
+                world.SheetInfo = world.Session.PowersOf(hero).FirstOrDefault() is { } pw ? "power:" + pw.Id : null;
+                world.Render();
+            });
             foreach (var slot in new[] { Core.Models.EquipSlot.Head, Core.Models.EquipSlot.Shield, Core.Models.EquipSlot.Relic })
                 await Step("équipement : " + slot, () => { world!.SelectedSlot = slot; world.Render(); });
             await Step("camp : fiche d'un membre", () =>

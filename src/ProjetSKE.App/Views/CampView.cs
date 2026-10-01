@@ -491,9 +491,28 @@ public sealed class CampView : ContentView
             stack.Add(DarkStat(Ico.Sparkles, gauge.Name, tier.Length > 0 ? $"{value} · {tier}" : value.ToString()));
         }
 
-        // Pouvoirs du personnage (familles de compétences).
+        // Pouvoirs et passifs : toucher (ou cliquer) une ligne affiche son détail.
         if (s.PowersOf(c) is { Count: > 0 } powers)
-            stack.Add(DarkStat(Ico.Flame, "Pouvoirs", string.Join(", ", powers.Select(p => p.Name))));
+        {
+            stack.Add(Section("Pouvoirs"));
+            foreach (var pw in powers)
+            {
+                var key = "power:" + pw.Id;
+                var open = _page.SheetInfo == key;
+                var body = Stack(Txt(pw.Name, 15, Theme.Stone900, bold: true));
+                body.Spacing = 2;
+                if (pw.Description.Length > 0) body.Add(Muted(pw.Description, 12));
+                if (open)
+                {
+                    foreach (var sk in s.Db.SkillsOfPower(pw.Id).OrderBy(x => x.PowerLevel))
+                    {
+                        var learned = sk.PowerLevel <= c.Level;
+                        body.Add(Txt($"{(learned ? "✦" : "🔒")} {sk.Name} · niveau {sk.PowerLevel}", 12, learned ? Theme.Stone700 : Theme.Stone400));
+                    }
+                }
+                stack.Add(InfoCard(key, IconBox(Ico.Flame, Theme.Gold600, 40), body, open));
+            }
+        }
 
         // Passifs : ceux qui agissent en or, ceux en sommeil (conditions non remplies) grisés.
         var passives = s.PassivesOf(c);
@@ -503,17 +522,15 @@ public sealed class CampView : ContentView
             foreach (var p in passives)
             {
                 var active = s.IsPassiveActive(c, p);
-                var row = IconRow(Icon(Ico.Sparkles, 16, active ? Theme.Gold500 : Theme.Stone400), new VerticalStackLayout
-                {
-                    Spacing = 1,
-                    Children =
-                    {
-                        Txt(p.Name + (active ? "" : " · en sommeil"), 14, active ? Theme.Stone900 : Theme.Stone500, bold: true),
-                        Muted(p.Description, 12),
-                    },
-                });
-                row.Opacity = active ? 1 : 0.7;
-                stack.Add(Card(row));
+                var key = "passive:" + p.Id;
+                var open = _page.SheetInfo == key;
+                var body = Stack(Txt(p.Name + (active ? "" : " · en sommeil"), 14, active ? Theme.Stone900 : Theme.Stone500, bold: true));
+                body.Spacing = 2;
+                if (p.Description.Length > 0) body.Add(Muted(p.Description, 12));
+                if (open) foreach (var line in GameInfo.Passive(p)) body.Add(Txt(line, 12, Theme.Stone700));
+                var card = InfoCard(key, Icon(Ico.Sparkles, 16, active ? Theme.Gold500 : Theme.Stone400), body, open);
+                card.Opacity = active ? 1 : 0.75;
+                stack.Add(card);
             }
         }
 
@@ -531,31 +548,34 @@ public sealed class CampView : ContentView
         stack.Add(Section("Équipement"));
         stack.Add(EquipmentDoll.Build(_page, c));
 
-        var skills = new VerticalStackLayout { Spacing = 10 };
-        foreach (var unlock in def.Skills)
+        // Compétences : celles de la fiche et celles des pouvoirs ; toucher une compétence affiche son détail.
+        var skills = new VerticalStackLayout { Spacing = 8 };
+        var entries = def.Skills.Where(u => s.Db.Skills.ContainsKey(u.SkillId)).Select(u => (Skill: s.Db.Skills[u.SkillId], Level: u.Level))
+            .Concat(s.PowersOf(c).SelectMany(pw => s.Db.SkillsOfPower(pw.Id)).Select(sk => (Skill: sk, Level: sk.PowerLevel)))
+            .GroupBy(e => e.Skill.Id).Select(g => g.OrderBy(e => e.Level).First())
+            .OrderBy(e => e.Level).ToList();
+        foreach (var (skill, level) in entries)
         {
-            if (!s.Db.Skills.TryGetValue(unlock.SkillId, out var skill)) continue;
-            var learned = unlock.Level <= c.Level;
+            var learned = level <= c.Level;
             var (glyph, color) = skill.Kind switch
             {
                 SkillKind.Heal => (Ico.HeartPulse, Theme.Green600),
                 SkillKind.Magical => (Ico.WandSparkles, Theme.Purple600),
+                SkillKind.Status => (Ico.Sparkles, Theme.Gold600),
                 _ => (Ico.Swords, Theme.Red600),
             };
-            var info = new VerticalStackLayout
-            {
-                Spacing = 1,
-                Children =
-                {
-                    Txt(skill.Name, 15, learned ? Theme.Stone900 : Theme.Stone400, bold: true),
-                    Muted(learned ? skill.Description : $"Apprise au niveau {unlock.Level}", 12),
-                },
-            };
+            var key = "skill:" + skill.Id;
+            var open = _page.SheetInfo == key;
+            var info = Stack(Txt(skill.Name, 15, learned ? Theme.Stone900 : Theme.Stone400, bold: true),
+                Muted(learned ? skill.Description : $"Apprise au niveau {level}", 12));
+            info.Spacing = 1;
+            if (open) foreach (var line in GameInfo.Skill(skill, s.Db)) info.Add(Txt(line, 12, Theme.Stone700));
             var cost = skill.ManaCost > 0 ? Badge($"{skill.ManaCost} PM", Theme.Blue600) : Badge("Libre", Theme.Stone500);
             var row = IconRow(IconBox(learned ? glyph : Ico.Lock, learned ? color : Theme.Stone400), info, cost);
             if (!learned) row.Opacity = 0.6;
-            skills.Add(row);
+            skills.Add(OnTap(row, () => { _page.SheetInfo = open ? null : key; _page.Render(); }));
         }
+        skills.Add(Muted("Touche une compétence pour voir son détail.", 11));
         stack.Add(TitledCard(Ico.WandSparkles, "Compétences", skills));
 
         stack.Add(Btn(c.IsActive ? "Mettre en réserve" : "Passer titulaire", () =>
@@ -564,6 +584,15 @@ public sealed class CampView : ContentView
                 _page.Notify(c.IsActive ? "Il faut au moins un titulaire." : "Plus de place chez les titulaires.");
             _page.Render();
         }));
+    }
+
+    /// <summary>Carte dépliable de la fiche (pouvoir, passif) : toucher l'ouvre ou la referme.</summary>
+    private Border InfoCard(string key, View icon, View body, bool open)
+    {
+        var card = Card(IconRow(icon, body, Icon(open ? Ico.ChevronDown : Ico.ChevronRight, 16, Theme.Stone400)));
+        card.Padding = new Thickness(12, 10);
+        OnTap(card, () => { _page.SheetInfo = open ? null : key; _page.Render(); });
+        return card;
     }
 
     private void BuildBag(VerticalStackLayout stack)

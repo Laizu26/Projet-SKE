@@ -41,6 +41,8 @@ public sealed class GamePage : ContentPage
     public bool ShopSelling { get; set; }
     public bool QuestsShowDone { get; set; }
     public bool MenuShowDevTools { get; set; }
+    /// <summary>Fiche d'un personnage : détail ouvert (« skill:id », « passive:id », « power:id »).</summary>
+    public string? SheetInfo { get; set; }
     /// <summary>Journal : page du carnet ouverte.</summary>
     public int JournalPage { get; set; }
 
